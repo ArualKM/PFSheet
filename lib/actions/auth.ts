@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
@@ -11,6 +12,24 @@ const credentialsSchema = z.object({
   email: z.string().email("Enter a valid email address."),
   password: z.string().min(8, "Password must be at least 8 characters."),
 });
+
+/**
+ * The origin to send Supabase for OAuth/email redirects. Derived from the actual
+ * request host so the callback returns to the exact host the user is on (e.g.
+ * www.pfsheet.org) — which must also be in Supabase's redirect allowlist. Falls
+ * back to NEXT_PUBLIC_APP_URL only if no host headers are present.
+ */
+async function authRedirectOrigin(): Promise<string> {
+  const h = await headers();
+  const origin = h.get("origin");
+  if (origin) return origin.replace(/\/+$/, "");
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (host) {
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}`;
+  }
+  return env.appUrl.replace(/\/+$/, "");
+}
 
 function safeNext(next: FormDataEntryValue | null): string {
   const value = typeof next === "string" ? next : "";
@@ -49,7 +68,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${env.appUrl}/auth/callback`,
+      emailRedirectTo: `${await authRedirectOrigin()}/auth/callback`,
       data: displayName ? { display_name: displayName } : undefined,
     },
   });
@@ -72,7 +91,7 @@ export async function signInWithOAuthAction(provider: "google" | "discord"): Pro
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${env.appUrl}/auth/callback` },
+    options: { redirectTo: `${await authRedirectOrigin()}/auth/callback` },
   });
   if (error || !data.url) {
     redirect(`/login?error=${encodeURIComponent(error?.message ?? "OAuth unavailable")}`);
