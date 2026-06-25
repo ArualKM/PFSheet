@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, AlertTriangle, Lock } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Lock, GitCompare } from "lucide-react";
 import { safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { requireUser } from "@/lib/auth/session";
@@ -10,8 +10,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCampaignRole, isCharacterInRoster } from "@/lib/character/gm-access";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { auditCharacter } from "@/lib/character/audit";
+import { diffCharacters, type CharacterDiff } from "@/lib/character/diff";
 import { reviewStatusMeta } from "@/lib/character/review-status";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+import { DiffView } from "@/components/character/diff-view";
 import { AuditReport } from "@/components/campaign/audit-report";
 import { GmReviewPanel } from "@/components/campaign/gm-review-panel";
 import { CommentControls } from "@/components/campaign/comment-controls";
@@ -49,7 +51,7 @@ export default async function GmCharacterReviewPage({
   const admin = createAdminClient();
   const { data: charRow } = await admin
     .from("characters")
-    .select("id, name, visibility, owner_id, updated_at, sheet_data")
+    .select("id, name, visibility, owner_id, sheet_data")
     .eq("id", characterId)
     .single();
   if (!charRow) notFound();
@@ -118,20 +120,27 @@ export default async function GmCharacterReviewPage({
   const statusMeta = reviewStatusMeta(status);
   const initialChecklist = (latestReview?.checklist ?? {}) as Record<string, boolean>;
 
-  // Stale detection (§16.3): edited after the approved snapshot was taken.
-  let changedSinceApproval = false;
+  // Compare-to-approved (§16.2): load the approved snapshot and diff it against
+  // the current sheet (gm viewer, so restricted sections stay hidden).
   let approvedAt: string | null = null;
+  let approvedDiff: CharacterDiff | null = null;
   if (ccRow?.approved_snapshot_id) {
     const { data: snap } = await admin
       .from("character_snapshots")
-      .select("created_at")
+      .select("created_at, sheet_data")
       .eq("id", ccRow.approved_snapshot_id)
       .maybeSingle();
     approvedAt = snap?.created_at ?? null;
-    if (approvedAt && charRow.updated_at && new Date(charRow.updated_at) > new Date(approvedAt)) {
-      changedSinceApproval = true;
+    if (snap?.sheet_data) {
+      const snapParsed = safeParseCharacter(snap.sheet_data);
+      if (snapParsed.ok) approvedDiff = diffCharacters(snapParsed.character, parsed.character, "gm");
     }
   }
+  // Stale (§16.3) = the roster was flagged when the player saved, OR the approved
+  // snapshot's content actually differs from the current sheet. Deliberately not a
+  // bare updated_at comparison — that trips on non-content edits (e.g. a visibility
+  // change) and would contradict an empty diff.
+  const changedSinceApproval = status === "stale_after_changes" || (approvedDiff?.hasChanges ?? false);
 
   const openComments = (commentRows ?? []).filter((c) => c.status === "open");
   const resolvedComments = (commentRows ?? []).filter((c) => c.status !== "open");
@@ -159,8 +168,8 @@ export default async function GmCharacterReviewPage({
         <Card className="mb-4 border-warning/40 bg-warning/5">
           <CardContent className="flex items-center gap-2 p-4 text-sm text-foreground">
             <AlertTriangle className="size-4 shrink-0 text-warning" />
-            This sheet was edited after it was approved on {formatDate(approvedAt)}. Re-review is
-            recommended.
+            This sheet changed after it was approved{approvedAt ? ` on ${formatDate(approvedAt)}` : ""}.
+            Re-review is recommended.
           </CardContent>
         </Card>
       )}
@@ -168,6 +177,18 @@ export default async function GmCharacterReviewPage({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <CharacterDashboard vm={vm} />
+          {approvedDiff && approvedDiff.hasChanges && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GitCompare className="size-4 text-gold" /> Changes since approval
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DiffView diff={approvedDiff} />
+              </CardContent>
+            </Card>
+          )}
           <AuditReport audit={audit} />
         </div>
 

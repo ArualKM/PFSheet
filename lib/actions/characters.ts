@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { createDefaultCharacter, safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 
 const VISIBILITIES = ["private", "campaign", "unlisted", "public"] as const;
@@ -147,5 +148,24 @@ export async function saveCharacterSheetAction(
     .eq("id", characterId);
 
   if (error) return { ok: false, error: error.message };
+
+  // §16.3 stale detection: editing an approved sheet marks it "changed since
+  // approval" in every campaign that approved it. The RLS sheet update above
+  // already proved the saver can edit this character (owner OR editor/co_owner);
+  // since campaign_characters RLS (campchar_update) covers owners + GMs but NOT
+  // editor collaborators, flip the status via the admin client — scoped to this
+  // character's approved rows only. Best-effort: never block the save on it.
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from("campaign_characters")
+      .update({ gm_review_status: "stale_after_changes" })
+      .eq("character_id", characterId)
+      .in("gm_review_status", ["approved", "approved_with_notes"]);
+  } catch {
+    // Staleness also surfaces via the GM's compare-to-approved diff, so a failure
+    // here is non-fatal.
+  }
+
   return { ok: true, savedAt: new Date().toISOString() };
 }

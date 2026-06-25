@@ -74,12 +74,17 @@ export async function submitReviewAction(input: SubmitReviewInput): Promise<Revi
     const admin = createAdminClient();
     const { data: char, error: charError } = await admin
       .from("characters")
-      .select("name, sheet_data, computed_summary, computed_values")
+      .select("name, sheet_data")
       .eq("id", characterId)
       .single();
     if (charError || !char) {
       return { error: "Couldn't read the sheet to capture an approval snapshot. Please retry." };
     }
+    const parsedSheet = safeParseCharacter(char.sheet_data);
+    if (!parsedSheet.ok) {
+      return { error: "The sheet failed validation, so it can't be approved." };
+    }
+    const computedSnap = computeCharacter(parsedSheet.character);
     const { data: snap, error: snapError } = await admin
       .from("character_snapshots")
       .insert({
@@ -88,8 +93,8 @@ export async function submitReviewAction(input: SubmitReviewInput): Promise<Revi
         label: `Approved — ${char.name}`,
         reason: "gm_approval",
         sheet_data: char.sheet_data,
-        computed_summary: char.computed_summary,
-        computed_values: char.computed_values,
+        computed_summary: computedSnap.summary as unknown as Json,
+        computed_values: computedSnap as unknown as Json,
       })
       .select("id")
       .single();
