@@ -69,10 +69,24 @@ validates + recomputes + persists (RLS-gated). Engine now resolves per-stat modi
 for the inspector. AC editor writes typed component bonuses into
 `defenses.armorClass.conditionalModifiers`.
 
-Pending later: inventory/wealth editor, spellcasting editor.
+Milestone 6 (Buff Center) — complete: `BuffCenter` "Buffs" tab (toggle cards with live affected-value
+deltas, stacking-conflict warnings, duration + round countdown, bulk actions, library/custom/
+duplicate/save-as-template); a 20-entry PF1e buff library (`buff-templates.ts`); engine ingests
+ability-boost buffs into `computeAbilities` (with enhancement/inherent stacking), computes effective
+speed (`summary.speed`), and exposes `detectStackingConflicts` / `activeBuffDelta` / `previewBuffEffects`.
 
-Next per spec after M5: Buff Center (M6), GM audit + campaign workflow (M7), imports (M8),
-exports + API (M9), PWA/offline (M10), polish/QA (M11).
+Edit workspace now covers all of §6 — tabs: Identity, Abilities, Health, Saves, AC, Combat, Skills,
+Feats, Buffs, Spells, Inventory, Profile (`combat-editor.tsx`, `spellcasting-editor.tsx`,
+`inventory-editor.tsx`, plus deepened Identity/Abilities/Health/Profile in `character-editor.tsx`).
+`NumberField` coerces ints, associates labels (useId/htmlFor), and keeps a clearable local draft.
+Both M6 and the detailed editors shipped after adversarial Workflow reviews (findings verified + fixed).
+
+Deferred sheet depth: spell-compendium picker (manual spell entry for now), feat/feature + equipped-
+item automation editing, level-plan rows, multiple Craft/Perform/Profession, Senses/Languages/Resources
+tabs, spell resistance, two LOW a11y items (ability-field name context, ARIA tablist roles).
+
+Next per spec: GM audit + campaign workflow (M7), imports (M8), exports + API (M9), PWA/offline (M10),
+polish/QA (M11).
 
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 
