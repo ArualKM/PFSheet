@@ -107,10 +107,18 @@ function effectToMod(
   label: string,
   source: string,
   e: Pick<AutomationEffect, "target" | "operation" | "value" | "bonusType" | "condition">,
+  resolver?: Resolver,
 ): IndexedMod | null {
   if (e.condition) return null; // conditional modifiers excluded from base totals
   if (e.operation !== "add" && e.operation !== "subtract") return null;
-  const raw = num(e.value, NaN);
+  let raw = num(e.value, NaN);
+  // A string value may be a formula (e.g. "min(3, floor(@{level.total}/3))") —
+  // evaluate it against the base resolver so buffs can scale off BAB, level, etc.
+  if (Number.isNaN(raw) && typeof e.value === "string" && resolver) {
+    const r = evaluate(e.value, resolver);
+    if (!Number.isFinite(r.value)) return null;
+    raw = r.value;
+  }
   if (Number.isNaN(raw)) return null;
   const value = e.operation === "subtract" ? -raw : raw;
   return { id, label, source, value, bonusType: e.bonusType ?? "untyped" };
@@ -133,7 +141,7 @@ function modifierEntryToMod(source: string, m: ModifierEntry): IndexedMod | null
 
 export type ModifierIndex = Map<string, IndexedMod[]>;
 
-export function buildModifierIndex(character: PathForgeCharacterV1): ModifierIndex {
+export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: Resolver): ModifierIndex {
   const index: ModifierIndex = new Map();
   const push = (domain: string | null, mod: IndexedMod | null): void => {
     if (!domain || !mod) return;
@@ -146,7 +154,7 @@ export function buildModifierIndex(character: PathForgeCharacterV1): ModifierInd
   for (const buff of character.buffs.active) {
     if (buff.enabled === false) continue;
     for (const e of buff.effects) {
-      push(classifyTarget(e.target), effectToMod(e.id, buff.name, `Buff: ${buff.name}`, e));
+      push(classifyTarget(e.target), effectToMod(e.id, buff.name, `Buff: ${buff.name}`, e, resolver));
     }
   }
 
@@ -161,13 +169,13 @@ export function buildModifierIndex(character: PathForgeCharacterV1): ModifierInd
   for (const item of allItems) {
     if (!item.equipped) continue;
     for (const m of item.modifiers) push(classifyTarget(m.target ?? ""), modifierEntryToMod(item.name, m));
-    for (const e of item.automation) push(classifyTarget(e.target), effectToMod(e.id, item.name, item.name, e));
+    for (const e of item.automation) push(classifyTarget(e.target), effectToMod(e.id, item.name, item.name, e, resolver));
   }
 
   // Passive feature / trait / feat automation.
   const passives = [...character.features.list, ...character.traits.list, ...character.feats.list];
   for (const f of passives) {
-    for (const e of f.automation) push(classifyTarget(e.target), effectToMod(e.id, f.name, f.name, e));
+    for (const e of f.automation) push(classifyTarget(e.target), effectToMod(e.id, f.name, f.name, e, resolver));
   }
 
   // Always-on modifiers entered directly on a stat (entries with no condition).
@@ -391,7 +399,11 @@ function overrideFor(character: PathForgeCharacterV1, path: string): string | un
 }
 
 export function computeCharacter(character: PathForgeCharacterV1): ComputedCharacter {
-  const index = buildModifierIndex(character);
+  // Resolve formula-valued buff/automation effects against a base resolver
+  // (character base stats, no buff-derived modifiers) to avoid circular deps,
+  // then build the full index with those values resolved.
+  const baseResolver = new CharacterResolver(character, computeAbilities(character), new Map() as ModifierIndex);
+  const index = buildModifierIndex(character, baseResolver);
   const abilities = computeAbilities(character, index);
   const resolver = new CharacterResolver(character, abilities, index);
 

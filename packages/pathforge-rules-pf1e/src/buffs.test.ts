@@ -150,3 +150,22 @@ describe("review hardening", () => {
     ).toBe(true);
   });
 });
+
+describe("formula-valued buff effects", () => {
+  it("Divine Favor scales its luck bonus with total level", () => {
+    const c9 = charWith([active("tpl_divine_favor")]);
+    c9.identity.totalLevel = 9;
+    expect(computeCharacter(c9).attackBonuses.melee.value).toBe(3); // min(3, max(1, floor(9/3)))
+
+    const c1 = charWith([active("tpl_divine_favor")]);
+    c1.identity.totalLevel = 1;
+    expect(computeCharacter(c1).attackBonuses.melee.value).toBe(1); // min(3, max(1, floor(1/3)=0))
+  });
+
+  it("Power Attack penalty scales with BAB", () => {
+    const c = charWith([active("tpl_power_attack")]);
+    c.combat.bab.total = 8;
+    // base melee = 8; penalty = 1 + floor(8/4) = 3; net = 5
+    expect(computeCharacter(c).attackBonuses.melee.value).toBe(5);
+  });
+});

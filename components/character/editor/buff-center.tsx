@@ -23,7 +23,7 @@ import {
   type BuffTemplate,
   type DurationUnit,
 } from "@pathforge/schema";
-import { detectStackingConflicts, activeBuffDelta, type BuffDeltaRow } from "@pathforge/rules-pf1e";
+import { detectStackingConflicts, activeBuffDelta, previewBuffEffects, type BuffDeltaRow } from "@pathforge/rules-pf1e";
 import { NumberField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -281,7 +281,7 @@ export function BuffCenter({ ed }: { ed: CharacterEditorApi }) {
         </Button>
       </div>
 
-      {showCustom && <CustomBuffForm onAdd={(b) => ed.update((c) => c.buffs.active.push(b))} onClose={() => setShowCustom(false)} />}
+      {showCustom && <CustomBuffForm ed={ed} onAdd={(b) => ed.update((c) => c.buffs.active.push(b))} onClose={() => setShowCustom(false)} />}
 
       {showLibrary && (
         <section className="grid gap-2 sm:grid-cols-2">
@@ -420,9 +420,17 @@ function ActiveBuffCard({
 
 /* -------------------------------------------------------------------------- */
 
-type DraftEffect = { target: string; operation: "add" | "subtract"; value: number; bonusType: BonusType };
+type DraftEffect = { target: string; operation: "add" | "subtract"; value: number | string; bonusType: BonusType };
 
-function CustomBuffForm({ onAdd, onClose }: { onAdd: (b: ActiveBuff) => void; onClose: () => void }) {
+function CustomBuffForm({
+  ed,
+  onAdd,
+  onClose,
+}: {
+  ed: CharacterEditorApi;
+  onAdd: (b: ActiveBuff) => void;
+  onClose: () => void;
+}) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<BuffCategory>("custom");
   const [unit, setUnit] = useState<DurationUnit>("rounds");
@@ -433,6 +441,22 @@ function CustomBuffForm({ onAdd, onClose }: { onAdd: (b: ActiveBuff) => void; on
 
   const updateEffect = (i: number, patch: Partial<DraftEffect>) =>
     setEffects((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+
+  // Live preview of what the effects resolve to (evaluates any formula values).
+  const preview = useMemo(
+    () =>
+      previewBuffEffects(
+        ed.draft,
+        effects.map((e, i) => ({
+          id: `p${i}`,
+          target: e.target,
+          operation: e.operation,
+          value: e.value,
+          bonusType: e.bonusType,
+        })),
+      ),
+    [ed.draft, effects],
+  );
 
   const submit = () => {
     const trimmed = name.trim();
@@ -529,13 +553,32 @@ function CustomBuffForm({ onAdd, onClose }: { onAdd: (b: ActiveBuff) => void; on
                 <option value="subtract">−</option>
               </select>
             </div>
-            <NumberField
-              label="Value"
-              value={e.value}
-              min={0}
-              onChange={(v) => updateEffect(i, { value: v })}
-              className="w-20"
-            />
+            {typeof e.value === "string" ? (
+              <TextField
+                label="Value (formula)"
+                value={e.value}
+                onChange={(v) => updateEffect(i, { value: v })}
+                placeholder="floor(@{combat.bab.total} / 4)"
+                className="min-w-[12rem] flex-1 font-mono"
+              />
+            ) : (
+              <NumberField label="Value" value={e.value} onChange={(v) => updateEffect(i, { value: v })} className="w-20" />
+            )}
+            <button
+              type="button"
+              aria-pressed={typeof e.value === "string"}
+              aria-label="Toggle formula value"
+              title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
+              onClick={() => updateEffect(i, { value: typeof e.value === "string" ? 0 : "@{combat.bab.total}" })}
+              className={cn(
+                "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
+                typeof e.value === "string"
+                  ? "border-gold/40 bg-gold/10 text-gold"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              ƒx
+            </button>
             <div className="space-y-1">
               <span className="block text-[11px] text-muted-foreground">Bonus type</span>
               <select
@@ -562,6 +605,20 @@ function CustomBuffForm({ onAdd, onClose }: { onAdd: (b: ActiveBuff) => void; on
           </div>
         ))}
       </div>
+
+      {preview.length > 0 && (
+        <div>
+          <span className="mb-1 block text-[11px] uppercase tracking-wide text-muted-foreground">Resolved effect</span>
+          <div className="flex flex-wrap gap-1">
+            {preview.map((d) => (
+              <span key={d.label} className="tnum rounded bg-surface px-1.5 py-0.5 text-[11px] text-foreground">
+                {d.label} {d.delta >= 0 ? "+" : ""}
+                {d.delta}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onClose}>

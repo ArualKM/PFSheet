@@ -8,7 +8,7 @@ import type { BuffCategory, BuffTemplate } from "./buffs";
  * `@pathforge/rules-pf1e`). Conditional riders (e.g. "vs fear") live in the
  * description; only always-on effects are encoded so they flow into totals.
  */
-type Fx = [target: string, op: "add" | "subtract", value: number, bonusType: BonusType];
+type Fx = [target: string, op: "add" | "subtract", value: number | string, bonusType: BonusType];
 
 function tpl(
   id: string,
@@ -254,6 +254,24 @@ export const BUFF_LIBRARY: BuffTemplate[] = [
       ["saves.will", "subtract", 2, "penalty"],
     ],
     ["condition", "debuff"],
+  ),
+  tpl(
+    "tpl_divine_favor",
+    "Divine Favor",
+    "spell",
+    "+1 luck bonus on attack and weapon damage rolls per three caster levels (min +1, max +3). Scales with your total level.",
+    { unit: "rounds", note: "1 round/level" },
+    [["attack", "add", "min(3, max(1, floor(@{level.total} / 3)))", "luck"]],
+    ["spell", "combat", "formula"],
+  ),
+  tpl(
+    "tpl_power_attack",
+    "Power Attack (max)",
+    "custom",
+    "Attack penalty of 1 plus 1 per 4 BAB for extra damage (apply the damage on your attack lines). Penalty scales with your BAB.",
+    undefined,
+    [["attack", "subtract", "1 + floor(@{combat.bab.total} / 4)", "untyped"]],
+    ["feat", "combat", "formula"],
   ),
 ];
 
