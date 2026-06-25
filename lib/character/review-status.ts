@@ -72,6 +72,17 @@ export const REVIEW_STATUS_META: Record<GmReviewStatus, ReviewStatusMeta> = {
   },
 };
 
+/** The GM's review checklist (§17.3): math / content / wealth / spells / feats. */
+export const REVIEW_CHECKLIST = [
+  { key: "math", label: "Math & calculations" },
+  { key: "content", label: "Custom content & sources" },
+  { key: "wealth", label: "Wealth & equipment" },
+  { key: "spells", label: "Spells" },
+  { key: "feats", label: "Feats & features" },
+] as const;
+
+export type ReviewChecklistKey = (typeof REVIEW_CHECKLIST)[number]["key"];
+
 export function reviewStatusMeta(status: string | null | undefined): ReviewStatusMeta {
   return REVIEW_STATUS_META[(status ?? "unreviewed") as GmReviewStatus] ?? REVIEW_STATUS_META.unreviewed;
 }

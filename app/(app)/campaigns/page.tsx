@@ -29,7 +29,7 @@ export default async function CampaignsPage() {
       .from("campaigns")
       .select("id, name, description, updated_at, campaign_characters(count)")
       .order("updated_at", { ascending: false }),
-    supabase.from("campaign_members").select("campaign_id, role").eq("user_id", user.id),
+    supabase.from("campaign_members").select("campaign_id, role").eq("user_id", user.id).eq("status", "active"),
   ]);
 
   const campaigns = (campaignData ?? []) as CampaignRow[];

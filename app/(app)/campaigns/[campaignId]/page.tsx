@@ -54,7 +54,7 @@ export default async function CampaignDashboardPage({
 
   const [{ data: membership }, { data: rosterRows }, { data: memberRows }, { count: openRequests }, { data: myChars }] =
     await Promise.all([
-      supabase.from("campaign_members").select("role").eq("campaign_id", campaignId).eq("user_id", user.id).maybeSingle(),
+      supabase.from("campaign_members").select("role").eq("campaign_id", campaignId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
       supabase
         .from("campaign_characters")
         .select("character_id, gm_review_status, approved_snapshot_id")
@@ -175,6 +175,9 @@ export default async function CampaignDashboardPage({
                     const char = charById.get(r.character_id);
                     const meta = reviewStatusMeta(r.gm_review_status);
                     const mine = char?.owner_id === user.id;
+                    // A non-GM member shouldn't see a private character they don't own —
+                    // RLS would hide its sheet, so don't surface its name/level here either.
+                    const masked = !isGm && !mine && char?.visibility === "private";
                     const ownerName = char ? nameByUser.get(char.owner_id)?.display_name ?? "Player" : "Player";
                     const level = char?.computed_summary?.totalLevel ?? 0;
                     return (
@@ -184,10 +187,10 @@ export default async function CampaignDashboardPage({
                       >
                         <div className="min-w-0">
                           <div className="truncate font-medium text-foreground">
-                            {char?.name ?? "Character"}
+                            {masked ? "Private character" : char?.name ?? "Character"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Level {level} · {mine ? "Yours" : ownerName}
+                            {masked ? "Hidden by the player" : `Level ${level} · ${mine ? "Yours" : ownerName}`}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
