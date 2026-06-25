@@ -42,8 +42,12 @@ Always run `pnpm lint && pnpm test && pnpm typecheck` before considering work do
   migrations (Supabase MCP `generate_typescript_types`).
 - Theme classes on `<html>`: `obsidian` (default dark), `parchment` (light), `high_contrast`.
   Tokens are `--pf-*` in `app/globals.css`, mapped to Tailwind colors via `@theme inline`.
-- Supabase project ref: `zsopoqfzdjmfmckadkse`. Use the Supabase MCP for DB work; run
-  `get_advisors` after DDL.
+- Supabase project ref: `ldhpdstmgvcsiiupckqx` (org `sjyhdefqdeuifepkxotc`, "PFSheet"). The
+  original project `zsopoqfzdjmfmckadkse` ("PathForge") was retired — see the Status note. Use
+  the Supabase MCP for DB work; run `get_advisors` after DDL.
+- Migrations: `0001` schema, `0002` security/RLS, `0003` cleanup/hardening, `0004` RLS hardening,
+  `0005` restore trigger grants, `0006` spell_compendium (table; data seeded separately), `0007`
+  fix `characters` SELECT-on-RETURNING.
 
 ## Status
 
@@ -69,3 +73,19 @@ Pending later: inventory/wealth editor, spellcasting editor.
 
 Next per spec after M5: Buff Center (M6), GM audit + campaign workflow (M7), imports (M8),
 exports + API (M9), PWA/offline (M10), polish/QA (M11).
+
+### Infra note — character-create RLS fix + project migration (2026-06-25)
+
+Symptom: every character create failed with "new row violates row-level security policy for
+table characters" (live app + direct PostgREST). Root cause was **not** auth/JWT: the
+`characters_select` policy used only `can_view_character(id, auth.uid())`, a SECURITY DEFINER
+function that re-queries `characters` by id. PostgREST runs `INSERT ... RETURNING` for the app's
+`.insert().select()`, and the just-inserted row isn't visible to that function's snapshot, so the
+owner couldn't read back their own new row → reported as an RLS insert violation. A plain insert
+(`return=minimal`) always succeeded; only the RETURNING path failed. Fix = migration `0007`: add a
+direct `owner_id = auth.uid()` predicate (always visible in RETURNING) before the function call.
+
+The original Supabase project's signing keys had been churned while mis-diagnosing this as a JWT
+issue, so work moved to a fresh project (`ldhpdstmgvcsiiupckqx`). All 7 migrations were applied,
+`spell_compendium` (3,034 rows) copied over, and the full create→edit→share + spell-browser flow
+verified green. The old project can be deleted once the new one is confirmed in production.
