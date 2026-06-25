@@ -20,12 +20,13 @@ import { NumberField, TextField, TextAreaField } from "./fields";
 import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
+import { SpellcastingEditor } from "./spellcasting-editor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
-const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Combat", "Skills", "Feats", "Buffs", "Inventory", "Profile"] as const;
+const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Combat", "Skills", "Feats", "Buffs", "Spells", "Inventory", "Profile"] as const;
 type Tab = (typeof TABS)[number];
 
 const AC_COMPONENTS = [
@@ -128,6 +129,7 @@ export function CharacterEditor({
             {tab === "Skills" && <SkillsEditor ed={ed} />}
             {tab === "Feats" && <FeatsEditor ed={ed} />}
             {tab === "Buffs" && <BuffCenter ed={ed} />}
+            {tab === "Spells" && <SpellcastingEditor ed={ed} />}
             {tab === "Inventory" && <InventoryEditor ed={ed} />}
             {tab === "Profile" && <ProfileEditor ed={ed} />}
           </CardContent>
@@ -149,15 +151,33 @@ type EditorApi = ReturnType<typeof useCharacterEditor>;
 
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
+  const prog = ed.draft.progression;
+  const [fav, setFav] = useState("");
+
+  const addFavored = () => {
+    const v = fav.trim();
+    if (!v) return;
+    ed.update((c) => {
+      if (!c.progression.favoredClasses.includes(v)) c.progression.favoredClasses.push(v);
+    });
+    setFav("");
+  };
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <TextField label="Name" value={id.name} onChange={(v) => ed.update((c) => (c.identity.name = v))} />
-        <TextField label="Race" value={id.race ?? ""} onChange={(v) => ed.update((c) => (c.identity.race = v))} />
-        <TextField label="Alignment" value={id.alignment ?? ""} onChange={(v) => ed.update((c) => (c.identity.alignment = v))} placeholder="LG, N, CE…" />
-        <TextField label="Size" value={id.size ?? ""} onChange={(v) => ed.update((c) => (c.identity.size = v))} placeholder="Medium" />
-        <TextField label="Deity" value={id.deity ?? ""} onChange={(v) => ed.update((c) => (c.identity.deity = v))} />
-        <TextField label="Homeland" value={id.homeland ?? ""} onChange={(v) => ed.update((c) => (c.identity.homeland = v))} />
+        <TextField label="Player" value={id.playerName ?? ""} onChange={(v) => ed.update((c) => (c.identity.playerName = v || undefined))} />
+        <TextField label="Race" value={id.race ?? ""} onChange={(v) => ed.update((c) => (c.identity.race = v || undefined))} />
+        <TextField label="Alignment" value={id.alignment ?? ""} onChange={(v) => ed.update((c) => (c.identity.alignment = v || undefined))} placeholder="LG, N, CE…" />
+        <TextField label="Size" value={id.size ?? ""} onChange={(v) => ed.update((c) => (c.identity.size = v || undefined))} placeholder="Medium" />
+        <TextField label="Deity" value={id.deity ?? ""} onChange={(v) => ed.update((c) => (c.identity.deity = v || undefined))} />
+        <TextField label="Homeland" value={id.homeland ?? ""} onChange={(v) => ed.update((c) => (c.identity.homeland = v || undefined))} />
+        <TextField label="Ethnicity" value={id.ethnicity ?? ""} onChange={(v) => ed.update((c) => (c.identity.ethnicity = v || undefined))} />
+        <TextField label="Gender" value={id.gender ?? ""} onChange={(v) => ed.update((c) => (c.identity.gender = v || undefined))} />
+        <TextField label="Age" value={id.age ?? ""} onChange={(v) => ed.update((c) => (c.identity.age = v || undefined))} />
+        <TextField label="Height" value={id.height ?? ""} onChange={(v) => ed.update((c) => (c.identity.height = v || undefined))} />
+        <TextField label="Weight" value={id.weight ?? ""} onChange={(v) => ed.update((c) => (c.identity.weight = v || undefined))} />
       </div>
 
       <div>
@@ -199,6 +219,17 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 }
                 className="flex-1"
               />
+              <TextField
+                label="Archetype"
+                value={cl.archetype ?? ""}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const target = c.identity.classes[i];
+                    if (target) target.archetype = v || undefined;
+                  })
+                }
+                className="w-32"
+              />
               <NumberField
                 label="Level"
                 value={cl.level}
@@ -210,7 +241,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                     c.identity.totalLevel = c.identity.classes.reduce((s, x) => s + x.level, 0);
                   })
                 }
-                className="w-24"
+                className="w-20"
               />
               <Button
                 variant="ghost"
@@ -241,6 +272,78 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         hint="Drives melee/ranged attack and CMB/CMD."
         className="max-w-xs"
       />
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Advancement</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <NumberField
+            label="Current XP"
+            value={prog.currentXp ?? 0}
+            min={0}
+            onChange={(v) => ed.update((c) => (c.progression.currentXp = v || undefined))}
+          />
+          <NumberField
+            label="Next level XP"
+            value={prog.nextLevelXp ?? 0}
+            min={0}
+            onChange={(v) => ed.update((c) => (c.progression.nextLevelXp = v || undefined))}
+          />
+          <div className="space-y-1">
+            <span className="block text-sm font-medium leading-none text-foreground">XP track</span>
+            <select
+              value={prog.xpTrack ?? "medium"}
+              aria-label="XP track"
+              onChange={(e) =>
+                ed.update((c) => (c.progression.xpTrack = e.target.value as "slow" | "medium" | "fast" | "custom"))
+              }
+              className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+            >
+              {["slow", "medium", "fast", "custom"].map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-3">
+          <span className="mb-1 block text-sm font-medium text-foreground">Favored classes</span>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {prog.favoredClasses.length === 0 && <span className="text-sm text-muted-foreground">None.</span>}
+            {prog.favoredClasses.map((fc, i) => (
+              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-xs text-foreground">
+                {fc}
+                <button
+                  type="button"
+                  aria-label={`Remove ${fc}`}
+                  onClick={() => ed.update((c) => c.progression.favoredClasses.splice(i, 1))}
+                  className="text-muted-foreground hover:text-danger"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex max-w-sm gap-2">
+            <input
+              value={fav}
+              placeholder="Class name…"
+              aria-label="Add favored class"
+              onChange={(e) => setFav(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addFavored();
+                }
+              }}
+              className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+            />
+            <Button size="sm" variant="secondary" onClick={addFavored}>
+              Add
+            </Button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -779,14 +882,27 @@ function ProfileEditor({ ed }: { ed: EditorApi }) {
   const p = ed.draft.profile;
   return (
     <div className="space-y-4">
-      <TextField label="Quote" value={p.quote ?? ""} onChange={(v) => ed.update((c) => (c.profile.quote = v))} />
-      <TextAreaField label="Backstory" value={p.backstory ?? ""} rows={6} onChange={(v) => ed.update((c) => (c.profile.backstory = v))} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField label="Portrait URL" value={p.portraitUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.portraitUrl = v || undefined))} />
+        <TextField label="Token URL" value={p.tokenUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.tokenUrl = v || undefined))} />
+      </div>
+      <TextField label="Quote" value={p.quote ?? ""} onChange={(v) => ed.update((c) => (c.profile.quote = v || undefined))} />
       <TextAreaField
         label="Appearance"
         value={p.appearance.description ?? ""}
         rows={3}
-        onChange={(v) => ed.update((c) => (c.profile.appearance.description = v))}
+        onChange={(v) => ed.update((c) => (c.profile.appearance.description = v || undefined))}
       />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextAreaField label="Personality" value={p.personality.description ?? ""} rows={3} onChange={(v) => ed.update((c) => (c.profile.personality.description = v || undefined))} />
+        <TextAreaField label="Ideals & flaws" value={p.personality.ideals ?? ""} rows={3} onChange={(v) => ed.update((c) => (c.profile.personality.ideals = v || undefined))} />
+      </div>
+      <TextAreaField label="Backstory" value={p.backstory ?? ""} rows={6} onChange={(v) => ed.update((c) => (c.profile.backstory = v || undefined))} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <TextField label="Allies" value={p.allies ?? ""} onChange={(v) => ed.update((c) => (c.profile.allies = v || undefined))} />
+        <TextField label="Foes" value={p.foes ?? ""} onChange={(v) => ed.update((c) => (c.profile.foes = v || undefined))} />
+        <TextField label="Affiliations" value={p.affiliations ?? ""} onChange={(v) => ed.update((c) => (c.profile.affiliations = v || undefined))} />
+      </div>
     </div>
   );
 }
