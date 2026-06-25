@@ -23,7 +23,16 @@ import {
   ScrollText,
   Settings,
 } from "lucide-react";
-import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey, type ModifierEntry } from "@pathforge/schema";
+import {
+  ABILITY_KEYS,
+  OPTIONAL_RULE_MODULES,
+  isRuleEnabled,
+  type PathForgeCharacterV1,
+  type AbilityKey,
+  type ModifierEntry,
+  type OptionalRuleModule,
+  type RuleModuleGroup,
+} from "@pathforge/schema";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
@@ -152,7 +161,7 @@ export function CharacterEditor({
       key: "settings",
       label: "Settings",
       icon: Settings,
-      items: [{ key: "settings", label: "Sheet settings", render: () => <SettingsSection /> }],
+      items: [{ key: "settings", label: "Sheet settings", render: () => <SettingsEditor ed={ed} /> }],
     },
   ];
 
@@ -246,18 +255,86 @@ export function CharacterEditor({
   );
 }
 
-function SettingsSection() {
+const RULE_GROUPS: { key: RuleModuleGroup; label: string }[] = [
+  { key: "paizo", label: "Paizo optional rules" },
+  { key: "subsystem", label: "Subsystems & tracking" },
+  { key: "thirdparty", label: "Third-party content" },
+];
+
+function SettingsEditor({ ed }: { ed: EditorApi }) {
+  const toggleRule = (mod: OptionalRuleModule, on: boolean) =>
+    ed.update((c) => {
+      if (mod.variantKey) {
+        c.rules.variants[mod.variantKey] = on || undefined;
+        return;
+      }
+      const arr = c.rules.modules;
+      const idx = arr.findIndex((m) => m.key === mod.key);
+      if (on) {
+        if (idx < 0) arr.push({ key: mod.key, enabled: true, settings: {} });
+        else {
+          const m = arr[idx];
+          if (m) m.enabled = true;
+        }
+      } else if (idx >= 0) {
+        arr.splice(idx, 1);
+      }
+    });
+
+  const enabledCount = OPTIONAL_RULE_MODULES.filter((m) => isRuleEnabled(ed.draft, m)).length;
+
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Sheet settings</h3>
-      <p className="text-sm text-muted-foreground">
-        Theme, privacy &amp; sharing, and an{" "}
-        <span className="font-medium text-foreground">Optional rules &amp; 3pp</span> module-toggle area land in the
-        next pass. They&apos;ll let you switch on rulesets — background skills, hero points, wound thresholds, sanity,
-        psionics, kineticist burn, spheres, path of war, and more — per character, via the sheet&apos;s enabled modules.
-      </p>
-      <p className="text-sm text-muted-foreground">
-        For now, manage visibility and share links from the character overview.
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Optional rules &amp; 3pp</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Switch on the optional rulesets and third-party systems this character uses. Enabling a module flags the
+          sheet for it; its fields and calculations appear as each module ships.
+          {enabledCount > 0 ? ` ${enabledCount} enabled.` : ""}
+        </p>
+      </div>
+
+      {RULE_GROUPS.map((g) => (
+        <section key={g.key}>
+          <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {OPTIONAL_RULE_MODULES.filter((m) => m.group === g.key).map((mod) => {
+              const on = isRuleEnabled(ed.draft, mod);
+              return (
+                <label
+                  key={mod.key}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-colors",
+                    on ? "border-gold/40 bg-gold/5" : "border-border hover:border-border/80",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={(e) => toggleRule(mod, e.target.checked)}
+                    aria-label={mod.name}
+                    className="mt-0.5 size-4 accent-[var(--pf-gold)]"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-medium text-foreground">{mod.name}</span>
+                      {mod.publisher && (
+                        <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {mod.publisher}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{mod.description}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      <p className="text-xs text-muted-foreground">
+        Theme and privacy/share settings live on the character overview for now.
       </p>
     </div>
   );
