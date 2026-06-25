@@ -6,11 +6,31 @@ import { randomBytes } from "node:crypto";
 import { createDefaultCharacter, safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser } from "@/lib/auth/session";
 import type { Database } from "@/lib/supabase/types";
 
 const VISIBILITIES = ["private", "campaign", "unlisted", "public"] as const;
 type Visibility = (typeof VISIBILITIES)[number];
+
+/**
+ * Returns a Supabase client with the user's session already loaded, plus the
+ * user. Loading the session on the SAME client used for writes guarantees the
+ * access token (and thus auth.uid()) is attached — otherwise a fresh client can
+ * race the session load and write as `anon`, tripping RLS. Redirects if signed out.
+ */
+async function authedClient() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  return { supabase, user };
+}
+
+function userDisplayName(user: { email?: string; user_metadata?: Record<string, unknown> }): string {
+  const meta = user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name;
+  if (typeof meta === "string" && meta.trim()) return meta.trim();
+  return user.email?.split("@")[0] ?? "Adventurer";
+}
 
 function slugify(name: string): string {
   const base = name
@@ -29,13 +49,19 @@ export async function createCharacterAction(
   _prev: CreateCharacterState,
   formData: FormData,
 ): Promise<CreateCharacterState> {
-  const user = await requireUser();
+  const { supabase, user } = await authedClient();
   const name = ((formData.get("name") as string | null) ?? "").trim() || "New Character";
+  const displayName = userDisplayName(user);
 
-  const sheet = createDefaultCharacter({ name, playerName: user.displayName });
+  // Backstop: ensure the owner has a profile row (the FK target), in case the
+  // signup trigger ever fails to create one.
+  await supabase
+    .from("profiles")
+    .upsert({ id: user.id, display_name: displayName }, { onConflict: "id", ignoreDuplicates: true });
+
+  const sheet = createDefaultCharacter({ name, playerName: displayName });
   const computed = computeCharacter(sheet);
 
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("characters")
     .insert({
@@ -67,10 +93,9 @@ export async function setCharacterVisibilityAction(
   characterId: string,
   visibility: Visibility,
 ): Promise<VisibilityState> {
-  await requireUser();
   if (!VISIBILITIES.includes(visibility)) return { error: "Invalid visibility." };
 
-  const supabase = await createClient();
+  const { supabase } = await authedClient();
   const { data: existing, error: readError } = await supabase
     .from("characters")
     .select("id, name, public_slug")
@@ -104,15 +129,13 @@ export async function saveCharacterSheetAction(
   characterId: string,
   sheet: unknown,
 ): Promise<SaveSheetState> {
-  await requireUser();
-
   const parsed = safeParseCharacter(sheet);
   if (!parsed.ok) {
     return { ok: false, error: "The sheet has validation errors and was not saved." };
   }
 
   const computed = computeCharacter(parsed.character);
-  const supabase = await createClient();
+  const { supabase } = await authedClient();
   const { error } = await supabase
     .from("characters")
     .update({
