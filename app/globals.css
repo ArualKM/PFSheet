@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/* Dark themes opt into the `dark` variant via the theme class on <html>. */
+@custom-variant dark (&:where(.obsidian, .high_contrast, .obsidian *, .high_contrast *));
+
+/* ----------------------------------------------------------------------------
+   PathForge design tokens — "Arcane Tactical Ledger"
+   Obsidian dark (default), warm Parchment light, and a High-Contrast theme.
+   Token names follow the build spec §25 (--pf-*).
+---------------------------------------------------------------------------- */
+:root,
+.obsidian {
+  color-scheme: dark;
+  --pf-bg: #090d12;
+  --pf-surface: #121922;
+  --pf-surface-raised: #18212c;
+  --pf-border: #2c3a4a;
+  --pf-text: #f4f0e7;
+  --pf-muted: #aeb8c3;
+  --pf-gold: #f0b35a;
+  --pf-on-gold: #1c1407;
+  --pf-rune: #67d5ff;
+  --pf-danger: #f2616b;
+  --pf-warning: #e8a93c;
+  --pf-success: #57d9a3;
+  --pf-focus: #67d5ff;
+  --pf-radius: 0.75rem;
+}
+
+.parchment {
+  color-scheme: light;
+  --pf-bg: #f1ead9;
+  --pf-surface: #fbf7ee;
+  --pf-surface-raised: #ffffff;
+  --pf-border: #d8cdb8;
+  --pf-text: #2a2420;
+  --pf-muted: #6b6151;
+  --pf-gold: #a86b16;
+  --pf-on-gold: #fff8ec;
+  --pf-rune: #1e7fa8;
+  --pf-danger: #b23a26;
+  --pf-warning: #9a6a14;
+  --pf-success: #1f7a5f;
+  --pf-focus: #1e7fa8;
+}
+
+.high_contrast {
+  color-scheme: dark;
+  --pf-bg: #000000;
+  --pf-surface: #0a0a0a;
+  --pf-surface-raised: #161616;
+  --pf-border: #8593a3;
+  --pf-text: #ffffff;
+  --pf-muted: #d6dce3;
+  --pf-gold: #ffc766;
+  --pf-on-gold: #000000;
+  --pf-rune: #8fe3ff;
+  --pf-danger: #ff8a92;
+  --pf-warning: #ffca5a;
+  --pf-success: #74f0bc;
+  --pf-focus: #ffd27a;
+}
+
+/* ----------------------------------------------------------------------------
+   Map design tokens to Tailwind theme colors. Utilities like `bg-surface`,
+   `text-gold`, `border-border`, `ring-ring` resolve from these. shadcn/ui
+   semantic tokens (card/primary/muted/etc.) are aliased to the same palette so
+   `shadcn add` components inherit the theme automatically.
+---------------------------------------------------------------------------- */
+@theme inline {
+  --color-background: var(--pf-bg);
+  --color-foreground: var(--pf-text);
+  --color-surface: var(--pf-surface);
+  --color-surface-raised: var(--pf-surface-raised);
+  --color-border: var(--pf-border);
+  --color-muted: var(--pf-surface-raised);
+  --color-muted-foreground: var(--pf-muted);
+  --color-gold: var(--pf-gold);
+  --color-rune: var(--pf-rune);
+  --color-danger: var(--pf-danger);
+  --color-warning: var(--pf-warning);
+  --color-success: var(--pf-success);
+
+  --color-card: var(--pf-surface);
+  --color-card-foreground: var(--pf-text);
+  --color-popover: var(--pf-surface-raised);
+  --color-popover-foreground: var(--pf-text);
+  --color-primary: var(--pf-gold);
+  --color-primary-foreground: var(--pf-on-gold);
+  --color-secondary: var(--pf-surface-raised);
+  --color-secondary-foreground: var(--pf-text);
+  --color-accent: var(--pf-surface-raised);
+  --color-accent-foreground: var(--pf-text);
+  --color-destructive: var(--pf-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-input: var(--pf-border);
+  --color-ring: var(--pf-focus);
+
+  --radius-lg: var(--pf-radius);
+  --radius-md: calc(var(--pf-radius) - 0.25rem);
+  --radius-sm: calc(var(--pf-radius) - 0.4rem);
+  --radius-xl: calc(var(--pf-radius) + 0.5rem);
+  --radius-2xl: calc(var(--pf-radius) + 1rem);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--pf-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--pf-bg);
+    color: var(--pf-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle arcane glow on dark themes, mirroring the mockup hero. */
+  .obsidian body {
+    background-image: radial-gradient(
+        circle at 0% 0%,
+        color-mix(in srgb, var(--pf-gold) 12%, transparent),
+        transparent 38%
+      ),
+      linear-gradient(135deg, #080c11, #0e151d);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--pf-gold) 35%, transparent);
+    color: var(--pf-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--pf-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Numeric stat readouts use tabular figures so columns stay aligned. */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}

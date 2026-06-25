@@ -1,0 +1,86 @@
+import { describe, it, expect } from "vitest";
+import { createDefaultCharacter } from "@pathforge/schema";
+import { computeCharacter, abilityModifier } from "./compute";
+
+describe("abilityModifier", () => {
+  it("matches PF1e ability modifier math", () => {
+    expect(abilityModifier(10)).toBe(0);
+    expect(abilityModifier(18)).toBe(4);
+    expect(abilityModifier(7)).toBe(-2);
+    expect(abilityModifier(9)).toBe(-1);
+  });
+});
+
+describe("computeCharacter — default character", () => {
+  const c = createDefaultCharacter();
+  const computed = computeCharacter(c);
+
+  it("computes base AC of 10 / 10 / 10", () => {
+    expect(computed.armorClass.total.value).toBe(10);
+    expect(computed.armorClass.touch.value).toBe(10);
+    expect(computed.armorClass.flatFooted.value).toBe(10);
+    expect(computed.armorClass.cmd.value).toBe(10);
+  });
+
+  it("computes zero saves and initiative for a blank sheet", () => {
+    expect(computed.saves.fortitude.value).toBe(0);
+    expect(computed.saves.reflex.value).toBe(0);
+    expect(computed.saves.will.value).toBe(0);
+    expect(computed.initiative.value).toBe(0);
+  });
+
+  it("produces no formula errors for the default sheet", () => {
+    expect(computed.armorClass.total.errors).toEqual([]);
+    expect(computed.saves.will.errors).toEqual([]);
+  });
+});
+
+describe("computeCharacter — ability + save math", () => {
+  it("flows ability modifiers into AC and saves", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.dex = { key: "dex", label: "Dexterity", score: 14, baseScore: 14 };
+    c.abilities.primary.con = { key: "con", label: "Constitution", score: 16, baseScore: 16 };
+    c.defenses.savingThrows.fortitude.base = 4;
+    const computed = computeCharacter(c);
+    expect(computed.abilities.dex?.modifier).toBe(2);
+    expect(computed.armorClass.total.value).toBe(12); // 10 + dex(2)
+    expect(computed.armorClass.flatFooted.value).toBe(10); // no dex when flat-footed
+    expect(computed.saves.fortitude.value).toBe(7); // base 4 + con(3)
+  });
+});
+
+describe("computeCharacter — resolver hardening", () => {
+  it("does not resolve Object.prototype keys as references", () => {
+    const c = createDefaultCharacter();
+    c.defenses.armorClass.formulas.total = "10 + @{__proto__} + @{constructor} + @{toString}";
+    const computed = computeCharacter(c);
+    expect(typeof computed.armorClass.total.value).toBe("number");
+    expect(Number.isFinite(computed.armorClass.total.value)).toBe(true);
+    expect(computed.armorClass.total.value).toBe(10); // prototype refs resolve to 0
+  });
+});
+
+describe("computeCharacter — Haste-style buff", () => {
+  it("applies +1 dodge AC, +1 reflex, +1 attack, but not to flat-footed AC", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.dex = { key: "dex", label: "Dexterity", score: 14, baseScore: 14 };
+    c.buffs.active = [
+      {
+        id: "buff_haste",
+        name: "Haste",
+        enabled: true,
+        effects: [
+          { id: "h1", target: "defenses.armorClass.total", operation: "add", value: 1, bonusType: "dodge" },
+          { id: "h2", target: "defenses.savingThrows.reflex", operation: "add", value: 1 },
+          { id: "h3", target: "combat.attack.melee", operation: "add", value: 1 },
+        ],
+      },
+    ];
+    const computed = computeCharacter(c);
+    expect(computed.armorClass.total.value).toBe(13); // 10 + dex 2 + dodge 1
+    expect(computed.armorClass.touch.value).toBe(13); // touch keeps dex + dodge
+    expect(computed.armorClass.flatFooted.value).toBe(10); // dodge + dex dropped
+    expect(computed.saves.reflex.value).toBe(3); // dex 2 + 1
+    expect(computed.attackBonuses.melee.value).toBe(1);
+  });
+});

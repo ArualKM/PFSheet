@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040">
+<title>PathForge Buff Center and Formula Builder</title><defs>
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#080C11"/>
+          <stop offset="0.55" stop-color="#0E141B"/>
+          <stop offset="1" stop-color="#151D28"/>
+        </linearGradient>
+        <radialGradient id="orbGold" cx="20%" cy="10%" r="80%">
+          <stop offset="0" stop-color="#F0B35A" stop-opacity="0.18"/>
+          <stop offset="0.5" stop-color="#F0B35A" stop-opacity="0.04"/>
+          <stop offset="1" stop-color="#F0B35A" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+        </filter>
+        <filter id="tinyShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.22"/>
+        </filter>
+        <pattern id="noise" width="80" height="80" patternUnits="userSpaceOnUse">
+          <circle cx="10" cy="12" r="0.7" fill="#ffffff" opacity="0.04"/>
+          <circle cx="60" cy="28" r="0.5" fill="#ffffff" opacity="0.035"/>
+          <circle cx="33" cy="66" r="0.8" fill="#ffffff" opacity="0.03"/>
+          <circle cx="74" cy="72" r="0.6" fill="#ffffff" opacity="0.025"/>
+        </pattern>
+        <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#17212C"/>
+          <stop offset="1" stop-color="#101720"/>
+        </linearGradient>
+        <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#F0B35A"/>
+          <stop offset="1" stop-color="#67D5FF"/>
+        </linearGradient>
+        </defs>
+<rect width="1440" height="1040" fill="url(#bgGrad)"/>
+<rect width="1440" height="1040" fill="url(#orbGold)"/>
+<rect width="1440" height="1040" fill="url(#noise)"/>
+<rect x="24" y="22" width="1392" height="72" rx="22" fill="#0D131A" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<circle cx="62" cy="58" r="20" fill="#1B2633" stroke="#2C3A4A"/>
+<text x="62" y="64" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">PF</text>
+<text x="92" y="54" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="25" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">PathForge</text>
+<text x="92" y="76" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">PFsheet.org character command center</text>
+<text x="370" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Overview</text>
+<rect x="470" y="40" width="86" height="36" rx="18" fill="#1D2A38" opacity="1" stroke="#3A4A5E" stroke-width="1"/>
+<text x="512" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#F4F0E7" text-anchor="middle" opacity="1" letter-spacing="0">Combat</text>
+<text x="576" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Skills</text>
+<text x="668" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Spells</text>
+<text x="760" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Gear</text>
+<text x="836" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Story</text>
+<rect x="1056" y="43" width="124" height="28" rx="14" fill="#221C12" opacity="1" stroke="#604418" stroke-width="1"/>
+<text x="1118.0" y="62" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">Rulesmith Lab</text>
+<rect x="1192" y="43" width="104" height="28" rx="14" fill="#15232E" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="1244.0" y="62" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Copy Link</text>
+<rect x="1308" y="40" width="86" height="36" rx="18" fill="url(#accentGrad)" opacity="1"/>
+<text x="1351" y="64" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="800" fill="#101720" text-anchor="middle" opacity="1" letter-spacing="0">Edit</text>
+<rect x="24" y="116" width="214" height="800" rx="26" fill="#0D131A" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="48" y="154" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1.4">SHEET SECTIONS</text>
+<text x="60" y="185" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">⌂</text>
+<text x="84" y="185" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Overview</text>
+<rect x="38" y="208" width="186" height="42" rx="16" fill="#1A2633" opacity="1" stroke="#314154" stroke-width="1"/>
+<text x="60" y="235" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="17" font-weight="700" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">⚔</text>
+<text x="84" y="235" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Combat</text>
+<text x="60" y="285" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">◇</text>
+<text x="84" y="285" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Skills</text>
+<text x="60" y="335" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">✦</text>
+<text x="84" y="335" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Spells</text>
+<text x="60" y="385" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">◈</text>
+<text x="84" y="385" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Inventory</text>
+<text x="60" y="435" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">◆</text>
+<text x="84" y="435" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Feats &amp; Features</text>
+<text x="60" y="485" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">✎</text>
+<text x="84" y="485" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Backstory</text>
+<text x="60" y="535" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">⇧</text>
+<text x="84" y="535" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Advancement</text>
+<text x="60" y="585" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#7E8B99" text-anchor="middle" opacity="1" letter-spacing="0">⚙</text>
+<text x="84" y="585" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Settings</text>
+<line x1="48" y1="746" x2="214" y2="746" stroke="#2C3A4A" stroke-width="1" opacity="1"/>
+<text x="48" y="784" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Owner</text>
+<text x="48" y="808" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Laura Bitterolf</text>
+<text x="48" y="832" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#74E09A" text-anchor="start" opacity="1" letter-spacing="0">Strict edit authority</text>
+<rect x="48" y="864" width="158" height="28" rx="14" fill="#14231B" opacity="1" stroke="#264A33" stroke-width="1"/>
+<text x="127.0" y="883" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#74E09A" text-anchor="middle" opacity="1" letter-spacing="0">Autosaved 12s ago</text>
+<rect x="264" y="116" width="1148" height="104" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="292" y="156" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="30" font-weight="900" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Buff Center + Formula Workbench</text>
+<text x="292" y="188" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Toggle effects, preview stacking rules, and future-proof custom Pathfinder math.</text>
+<rect x="1098" y="152" width="110" height="28" rx="14" fill="#14231B" opacity="1" stroke="#264A33" stroke-width="1"/>
+<text x="1153.0" y="171" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#74E09A" text-anchor="middle" opacity="1" letter-spacing="0">PF1e Core</text>
+<rect x="1220" y="152" width="150" height="28" rx="14" fill="#15232E" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="1295.0" y="171" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Background Skills</text>
+<rect x="1382" y="152" width="116" height="28" rx="14" fill="#251B20" opacity="1" stroke="#52303B" stroke-width="1"/>
+<text x="1440.0" y="171" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#FF6B6B" text-anchor="middle" opacity="1" letter-spacing="0">Spheres 3PP</text>
+<rect x="264" y="248" width="390" height="748" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="286" y="278" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">BUFF LIBRARY</text>
+<rect x="288" y="300" width="342" height="42" rx="14" fill="#0A0F15" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="308" y="327" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Search buffs, conditions, class features…</text>
+<rect x="288" y="356" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="384" r="9" fill="#74E09A" opacity="0.9"/>
+<text x="332" y="380" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Haste</text>
+<text x="604" y="380" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#74E09A" text-anchor="end" opacity="1" letter-spacing="0">ON</text>
+<text x="332" y="403" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">+1 dodge AC, Reflex, attacks; +30 ft speed</text>
+<rect x="288" y="442" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="470" r="9" fill="#74E09A" opacity="0.9"/>
+<text x="332" y="466" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Bless</text>
+<text x="604" y="466" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#74E09A" text-anchor="end" opacity="1" letter-spacing="0">ON</text>
+<text x="332" y="489" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">+1 morale attack and fear saves</text>
+<rect x="288" y="528" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="556" r="9" fill="#7E8B99" opacity="0.9"/>
+<text x="332" y="552" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Power Attack</text>
+<text x="604" y="552" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#7E8B99" text-anchor="end" opacity="1" letter-spacing="0">OFF</text>
+<text x="332" y="575" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Trade attack bonus for damage</text>
+<rect x="288" y="614" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="642" r="9" fill="#F0B35A" opacity="0.9"/>
+<text x="332" y="638" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Smite Evil</text>
+<text x="604" y="638" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#F0B35A" text-anchor="end" opacity="1" letter-spacing="0">READY</text>
+<text x="332" y="661" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">CHA to attack, level to damage, deflection AC</text>
+<rect x="288" y="700" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="728" r="9" fill="#FF6B6B" opacity="0.9"/>
+<text x="332" y="724" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Fatigued</text>
+<text x="604" y="724" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#FF6B6B" text-anchor="end" opacity="1" letter-spacing="0">ON</text>
+<text x="332" y="747" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">-2 STR, -2 DEX, cannot run/charge</text>
+<rect x="288" y="786" width="342" height="74" rx="18" fill="#111923" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<circle cx="312" cy="814" r="9" fill="#BFA6FF" opacity="0.9"/>
+<text x="332" y="810" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Custom: Moonlit Oath</text>
+<text x="604" y="810" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#BFA6FF" text-anchor="end" opacity="1" letter-spacing="0">OFF</text>
+<text x="332" y="833" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">+2 sacred AC while under moonlight</text>
+<rect x="288" y="936" width="150" height="28" rx="14" fill="#221C12" opacity="1" stroke="#604418" stroke-width="1"/>
+<text x="363.0" y="955" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">Create new buff</text>
+<rect x="678" y="248" width="346" height="348" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="700" y="278" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">ACTIVE EFFECT TRACE</text>
+<text x="702" y="306" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Affected stats</text>
+<rect x="702" y="334" width="101" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752.5" y="353" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">AC +1 dodge</text>
+<rect x="813" y="334" width="88" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="857.0" y="353" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Reflex +1</text>
+<rect x="911" y="334" width="88" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="955.0" y="353" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Attack +2</text>
+<rect x="702" y="374" width="88" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="746.0" y="393" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Speed +30</text>
+<rect x="800" y="374" width="88" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="844.0" y="393" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#FF6B6B" text-anchor="middle" opacity="1" letter-spacing="0">STR -2</text>
+<rect x="898" y="374" width="88" height="28" rx="14" fill="#172434" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="942.0" y="393" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#FF6B6B" text-anchor="middle" opacity="1" letter-spacing="0">DEX -2</text>
+<text x="702" y="434" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Stacking result</text>
+<text x="702" y="466" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Haste and Dodge both provide dodge</text>
+<text x="702" y="486" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">bonuses, so they stack. Two deflection</text>
+<text x="702" y="506" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">bonuses do not stack; the highest</text>
+<text x="702" y="526" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">value is used and the suppressed bonus</text>
+<text x="702" y="546" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">remains visible in audit mode.</text>
+<rect x="678" y="626" width="346" height="370" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="700" y="656" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">ROUND TRACKER</text>
+<text x="702" y="692" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="750" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Haste</text>
+<text x="998" y="692" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#F0B35A" text-anchor="end" opacity="1" letter-spacing="0">4 rounds</text>
+<rect x="702" y="706" width="296" height="9" rx="4" fill="#0A0F15" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<rect x="702" y="706" width="170" height="9" rx="4" fill="#F0B35A" opacity="1"/>
+<text x="702" y="752" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="750" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Bless</text>
+<text x="998" y="752" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#F0B35A" text-anchor="end" opacity="1" letter-spacing="0">22 rounds</text>
+<rect x="702" y="766" width="296" height="9" rx="4" fill="#0A0F15" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<rect x="702" y="766" width="250" height="9" rx="4" fill="#F0B35A" opacity="1"/>
+<text x="702" y="812" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="750" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Smite Evil</text>
+<text x="998" y="812" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#AEB8C3" text-anchor="end" opacity="1" letter-spacing="0">target locked</text>
+<rect x="702" y="826" width="296" height="9" rx="4" fill="#0A0F15" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<rect x="702" y="826" width="296" height="9" rx="4" fill="#67D5FF" opacity="1"/>
+<text x="702" y="872" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="750" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Fatigued</text>
+<text x="998" y="872" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#AEB8C3" text-anchor="end" opacity="1" letter-spacing="0">until rest</text>
+<rect x="702" y="886" width="296" height="9" rx="4" fill="#0A0F15" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<rect x="702" y="886" width="210" height="9" rx="4" fill="#67D5FF" opacity="1"/>
+<rect x="1048" y="248" width="364" height="748" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="1070" y="278" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">FORMULA WORKBENCH</text>
+<text x="1070" y="300" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Selected: Armor Class</text>
+<text x="1072" y="322" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Result preview</text>
+<text x="1072" y="372" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="58" font-weight="900" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">27</text>
+<text x="1150" y="354" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">AC total</text>
+<text x="1150" y="376" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">updates live from dependencies</text>
+<text x="1072" y="430" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Expression</text>
+<rect x="1072" y="450" width="304" height="168" rx="16" fill="#0A0F15" opacity="1" stroke="#3A4A5E" stroke-width="1"/>
+<text x="1090" y="480" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">10 + @{armor.bonus} +</text>
+<text x="1090" y="500" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">min(@{dex.mod}, @{armor.maxDex}) +</text>
+<text x="1090" y="520" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">@{shield.bonus} +</text>
+<text x="1090" y="540" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">@{naturalArmor.total} +</text>
+<text x="1090" y="560" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">@{deflection.highest} +</text>
+<text x="1090" y="580" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">@{dodge.total} + @{size.ac}</text>
+<text x="1072" y="660" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Validation</text>
+<rect x="1072" y="682" width="304" height="58" rx="14" fill="#14231B" opacity="1" stroke="#264A33" stroke-width="1"/>
+<text x="1092" y="717" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="800" fill="#74E09A" text-anchor="start" opacity="1" letter-spacing="0">✓ Safe formula • No circular refs</text>
+<text x="1072" y="780" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Dependencies</text>
+<text x="1090" y="810" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">armor.bonus</text>
+<line x1="1072" y1="824" x2="1376" y2="824" stroke="#2C3A4A" stroke-width="1" opacity="0.45"/>
+<text x="1090" y="844" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">dex.mod</text>
+<line x1="1072" y1="858" x2="1376" y2="858" stroke="#2C3A4A" stroke-width="1" opacity="0.45"/>
+<text x="1090" y="878" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">shield.bonus</text>
+<line x1="1072" y1="892" x2="1376" y2="892" stroke="#2C3A4A" stroke-width="1" opacity="0.45"/>
+<text x="1090" y="912" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">deflection.highest</text>
+<line x1="1072" y1="926" x2="1376" y2="926" stroke="#2C3A4A" stroke-width="1" opacity="0.45"/>
+<text x="1090" y="946" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">dodge.total</text>
+<line x1="1072" y1="960" x2="1376" y2="960" stroke="#2C3A4A" stroke-width="1" opacity="0.45"/>
+<rect x="1072" y="942" width="116" height="28" rx="14" fill="#221C12" opacity="1" stroke="#604418" stroke-width="1"/>
+<text x="1130.0" y="961" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">Save formula</text>
+<rect x="1200" y="942" width="118" height="28" rx="14" fill="#15232E" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="1259.0" y="961" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Reset default</text>
+</svg>

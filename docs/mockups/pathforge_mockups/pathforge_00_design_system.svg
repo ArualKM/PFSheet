@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000">
+<title>PathForge Design System Board</title><defs>
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#080C11"/>
+          <stop offset="0.55" stop-color="#0E141B"/>
+          <stop offset="1" stop-color="#151D28"/>
+        </linearGradient>
+        <radialGradient id="orbGold" cx="20%" cy="10%" r="80%">
+          <stop offset="0" stop-color="#F0B35A" stop-opacity="0.18"/>
+          <stop offset="0.5" stop-color="#F0B35A" stop-opacity="0.04"/>
+          <stop offset="1" stop-color="#F0B35A" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+        </filter>
+        <filter id="tinyShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.22"/>
+        </filter>
+        <pattern id="noise" width="80" height="80" patternUnits="userSpaceOnUse">
+          <circle cx="10" cy="12" r="0.7" fill="#ffffff" opacity="0.04"/>
+          <circle cx="60" cy="28" r="0.5" fill="#ffffff" opacity="0.035"/>
+          <circle cx="33" cy="66" r="0.8" fill="#ffffff" opacity="0.03"/>
+          <circle cx="74" cy="72" r="0.6" fill="#ffffff" opacity="0.025"/>
+        </pattern>
+        <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#17212C"/>
+          <stop offset="1" stop-color="#101720"/>
+        </linearGradient>
+        <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#F0B35A"/>
+          <stop offset="1" stop-color="#67D5FF"/>
+        </linearGradient>
+        </defs>
+<rect width="1440" height="1000" fill="url(#bgGrad)"/>
+<rect width="1440" height="1000" fill="url(#orbGold)"/>
+<rect width="1440" height="1000" fill="url(#noise)"/>
+<rect x="24" y="22" width="1392" height="72" rx="22" fill="#0D131A" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<circle cx="62" cy="58" r="20" fill="#1B2633" stroke="#2C3A4A"/>
+<text x="62" y="64" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">PF</text>
+<text x="92" y="54" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="25" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">PathForge</text>
+<text x="92" y="76" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">PFsheet.org character command center</text>
+<rect x="356" y="40" width="104" height="36" rx="18" fill="#1D2A38" opacity="1" stroke="#3A4A5E" stroke-width="1"/>
+<text x="408" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#F4F0E7" text-anchor="middle" opacity="1" letter-spacing="0">Overview</text>
+<text x="480" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Combat</text>
+<text x="572" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Skills</text>
+<text x="664" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Spells</text>
+<text x="756" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Gear</text>
+<text x="832" y="63" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Story</text>
+<rect x="1056" y="43" width="124" height="28" rx="14" fill="#221C12" opacity="1" stroke="#604418" stroke-width="1"/>
+<text x="1118.0" y="62" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F0B35A" text-anchor="middle" opacity="1" letter-spacing="0">Design System</text>
+<rect x="1192" y="43" width="104" height="28" rx="14" fill="#15232E" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="1244.0" y="62" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Copy Link</text>
+<rect x="1308" y="40" width="86" height="36" rx="18" fill="url(#accentGrad)" opacity="1"/>
+<text x="1351" y="64" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="800" fill="#101720" text-anchor="middle" opacity="1" letter-spacing="0">Edit</text>
+<text x="64" y="150" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="42" font-weight="900" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">PathForge visual language</text>
+<text x="64" y="184" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="16" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Arcane Tactical Ledger: fantasy enough to feel owned, dashboard-clear enough to trust at the table.</text>
+<rect x="64" y="232" width="420" height="300" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="86" y="262" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">COLOR TOKENS</text>
+<rect x="88" y="292" width="72" height="56" rx="14" fill="#090D12" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="88" y="370" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Obsidian</text>
+<rect x="182" y="292" width="72" height="56" rx="14" fill="#121922" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="182" y="370" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Panel</text>
+<rect x="276" y="292" width="72" height="56" rx="14" fill="#F0B35A" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="276" y="370" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Gold</text>
+<rect x="370" y="292" width="72" height="56" rx="14" fill="#67D5FF" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="370" y="370" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Arcane Blue</text>
+<rect x="88" y="396" width="72" height="56" rx="14" fill="#FF6B6B" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="88" y="474" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Vital Red</text>
+<rect x="182" y="396" width="72" height="56" rx="14" fill="#74E09A" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="182" y="474" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Success Green</text>
+<rect x="276" y="396" width="72" height="56" rx="14" fill="#F2E7D1" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="276" y="474" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Parchment</text>
+<rect x="370" y="396" width="72" height="56" rx="14" fill="#AEB8C3" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="370" y="474" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Muted</text>
+<rect x="520" y="232" width="420" height="300" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="542" y="262" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">COMPONENTS</text>
+<rect x="544" y="292" width="150" height="110" rx="20" fill="#141D27" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="562" y="320" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1.2">ARMOR CLASS</text>
+<text x="562" y="360" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="850" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">27</text>
+<text x="562" y="385" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Touch 16</text>
+<rect x="544" y="292" width="5" height="110" rx="2.5" fill="#F0B35A" opacity="0.8"/>
+<rect x="714" y="292" width="188" height="110" rx="20" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="736" y="326" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="0">Input field</text>
+<rect x="736" y="346" width="140" height="36" rx="10" fill="#0A0F15" opacity="1" stroke="#3A4A5E" stroke-width="1"/>
+<text x="750" y="370" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="650" fill="#67D5FF" text-anchor="start" opacity="1" letter-spacing="0">@{wis.mod} + 2</text>
+<rect x="544" y="432" width="120" height="28" rx="14" fill="#14231B" opacity="1" stroke="#264A33" stroke-width="1"/>
+<text x="604.0" y="451" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#74E09A" text-anchor="middle" opacity="1" letter-spacing="0">GM approved</text>
+<rect x="678" y="432" width="122" height="28" rx="14" fill="#251B20" opacity="1" stroke="#52303B" stroke-width="1"/>
+<text x="739.0" y="451" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#FF6B6B" text-anchor="middle" opacity="1" letter-spacing="0">Needs review</text>
+<rect x="814" y="432" width="100" height="28" rx="14" fill="#15232E" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="864.0" y="451" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#67D5FF" text-anchor="middle" opacity="1" letter-spacing="0">Show math</text>
+<rect x="976" y="232" width="420" height="300" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="998" y="262" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">TYPOGRAPHY</text>
+<text x="1000" y="304" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="900" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">Seraphine Vale</text>
+<text x="1000" y="344" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1.2">Section Label / uppercase tracking</text>
+<text x="1000" y="386" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Readable body copy for dense rule text, source notes, and GM comments.</text>
+<text x="1000" y="438" font-family="Georgia, serif" font-size="22" font-weight="600" fill="#F2E7D1" text-anchor="start" opacity="1" letter-spacing="0">“Character quote uses a warmer serif.”</text>
+<rect x="64" y="570" width="604" height="340" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="86" y="600" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">LAYOUT PRINCIPLES</text>
+<text x="92" y="634" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="850" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">Dashboard first</text>
+<text x="92" y="658" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">The overview answers: alive, hittable, what to roll, what is active.</text>
+<text x="92" y="700" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="850" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">Progressive complexity</text>
+<text x="92" y="724" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Simple mode hides formulas; Advanced and Rulesmith expose everything.</text>
+<text x="92" y="766" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="850" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">Explainable math</text>
+<text x="92" y="790" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Every number can open a trace, dependencies, and source tags.</text>
+<text x="92" y="832" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="18" font-weight="850" fill="#F0B35A" text-anchor="start" opacity="1" letter-spacing="0">Permission clarity</text>
+<text x="92" y="856" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Owner edits; GM audits, comments, approves, and snapshots.</text>
+<rect x="704" y="570" width="692" height="340" rx="22" fill="url(#cardGrad)" opacity="1" stroke="#2C3A4A" stroke-width="1" filter="url(#tinyShadow)"/>
+<text x="726" y="600" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="800" fill="#7E8B99" text-anchor="start" opacity="1" letter-spacing="1">SCREEN SET</text>
+<rect x="732" y="608" width="636" height="46" rx="15" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752" y="636" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">1. Share View</text>
+<text x="984" y="636" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Beautiful public/read-only command center</text>
+<rect x="732" y="666" width="636" height="46" rx="15" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752" y="694" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">2. Edit View</text>
+<text x="984" y="694" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Inline inputs, formula inspector, autosave</text>
+<rect x="732" y="724" width="636" height="46" rx="15" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752" y="752" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">3. GM Audit</text>
+<text x="984" y="752" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Warnings, approvals, diffs, comments</text>
+<rect x="732" y="782" width="636" height="46" rx="15" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752" y="810" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">4. Buff Center</text>
+<text x="984" y="810" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Toggleable temporary math and duration tracking</text>
+<rect x="732" y="840" width="636" height="46" rx="15" fill="#101720" opacity="1" stroke="#2C3A4A" stroke-width="1"/>
+<text x="752" y="868" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="800" fill="#F4F0E7" text-anchor="start" opacity="1" letter-spacing="0">5. Mobile Session</text>
+<text x="984" y="868" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#AEB8C3" text-anchor="start" opacity="1" letter-spacing="0">Thumb-first combat companion</text>
+</svg>
