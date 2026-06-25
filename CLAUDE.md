@@ -56,5 +56,11 @@ Milestone 4 (overview + share) complete: privacy view-model (`lib/character/view
 `/c/[publicSlug]` (admin-client + visibility gate, returns only the filtered model), share
 controls + publish/visibility action. Privacy + render tests cover "public never leaks private".
 
-Next per spec: Milestone 5 (edit workspace — inline editors, autosave, formula inspector,
-Simple/Advanced), then Buff Center, GM audit, imports/exports, PWA.
+Milestone 5 (edit workspace) — core in place: `useCharacterEditor` (client draft + live
+recompute + debounced autosave + undo + unsaved-changes guard), `CharacterEditor` with
+Identity/Abilities/Health/Saves/Profile tabs and a live-values preview, `saveCharacterSheetAction`
+(validates + recomputes + persists, RLS-gated). Pending in M5: AC/CMD editor, Skills editor,
+Feats/Features editor, inventory, the "Show Math" formula inspector drawer, and the
+Simple/Advanced formula-field toggle.
+
+Next per spec after M5: Buff Center, GM audit, imports/exports, PWA.

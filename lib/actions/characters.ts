@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
-import { createDefaultCharacter } from "@pathforge/schema";
+import { createDefaultCharacter, safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
@@ -91,4 +91,38 @@ export async function setCharacterVisibilityAction(
 
   revalidatePath(`/characters/${characterId}`);
   return { slug, visibility };
+}
+
+export type SaveSheetState = { ok: boolean; error?: string; savedAt?: string };
+
+/**
+ * Persist an edited sheet. Validates against the canonical schema, recomputes the
+ * dashboard summary, and updates the row. RLS guarantees only an owner/editor can
+ * write; the owner_id column is locked at the DB layer.
+ */
+export async function saveCharacterSheetAction(
+  characterId: string,
+  sheet: unknown,
+): Promise<SaveSheetState> {
+  await requireUser();
+
+  const parsed = safeParseCharacter(sheet);
+  if (!parsed.ok) {
+    return { ok: false, error: "The sheet has validation errors and was not saved." };
+  }
+
+  const computed = computeCharacter(parsed.character);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("characters")
+    .update({
+      name: parsed.character.identity.name,
+      sheet_data: parsed.character as unknown as Json,
+      computed_summary: computed.summary as unknown as Json,
+      last_calculated_at: new Date().toISOString(),
+    })
+    .eq("id", characterId);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, savedAt: new Date().toISOString() };
 }

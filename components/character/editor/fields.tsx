@@ -1,0 +1,90 @@
+"use client";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+export function NumberField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  hint,
+  className,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  hint?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label>{label}</Label>
+      <Input
+        type="number"
+        inputMode="numeric"
+        value={Number.isFinite(value) ? String(value) : ""}
+        min={min}
+        max={max}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const n = raw === "" || raw === "-" ? 0 : Number(raw);
+          if (!Number.isNaN(n)) onChange(n);
+        }}
+        className="tnum"
+      />
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+export function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label>{label}</Label>
+      <Input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+export function TextAreaField({
+  label,
+  value,
+  onChange,
+  rows = 4,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label>{label}</Label>
+      <textarea
+        value={value}
+        rows={rows}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </div>
+  );
+}
