@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -167,23 +167,64 @@ export function CharacterEditor({
 
   const section = sections.find((s) => s.key === activeSection) ?? sections[0]!;
   const sub = section.items.find((i) => i.key === activeSub) ?? section.items[0]!;
+  const panelLabelId = section.items.length > 1 ? `subtab-${activeSub}` : `section-tab-${activeSection}`;
+
+  // Roving-tabindex arrow-key movement for the two tablists.
+  const onSectionKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    const n = sections.length;
+    let next = idx;
+    if (e.key === "ArrowDown") next = (idx + 1) % n;
+    else if (e.key === "ArrowUp") next = (idx - 1 + n) % n;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = n - 1;
+    else return;
+    e.preventDefault();
+    const s = sections[next]!;
+    setActiveSection(s.key);
+    setActiveSub(s.items[0]!.key);
+    document.getElementById(`section-tab-${s.key}`)?.focus();
+  };
+
+  const onSubKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    const items = section.items;
+    let next = idx;
+    if (e.key === "ArrowRight") next = (idx + 1) % items.length;
+    else if (e.key === "ArrowLeft") next = (idx - 1 + items.length) % items.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = items.length - 1;
+    else return;
+    e.preventDefault();
+    const i = items[next]!;
+    setActiveSub(i.key);
+    document.getElementById(`subtab-${i.key}`)?.focus();
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)_300px]">
-      <nav aria-label="Sheet sections" className="lg:sticky lg:top-20 lg:self-start">
-        <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1 lg:flex-col lg:overflow-visible">
-          {sections.map((s) => {
+      <div className="lg:sticky lg:top-20 lg:self-start">
+        <div
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label="Sheet sections"
+          className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1 lg:flex-col lg:overflow-visible"
+        >
+          {sections.map((s, idx) => {
             const Icon = s.icon;
             const active = s.key === activeSection;
             return (
               <button
                 key={s.key}
                 type="button"
+                role="tab"
+                id={`section-tab-${s.key}`}
+                aria-selected={active}
+                aria-controls="editor-panel"
+                tabIndex={active ? 0 : -1}
                 onClick={() => {
                   setActiveSection(s.key);
                   setActiveSub(s.items[0]!.key);
                 }}
-                aria-current={active ? "page" : undefined}
+                onKeyDown={(e) => onSectionKeyDown(e, idx)}
                 className={cn(
                   "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   active ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
@@ -195,18 +236,23 @@ export function CharacterEditor({
             );
           })}
         </div>
-      </nav>
+      </div>
 
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {section.items.length > 1 ? (
-            <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
-              {section.items.map((i) => (
+            <div role="tablist" aria-label={`${section.label} panels`} className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
+              {section.items.map((i, idx) => (
                 <button
                   key={i.key}
                   type="button"
+                  role="tab"
+                  id={`subtab-${i.key}`}
+                  aria-selected={i.key === activeSub}
+                  aria-controls="editor-panel"
+                  tabIndex={i.key === activeSub ? 0 : -1}
                   onClick={() => setActiveSub(i.key)}
-                  aria-current={i.key === activeSub ? "page" : undefined}
+                  onKeyDown={(e) => onSubKeyDown(e, idx)}
                   className={cn(
                     "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     i.key === activeSub
@@ -244,7 +290,15 @@ export function CharacterEditor({
         </div>
 
         <Card>
-          <CardContent className="p-5">{sub.render()}</CardContent>
+          <CardContent
+            id="editor-panel"
+            role="tabpanel"
+            tabIndex={0}
+            aria-labelledby={panelLabelId}
+            className="p-5"
+          >
+            {sub.render()}
+          </CardContent>
         </Card>
       </div>
 

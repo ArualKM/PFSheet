@@ -81,9 +81,22 @@ Feats, Buffs, Spells, Inventory, Profile (`combat-editor.tsx`, `spellcasting-edi
 `NumberField` coerces ints, associates labels (useId/htmlFor), and keeps a clearable local draft.
 Both M6 and the detailed editors shipped after adversarial Workflow reviews (findings verified + fixed).
 
-Deferred sheet depth: spell-compendium picker (manual spell entry for now), feat/feature + equipped-
-item automation editing, level-plan rows, multiple Craft/Perform/Profession, Senses/Languages/Resources
-tabs, spell resistance, two LOW a11y items (ability-field name context, ARIA tablist roles).
+Post-M6 additions (each shipped after an adversarial Workflow review):
+- **Spell-compendium picker** (`spell-picker.tsx` + `search_spell_compendium` RPC, migrations `0008`/
+  `0009`): class/level-aware, ranked (name→school→descriptor→description), debounced, wildcard-safe.
+- **Formula-valued buff effects**: an effect's value may be a `@{...}` formula resolved against a base
+  resolver (e.g. Divine Favor / Power Attack scale off level/BAB); the custom-buff form has a ƒx toggle.
+- **§6 navigation reorg**: a left "Sheet Sections" sidebar (Core/Defenses/Attacks/Abilities/Skills/
+  Spells/Equipment/Buffs/Story/Settings) with ARIA tab roles + roving-tabindex keyboard nav, and a
+  Settings **Optional rules & 3pp** framework (`optional-rules.ts` — Mythic + ~17 modules toggled into
+  `rules.variants` / `rules.modules`; `isRuleEnabled` / `isModuleKeyEnabled` let sections reveal a
+  module's fields as it ships). See [[pathforge-modularity-roadmap]].
+
+Deferred sheet depth: per-module field reveals for the optional-rules framework (Mythic tier/path,
+hero points, psionics, spheres, path of war, … — toggles persist; fields come per module), feat/feature
++ equipped-item automation editing, level-plan rows, multiple Craft/Perform/Profession, Senses/
+Languages/Resources tabs, spell resistance, ability-field a11y name context, **mobile overhaul** of the
+new sidebar/3-column layout (ties into M10), and preserving in-progress form state across tab switches.
 
 Next per spec: GM audit + campaign workflow (M7), imports (M8), exports + API (M9), PWA/offline (M10),
 polish/QA (M11).
