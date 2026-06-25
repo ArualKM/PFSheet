@@ -11,8 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
-const TABS = ["Identity", "Abilities", "Health", "Saves", "Profile"] as const;
+const TABS = ["Identity", "Abilities", "Health", "Saves", "Skills", "Feats", "Profile"] as const;
 type Tab = (typeof TABS)[number];
+
+const FEATURE_CATEGORIES = [
+  "racial_trait",
+  "class_feature",
+  "archetype_feature",
+  "special_ability",
+  "defensive_feature",
+  "offensive_feature",
+  "misc",
+] as const;
 
 const ABILITY_NAMES: Record<AbilityKey, string> = {
   str: "Strength",
@@ -75,6 +85,8 @@ export function CharacterEditor({
             {tab === "Abilities" && <AbilitiesEditor ed={ed} />}
             {tab === "Health" && <HealthEditor ed={ed} />}
             {tab === "Saves" && <SavesEditor ed={ed} />}
+            {tab === "Skills" && <SkillsEditor ed={ed} />}
+            {tab === "Feats" && <FeatsEditor ed={ed} />}
             {tab === "Profile" && <ProfileEditor ed={ed} />}
           </CardContent>
         </Card>
@@ -269,6 +281,218 @@ function SavesEditor({ ed }: { ed: EditorApi }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SkillsEditor({ ed }: { ed: EditorApi }) {
+  const skills = ed.draft.skills.list;
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Set ranks and mark class skills (trained class skills with ranks gain +3). Totals update live.
+      </p>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-raised text-[11px] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left font-semibold">Skill</th>
+              <th className="px-2 py-2 font-semibold">Ability</th>
+              <th className="px-2 py-2 font-semibold">Class</th>
+              <th className="w-20 px-2 py-2 font-semibold">Ranks</th>
+              <th className="px-3 py-2 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {skills.map((s, i) => {
+              const total = ed.computed.skills[s.key]?.value ?? 0;
+              return (
+                <tr key={s.id} className="border-t border-border/50">
+                  <td className="px-3 py-1.5 text-foreground">
+                    {s.label}
+                    {s.trainedOnly && <span className="ml-1 text-[10px] text-muted-foreground">(trained)</span>}
+                  </td>
+                  <td className="px-2 py-1.5 text-center text-[11px] uppercase text-muted-foreground">
+                    {s.ability}
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    <input
+                      type="checkbox"
+                      checked={!!s.classSkill}
+                      aria-label={`${s.label} is a class skill`}
+                      onChange={(e) =>
+                        ed.update((c) => {
+                          const t = c.skills.list[i];
+                          if (t) t.classSkill = e.target.checked;
+                        })
+                      }
+                      className="size-4 accent-[var(--pf-gold)]"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      value={s.ranks}
+                      aria-label={`${s.label} ranks`}
+                      onChange={(e) => {
+                        const n = e.target.value === "" ? 0 : Number(e.target.value);
+                        if (!Number.isNaN(n))
+                          ed.update((c) => {
+                            const t = c.skills.list[i];
+                            if (t) t.ranks = n;
+                          });
+                      }}
+                      className="tnum h-8 w-16 rounded-md border border-border bg-background px-2 text-sm"
+                    />
+                  </td>
+                  <td className="tnum px-3 py-1.5 text-right font-semibold text-rune">
+                    {formatModifier(total)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FeatsEditor({ ed }: { ed: EditorApi }) {
+  const feats = ed.draft.feats.list;
+  const features = ed.draft.features.list;
+  return (
+    <div className="space-y-6">
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Feats</h3>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              ed.update((c) =>
+                c.feats.list.push({
+                  id: `feat_${c.feats.list.length}_${Date.now().toString(36)}`,
+                  name: "New Feat",
+                  tags: [],
+                  automation: [],
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Add feat
+          </Button>
+        </div>
+        {feats.length === 0 && <p className="text-sm text-muted-foreground">No feats yet.</p>}
+        <div className="space-y-2">
+          {feats.map((f, i) => (
+            <div key={f.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
+              <TextField
+                label="Name"
+                value={f.name}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const t = c.feats.list[i];
+                    if (t) t.name = v;
+                  })
+                }
+                className="flex-1"
+              />
+              <TextField
+                label="Type"
+                value={f.type ?? ""}
+                placeholder="Combat, General…"
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const t = c.feats.list[i];
+                    if (t) t.type = v;
+                  })
+                }
+                className="w-36"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove feat"
+                onClick={() => ed.update((c) => c.feats.list.splice(i, 1))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Features &amp; abilities</h3>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              ed.update((c) =>
+                c.features.list.push({
+                  id: `feat_${c.features.list.length}_${Date.now().toString(36)}`,
+                  name: "New Feature",
+                  category: "class_feature",
+                  automation: [],
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Add feature
+          </Button>
+        </div>
+        {features.length === 0 && (
+          <p className="text-sm text-muted-foreground">No racial traits or class features yet.</p>
+        )}
+        <div className="space-y-2">
+          {features.map((f, i) => (
+            <div key={f.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
+              <TextField
+                label="Name"
+                value={f.name}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const t = c.features.list[i];
+                    if (t) t.name = v;
+                  })
+                }
+                className="flex-1"
+              />
+              <div className="w-44 space-y-1">
+                <span className="block text-sm font-medium leading-none text-foreground">Category</span>
+                <select
+                  value={f.category}
+                  aria-label="Feature category"
+                  onChange={(e) =>
+                    ed.update((c) => {
+                      const t = c.features.list[i];
+                      if (t) t.category = e.target.value as (typeof FEATURE_CATEGORIES)[number];
+                    })
+                  }
+                  className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+                >
+                  {FEATURE_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove feature"
+                onClick={() => ed.update((c) => c.features.list.splice(i, 1))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
