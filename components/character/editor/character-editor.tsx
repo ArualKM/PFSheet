@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -12,6 +12,16 @@ import {
   Trash2,
   ExternalLink,
   Sigma,
+  User,
+  Shield,
+  Swords,
+  Sparkles,
+  Target,
+  Wand2,
+  Backpack,
+  Zap,
+  ScrollText,
+  Settings,
 } from "lucide-react";
 import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey, type ModifierEntry } from "@pathforge/schema";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -25,9 +35,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
-
-const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Combat", "Skills", "Feats", "Buffs", "Spells", "Inventory", "Profile"] as const;
-type Tab = (typeof TABS)[number];
 
 const AC_COMPONENTS = [
   { key: "armor", label: "Armor", bonusType: "armor" },
@@ -57,6 +64,13 @@ const ABILITY_NAMES: Record<AbilityKey, string> = {
   cha: "Charisma",
 };
 
+type SheetSection = {
+  key: string;
+  label: string;
+  icon: typeof User;
+  items: Array<{ key: string; label: string; render: () => ReactNode }>;
+};
+
 export function CharacterEditor({
   characterId,
   initial,
@@ -65,31 +79,139 @@ export function CharacterEditor({
   initial: PathForgeCharacterV1;
 }) {
   const ed = useCharacterEditor(characterId, initial);
-  const [tab, setTab] = useState<Tab>("Identity");
   const [advanced, setAdvanced] = useState(false);
+  const [activeSection, setActiveSection] = useState("core");
+  const [activeSub, setActiveSub] = useState("details");
+
+  // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
+  // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
+  // Psionics, Hero Points, 3pp, …) get their toggles under Settings in a later pass.
+  const sections: SheetSection[] = [
+    {
+      key: "core",
+      label: "Core",
+      icon: User,
+      items: [
+        { key: "details", label: "Character details", render: () => <IdentityEditor ed={ed} /> },
+        { key: "abilities", label: "Ability scores", render: () => <AbilitiesEditor ed={ed} advanced={advanced} /> },
+        { key: "health", label: "Health & wounds", render: () => <HealthEditor ed={ed} /> },
+      ],
+    },
+    {
+      key: "defenses",
+      label: "Defenses",
+      icon: Shield,
+      items: [
+        { key: "saves", label: "Saving throws", render: () => <SavesEditor ed={ed} /> },
+        { key: "ac", label: "Armor class", render: () => <ACEditor ed={ed} /> },
+      ],
+    },
+    {
+      key: "attacks",
+      label: "Attacks",
+      icon: Swords,
+      items: [{ key: "combat", label: "Attacks & speed", render: () => <CombatEditor ed={ed} /> }],
+    },
+    {
+      key: "abilities",
+      label: "Abilities",
+      icon: Sparkles,
+      items: [{ key: "feats", label: "Feats & features", render: () => <FeatsEditor ed={ed} /> }],
+    },
+    {
+      key: "skills",
+      label: "Skills",
+      icon: Target,
+      items: [{ key: "skills", label: "Skills", render: () => <SkillsEditor ed={ed} /> }],
+    },
+    {
+      key: "spells",
+      label: "Spells",
+      icon: Wand2,
+      items: [{ key: "spells", label: "Spellcasting", render: () => <SpellcastingEditor ed={ed} /> }],
+    },
+    {
+      key: "equipment",
+      label: "Equipment",
+      icon: Backpack,
+      items: [{ key: "inventory", label: "Inventory & wealth", render: () => <InventoryEditor ed={ed} /> }],
+    },
+    {
+      key: "buffs",
+      label: "Buffs",
+      icon: Zap,
+      items: [{ key: "buffs", label: "Buff center", render: () => <BuffCenter ed={ed} /> }],
+    },
+    {
+      key: "story",
+      label: "Story",
+      icon: ScrollText,
+      items: [{ key: "profile", label: "Profile & backstory", render: () => <ProfileEditor ed={ed} /> }],
+    },
+    {
+      key: "settings",
+      label: "Settings",
+      icon: Settings,
+      items: [{ key: "settings", label: "Sheet settings", render: () => <SettingsSection /> }],
+    },
+  ];
+
+  const section = sections.find((s) => s.key === activeSection) ?? sections[0]!;
+  const sub = section.items.find((i) => i.key === activeSub) ?? section.items[0]!;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-      <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
-            {TABS.map((t) => (
+    <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)_300px]">
+      <nav aria-label="Sheet sections" className="lg:sticky lg:top-20 lg:self-start">
+        <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1 lg:flex-col lg:overflow-visible">
+          {sections.map((s) => {
+            const Icon = s.icon;
+            const active = s.key === activeSection;
+            return (
               <button
-                key={t}
+                key={s.key}
                 type="button"
-                onClick={() => setTab(t)}
-                aria-current={tab === t ? "page" : undefined}
+                onClick={() => {
+                  setActiveSection(s.key);
+                  setActiveSub(s.items[0]!.key);
+                }}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                  tab === t
-                    ? "bg-surface-raised text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                  "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {t}
+                <Icon className="size-4 shrink-0" />
+                <span className="whitespace-nowrap">{s.label}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      </nav>
+
+      <div className="min-w-0">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          {section.items.length > 1 ? (
+            <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
+              {section.items.map((i) => (
+                <button
+                  key={i.key}
+                  type="button"
+                  onClick={() => setActiveSub(i.key)}
+                  aria-current={i.key === activeSub ? "page" : undefined}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    i.key === activeSub
+                      ? "bg-surface-raised text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {i.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <h2 className="px-1 text-sm font-semibold text-foreground">{section.items[0]!.label}</h2>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -105,13 +227,7 @@ export function CharacterEditor({
             >
               <Sigma className="size-3.5" /> {advanced ? "Advanced" : "Simple"}
             </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={ed.undo}
-              disabled={!ed.canUndo}
-              title="Undo last change"
-            >
+            <Button variant="ghost" size="sm" onClick={ed.undo} disabled={!ed.canUndo} title="Undo last change">
               <Undo2 className="size-4" /> Undo
             </Button>
             <SaveStatusBadge status={ed.status} error={ed.error} />
@@ -119,26 +235,30 @@ export function CharacterEditor({
         </div>
 
         <Card>
-          <CardContent className="p-5">
-            {tab === "Identity" && <IdentityEditor ed={ed} />}
-            {tab === "Abilities" && <AbilitiesEditor ed={ed} advanced={advanced} />}
-            {tab === "Health" && <HealthEditor ed={ed} />}
-            {tab === "Saves" && <SavesEditor ed={ed} />}
-            {tab === "AC" && <ACEditor ed={ed} />}
-            {tab === "Combat" && <CombatEditor ed={ed} />}
-            {tab === "Skills" && <SkillsEditor ed={ed} />}
-            {tab === "Feats" && <FeatsEditor ed={ed} />}
-            {tab === "Buffs" && <BuffCenter ed={ed} />}
-            {tab === "Spells" && <SpellcastingEditor ed={ed} />}
-            {tab === "Inventory" && <InventoryEditor ed={ed} />}
-            {tab === "Profile" && <ProfileEditor ed={ed} />}
-          </CardContent>
+          <CardContent className="p-5">{sub.render()}</CardContent>
         </Card>
       </div>
 
       <aside className="h-fit lg:sticky lg:top-20">
         <LivePreview ed={ed} characterId={characterId} advanced={advanced} />
       </aside>
+    </div>
+  );
+}
+
+function SettingsSection() {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-foreground">Sheet settings</h3>
+      <p className="text-sm text-muted-foreground">
+        Theme, privacy &amp; sharing, and an{" "}
+        <span className="font-medium text-foreground">Optional rules &amp; 3pp</span> module-toggle area land in the
+        next pass. They&apos;ll let you switch on rulesets — background skills, hero points, wound thresholds, sanity,
+        psionics, kineticist burn, spheres, path of war, and more — per character, via the sheet&apos;s enabled modules.
+      </p>
+      <p className="text-sm text-muted-foreground">
+        For now, manage visibility and share links from the character overview.
+      </p>
     </div>
   );
 }
