@@ -47,18 +47,21 @@ export function TextField({
   value,
   onChange,
   placeholder,
+  hint,
   className,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  hint?: string;
   className?: string;
 }) {
   return (
     <div className={cn("space-y-1", className)}>
       <Label>{label}</Label>
       <Input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      {hint && <p className="text-[11px] text-warning">{hint}</p>}
     </div>
   );
 }

@@ -13,17 +13,19 @@ import {
   ExternalLink,
   Sigma,
 } from "lucide-react";
-import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey } from "@pathforge/schema";
+import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey, type ModifierEntry } from "@pathforge/schema";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
 import { BuffCenter } from "./buff-center";
+import { CombatEditor } from "./combat-editor";
+import { InventoryEditor } from "./inventory-editor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
-const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Skills", "Feats", "Buffs", "Profile"] as const;
+const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Combat", "Skills", "Feats", "Buffs", "Inventory", "Profile"] as const;
 type Tab = (typeof TABS)[number];
 
 const AC_COMPONENTS = [
@@ -118,13 +120,15 @@ export function CharacterEditor({
         <Card>
           <CardContent className="p-5">
             {tab === "Identity" && <IdentityEditor ed={ed} />}
-            {tab === "Abilities" && <AbilitiesEditor ed={ed} />}
+            {tab === "Abilities" && <AbilitiesEditor ed={ed} advanced={advanced} />}
             {tab === "Health" && <HealthEditor ed={ed} />}
             {tab === "Saves" && <SavesEditor ed={ed} />}
             {tab === "AC" && <ACEditor ed={ed} />}
+            {tab === "Combat" && <CombatEditor ed={ed} />}
             {tab === "Skills" && <SkillsEditor ed={ed} />}
             {tab === "Feats" && <FeatsEditor ed={ed} />}
             {tab === "Buffs" && <BuffCenter ed={ed} />}
+            {tab === "Inventory" && <InventoryEditor ed={ed} />}
             {tab === "Profile" && <ProfileEditor ed={ed} />}
           </CardContent>
         </Card>
@@ -241,16 +245,27 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
-function AbilitiesEditor({ ed }: { ed: EditorApi }) {
+const ABILITY_ADJUSTS = [
+  { key: "enhancement", label: "Enh" },
+  { key: "inherent", label: "Inherent" },
+  { key: "tempAdjust", label: "Temp" },
+  { key: "damage", label: "Damage" },
+  { key: "penalty", label: "Penalty" },
+  { key: "drain", label: "Drain" },
+] as const;
+
+function AbilitiesEditor({ ed, advanced }: { ed: EditorApi; advanced: boolean }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Enter each ability score; modifiers update live and flow into AC, saves, attacks, and skills.
+        {advanced && " Advanced: enhancement/inherent stack by type (highest wins); damage, penalty, and drain reduce the effective score."}
       </p>
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {ABILITY_KEYS.map((key) => {
           const score = ed.draft.abilities.primary[key];
-          const mod = ed.computed.abilities[key]?.modifier ?? 0;
+          const comp = ed.computed.abilities[key];
+          const mod = comp?.modifier ?? 0;
           return (
             <div key={key} className="rounded-lg border border-border p-3">
               <div className="mb-1 flex items-center justify-between">
@@ -267,6 +282,28 @@ function AbilitiesEditor({ ed }: { ed: EditorApi }) {
                   })
                 }
               />
+              {advanced && (
+                <>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    {ABILITY_ADJUSTS.map((f) => (
+                      <NumberField
+                        key={f.key}
+                        label={f.label}
+                        value={score?.[f.key] ?? 0}
+                        onChange={(v) =>
+                          ed.update((c) => {
+                            c.abilities.primary[key][f.key] = v || undefined;
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Effective:{" "}
+                    <span className="tnum text-foreground">{comp?.effectiveScore ?? score?.score ?? 10}</span>
+                  </p>
+                </>
+              )}
             </div>
           );
         })}
@@ -275,14 +312,152 @@ function AbilitiesEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+function newModId(): string {
+  return `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+}
+
+function ModifierRows({
+  title,
+  valueLabel,
+  labelPlaceholder,
+  entries,
+  onAdd,
+  onChange,
+  onRemove,
+}: {
+  title: string;
+  valueLabel: string;
+  labelPlaceholder: string;
+  entries: ModifierEntry[];
+  onAdd: () => void;
+  onChange: (i: number, patch: Partial<ModifierEntry>) => void;
+  onRemove: (i: number) => void;
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <Button size="sm" variant="ghost" onClick={onAdd}>
+          <Plus className="size-4" /> Add
+        </Button>
+      </div>
+      {entries.length === 0 && <p className="text-sm text-muted-foreground">None.</p>}
+      <div className="space-y-2">
+        {entries.map((e, i) => (
+          <div key={e.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
+            <NumberField
+              label={valueLabel}
+              value={typeof e.value === "number" ? e.value : Number(e.value) || 0}
+              min={0}
+              onChange={(v) => onChange(i, { value: v })}
+              className="w-24"
+            />
+            <TextField
+              label="Type / bypass"
+              value={e.label}
+              placeholder={labelPlaceholder}
+              onChange={(v) => onChange(i, { label: v })}
+              className="flex-1"
+            />
+            <Button variant="ghost" size="icon" aria-label="Remove entry" onClick={() => onRemove(i)}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HealthEditor({ ed }: { ed: EditorApi }) {
   const h = ed.draft.health;
   const maxHp = typeof h.maxHp === "number" ? h.maxHp : 0;
+  const [cond, setCond] = useState("");
+
+  const addCondition = () => {
+    const v = cond.trim();
+    if (!v) return;
+    ed.update((c) => {
+      if (!c.health.conditions.includes(v)) c.health.conditions.push(v);
+    });
+    setCond("");
+  };
+
   return (
-    <div className="grid max-w-md gap-4 sm:grid-cols-3">
-      <NumberField label="Max HP" value={maxHp} min={0} onChange={(v) => ed.update((c) => (c.health.maxHp = v))} />
-      <NumberField label="Current HP" value={h.currentHp} onChange={(v) => ed.update((c) => (c.health.currentHp = v))} />
-      <NumberField label="Temp HP" value={h.tempHp} min={0} onChange={(v) => ed.update((c) => (c.health.tempHp = v))} />
+    <div className="space-y-6">
+      <div className="grid max-w-xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <NumberField label="Max HP" value={maxHp} min={0} onChange={(v) => ed.update((c) => (c.health.maxHp = v))} />
+        <NumberField label="Current HP" value={h.currentHp} onChange={(v) => ed.update((c) => (c.health.currentHp = v))} />
+        <NumberField label="Temp HP" value={h.tempHp} min={0} onChange={(v) => ed.update((c) => (c.health.tempHp = v))} />
+        <NumberField label="Nonlethal" value={h.nonlethalDamage} min={0} onChange={(v) => ed.update((c) => (c.health.nonlethalDamage = v))} />
+      </div>
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Conditions</h3>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {h.conditions.length === 0 && <span className="text-sm text-muted-foreground">None.</span>}
+          {h.conditions.map((label, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-xs text-foreground">
+              {label}
+              <button
+                type="button"
+                aria-label={`Remove ${label}`}
+                onClick={() => ed.update((c) => c.health.conditions.splice(i, 1))}
+                className="text-muted-foreground hover:text-danger"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex max-w-sm gap-2">
+          <input
+            value={cond}
+            placeholder="Shaken, Fatigued, Prone…"
+            aria-label="Add condition"
+            onChange={(e) => setCond(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCondition();
+              }
+            }}
+            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+          />
+          <Button size="sm" variant="secondary" onClick={addCondition}>
+            Add
+          </Button>
+        </div>
+      </section>
+
+      <ModifierRows
+        title="Damage reduction"
+        valueLabel="DR"
+        labelPlaceholder="magic, silver, cold iron…"
+        entries={h.damageReduction}
+        onAdd={() => ed.update((c) => c.health.damageReduction.push({ id: newModId(), label: "", value: 0, enabled: true }))}
+        onChange={(i, patch) =>
+          ed.update((c) => {
+            const e = c.health.damageReduction[i];
+            if (e) Object.assign(e, patch);
+          })
+        }
+        onRemove={(i) => ed.update((c) => c.health.damageReduction.splice(i, 1))}
+      />
+      <ModifierRows
+        title="Energy resistance"
+        valueLabel="Resist"
+        labelPlaceholder="fire, cold, acid…"
+        entries={h.energyResistance}
+        onAdd={() => ed.update((c) => c.health.energyResistance.push({ id: newModId(), label: "", value: 0, enabled: true }))}
+        onChange={(i, patch) =>
+          ed.update((c) => {
+            const e = c.health.energyResistance[i];
+            if (e) Object.assign(e, patch);
+          })
+        }
+        onRemove={(i) => ed.update((c) => c.health.energyResistance.splice(i, 1))}
+      />
     </div>
   );
 }
