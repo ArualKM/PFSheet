@@ -160,12 +160,16 @@ export function buildCharacterViewModel(
 
   const buffs = gate(
     "buffs",
-    character.buffs.active.map((b) => ({
-      name: b.name,
-      enabled: b.enabled,
-      remainingRounds: b.remainingRounds,
-      category: b.category,
-    })),
+    character.buffs.active
+      // Non-owner viewers (public/party/GM share) only see live effects, not buffs
+      // the character has toggled off.
+      .filter((b) => isOwnerView || b.enabled)
+      .map((b) => ({
+        name: b.name,
+        enabled: b.enabled,
+        remainingRounds: b.remainingRounds,
+        category: b.category,
+      })),
   );
 
   const skills = gate(

@@ -17,6 +17,7 @@ export * from "./feats";
 export * from "./spellcasting";
 export * from "./inventory";
 export * from "./buffs";
+export * from "./buff-templates";
 export * from "./formulas";
 export * from "./rules";
 export * from "./meta";

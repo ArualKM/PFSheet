@@ -35,19 +35,33 @@ export function abilityModifier(effectiveScore: number): number {
   return Math.floor((effectiveScore - 10) / 2);
 }
 
+/** Parse the leading (possibly negative) integer out of a string like "30 ft". */
+function parseLeadingInt(s: string): number {
+  const m = /-?\d+/.exec(s ?? "");
+  return m ? parseInt(m[0], 10) : 0;
+}
+
 export function computeAbilities(
   character: PathForgeCharacterV1,
+  index?: ModifierIndex,
 ): Record<string, AbilityComputation> {
   const out: Record<string, AbilityComputation> = {};
   const all = { ...character.abilities.primary, ...character.abilities.custom };
   for (const [key, score] of Object.entries(all)) {
     if (!score) continue;
     const base = num(score.baseScore ?? score.score, 10);
+    // Typed ability bonuses — the sheet's enhancement/inherent fields AND active
+    // buffs (e.g. Bull's Strength) — all flow through the stacking engine so the
+    // same type doesn't stack (highest wins), then cascade into every derived stat.
+    const typedMods: StackInput[] = [...(index?.get(`ability.${key}`) ?? [])];
+    if (num(score.enhancement) !== 0)
+      typedMods.push({ id: `${key}.enhancement`, label: "Enhancement", value: num(score.enhancement), bonusType: "enhancement" });
+    if (num(score.inherent) !== 0)
+      typedMods.push({ id: `${key}.inherent`, label: "Inherent", value: num(score.inherent), bonusType: "inherent" });
     const effective =
       num(score.score, base) +
-      num(score.enhancement) +
-      num(score.inherent) +
-      num(score.tempAdjust) -
+      num(score.tempAdjust) +
+      applyStacking(typedMods).total -
       num(score.drain) -
       num(score.penalty) -
       num(score.damage);
@@ -211,8 +225,8 @@ export class CharacterResolver implements Resolver {
     abilities?: Record<string, AbilityComputation>,
     index?: ModifierIndex,
   ) {
-    this.abilities = abilities ?? computeAbilities(character);
     this.index = index ?? buildModifierIndex(character);
+    this.abilities = abilities ?? computeAbilities(character, this.index);
     this.size = getSizeModifiers(character.identity.size);
   }
 
@@ -349,6 +363,8 @@ export type ComputedCharacter = {
     reflex: number;
     will: number;
     initiative: number;
+    /** Effective land speed: parsed base + stacked speed modifiers (buffs). */
+    speed: { base: number; bonus: number; total: number };
     hp: { current: number; max: number; temp: number };
   };
 };
@@ -375,8 +391,8 @@ function overrideFor(character: PathForgeCharacterV1, path: string): string | un
 }
 
 export function computeCharacter(character: PathForgeCharacterV1): ComputedCharacter {
-  const abilities = computeAbilities(character);
   const index = buildModifierIndex(character);
+  const abilities = computeAbilities(character, index);
   const resolver = new CharacterResolver(character, abilities, index);
 
   const ac = character.defenses.armorClass.formulas;
@@ -432,6 +448,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   }
   resolver.local = {};
 
+  // Speed: base land speed (parsed from the display string) + stacked speed modifiers.
+  const speedBase = parseLeadingInt(character.combat.speed.base);
+  const speedBonus = applyStacking(index.get("speed") ?? []).total;
+
   // Individual attack lines: resolve each attack's to-hit formula; damage dice
   // are presentation-only and passed through untouched.
   const attacks: ComputedAttack[] = character.combat.attacks
@@ -469,6 +489,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       reflex: savesComputed.reflex.value,
       will: savesComputed.will.value,
       initiative: initiative.value,
+      speed: { base: speedBase, bonus: speedBonus, total: speedBase + speedBonus },
       hp: {
         current: character.health.currentHp,
         max: num(character.health.maxHp),

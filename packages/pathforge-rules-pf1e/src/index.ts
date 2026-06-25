@@ -45,3 +45,7 @@ export type {
   ComputedCharacter,
   ComputedAttack,
 } from "./compute";
+
+// Buff Center helpers
+export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
+export type { StackingConflict, BuffDeltaRow } from "./buffs";

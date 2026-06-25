@@ -17,12 +17,13 @@ import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey } from "@pathf
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
+import { BuffCenter } from "./buff-center";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
-const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Skills", "Feats", "Profile"] as const;
+const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Skills", "Feats", "Buffs", "Profile"] as const;
 type Tab = (typeof TABS)[number];
 
 const AC_COMPONENTS = [
@@ -123,6 +124,7 @@ export function CharacterEditor({
             {tab === "AC" && <ACEditor ed={ed} />}
             {tab === "Skills" && <SkillsEditor ed={ed} />}
             {tab === "Feats" && <FeatsEditor ed={ed} />}
+            {tab === "Buffs" && <BuffCenter ed={ed} />}
             {tab === "Profile" && <ProfileEditor ed={ed} />}
           </CardContent>
         </Card>
@@ -636,6 +638,7 @@ function LivePreview({
     { label: "CMD", value: s.cmd },
     { label: "HP", value: `${s.hp.current}/${s.hp.max}` },
     { label: "Init", value: formatModifier(s.initiative) },
+    { label: "Speed", value: `${s.speed.total} ft` },
     { label: "Fort", value: formatModifier(s.fortitude) },
     { label: "Reflex", value: formatModifier(s.reflex) },
     { label: "Will", value: formatModifier(s.will) },
