@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldCheck, Users, BookOpen, ScrollText, ClipboardList } from "lucide-react";
-import { OPTIONAL_RULE_MODULES } from "@pathforge/schema";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reviewStatusMeta, needsReview } from "@/lib/character/review-status";
+import { enabledModuleKeys, moduleName } from "@/lib/character/campaign-modules";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,17 +21,6 @@ export const metadata: Metadata = { title: "Campaign" };
 const GM_ROLES = new Set(["owner", "gm", "assistant_gm"]);
 
 type ComputedSummary = { totalLevel?: number; ac?: number } | null;
-
-function moduleName(key: string): string {
-  return OPTIONAL_RULE_MODULES.find((m) => m.key === key)?.name ?? key;
-}
-
-function enabledModuleKeys(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((m) => (typeof m === "string" ? m : typeof m === "object" && m && "key" in m ? String((m as { key: unknown }).key) : null))
-    .filter((k): k is string => Boolean(k));
-}
 
 export default async function CampaignDashboardPage({
   params,

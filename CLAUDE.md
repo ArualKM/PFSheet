@@ -98,8 +98,34 @@ hero points, psionics, spheres, path of war, … — toggles persist; fields com
 Languages/Resources tabs, spell resistance, ability-field a11y name context, **mobile overhaul** of the
 new sidebar/3-column layout (ties into M10), and preserving in-progress form state across tab switches.
 
-Next per spec: GM audit + campaign workflow (M7), imports (M8), exports + API (M9), PWA/offline (M10),
-polish/QA (M11).
+Milestone 7 (GM audit + campaign workflow) — complete (4 passes, each shipped after an adversarial
+Workflow review). The data + RLS layer (campaigns / campaign_members / campaign_characters /
+gm_reviews / gm_notes / character_comments / character_snapshots) already existed from M0/M1; M7 is
+the UI + server actions + snapshot/diff logic on top.
+- **Pass A** campaign foundation: create/list, `/campaigns/[id]` dashboard (roster + approval-status
+  badges, members invite/role/remove, enabled modules), `lib/actions/campaigns.ts`,
+  `lib/character/review-status.ts`. Roster details read via the admin client after the RLS-gated
+  campaign load authorizes the viewer.
+- **Pass B** GM Audit View (`/campaigns/[id]/gm` + `/gm/[characterId]`): the read-only `viewer="gm"`
+  sheet (admin-client read authorized by GM role + roster membership) + the privacy-aware math/content
+  audit engine (`lib/character/audit.ts`), approval checklist + decisions (approve / with-notes /
+  request-changes / reject) writing `gm_reviews` + `campaign_characters.gm_review_status`,
+  snapshot-on-approve (admin client — RLS intentionally blocks GM snapshot writes), GM notes,
+  player-visible change requests, duplicate-to-sandbox. No write path to `characters` → "GM cannot
+  edit" is structural.
+- **Pass C** snapshots + diff: privacy-aware §16.2 diff (`lib/character/diff.ts`), manual snapshots
+  (`lib/actions/snapshots.ts`), `/characters/[id]/history` (owner/editor-gated), GM "compare to
+  approved", and persisted §16.3 stale-after-changes (flip via admin after the RLS sheet-save
+  authorizes the editor). Snapshots store recomputed computed values.
+- **Pass D** player change-request surface: `CampaignFeedback` on the character overview (owner-only)
+  — per-campaign status, open GM change requests (mark-addressed), player-visible notes, review
+  summary, and §17.2 campaign-module mismatch + adopt (`lib/actions/campaign-feedback.ts`).
+
+Adversarial reviews caught + fixed a privacy-leak class (the audit + diff must re-apply the GM
+viewer's §15 section gating, not read the raw sheet) and several data-integrity issues
+(approval-snapshot error handling, editor-collaborator stale flagging, stale-banner false positives).
+
+Next per spec: imports (M8), exports + API (M9), PWA/offline (M10), polish/QA (M11).
 
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 

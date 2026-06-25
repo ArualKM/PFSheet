@@ -8,7 +8,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
+import { loadCampaignFeedback } from "@/lib/character/campaign-feedback";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+import { CampaignFeedback } from "@/components/character/campaign-feedback";
 import { ShareControls } from "@/components/character/share-controls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,12 +25,12 @@ export default async function CharacterOverviewPage({
   params: Promise<{ characterId: string }>;
 }) {
   const { characterId } = await params;
-  await requireUser();
+  const user = await requireUser();
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("characters")
-    .select("id, name, visibility, public_slug, sheet_data")
+    .select("id, name, visibility, public_slug, owner_id, sheet_data")
     .eq("id", characterId)
     .single();
 
@@ -62,6 +64,12 @@ export default async function CharacterOverviewPage({
   const computed = computeCharacter(result.character);
   const vm = buildCharacterViewModel(result.character, computed, "owner", data.visibility);
 
+  // GM feedback is owner-facing; only load it for the character's owner.
+  const feedback =
+    data.owner_id === user.id
+      ? await loadCampaignFeedback(characterId, user.id, result.character)
+      : [];
+
   return (
     <div className="mx-auto max-w-5xl">
       {backLink}
@@ -84,6 +92,7 @@ export default async function CharacterOverviewPage({
           </>
         }
       />
+      <CampaignFeedback items={feedback} characterId={characterId} />
     </div>
   );
 }
