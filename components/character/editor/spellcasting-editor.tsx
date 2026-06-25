@@ -1,8 +1,10 @@
 "use client";
 
-import { Plus, Trash2, Sparkles, BookOpen, Wand2 } from "lucide-react";
+import { useState } from "react";
+import { Plus, Trash2, Sparkles, BookOpen, Wand2, Search } from "lucide-react";
 import type { SpellcasterEntry } from "@pathforge/schema";
 import { NumberField, TextField } from "./fields";
+import { SpellPicker } from "./spell-picker";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +18,7 @@ function newId(prefix: string): string {
 
 export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
   const sc = ed.draft.spellcasting;
+  const [showPicker, setShowPicker] = useState(false);
 
   const addCaster = () =>
     ed.update((c) =>
@@ -148,10 +151,20 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <BookOpen className="size-4" /> Spells
           </h3>
-          <Button size="sm" variant="secondary" onClick={() => ed.update((c) => c.spellcasting.knownSpells.push({ id: newId("spell"), name: "New spell", level: 0 }))}>
-            <Plus className="size-4" /> Add spell
-          </Button>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant={showPicker ? "secondary" : "ghost"} onClick={() => setShowPicker((v) => !v)}>
+              <Search className="size-4" /> Search compendium
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => ed.update((c) => c.spellcasting.knownSpells.push({ id: newId("spell"), name: "New spell", level: 0 }))}>
+              <Plus className="size-4" /> Add manually
+            </Button>
+          </div>
         </div>
+        {showPicker && (
+          <div className="mb-3">
+            <SpellPicker ed={ed} onClose={() => setShowPicker(false)} />
+          </div>
+        )}
         {sc.knownSpells.length === 0 && <p className="text-sm text-muted-foreground">No spells listed yet.</p>}
         <div className="space-y-2">
           {sc.knownSpells.map((sp, i) => (
