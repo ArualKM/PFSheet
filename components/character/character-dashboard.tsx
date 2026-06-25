@@ -136,7 +136,8 @@ export function CharacterDashboard({
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground">
-                  {vm.spellcasting.knownCount} known · {vm.spellcasting.preparedCount} prepared
+                  {vm.spellcasting.knownCount} spell{vm.spellcasting.knownCount === 1 ? "" : "s"}
+                  {vm.spellcasting.preparedCount > 0 ? ` · ${vm.spellcasting.preparedCount} prepared` : ""}
                 </p>
               </div>
             </SectionCard>

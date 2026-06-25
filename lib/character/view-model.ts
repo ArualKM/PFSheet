@@ -190,7 +190,12 @@ export function buildCharacterViewModel(
             casterLevel: num(c.casterLevel),
             castingAbility: c.castingAbility,
           })),
-          knownCount: character.spellcasting.knownSpells.length,
+          // The editor unifies spells into knownSpells; count all collections so a
+          // prepared caster's spells aren't reported as "0".
+          knownCount:
+            character.spellcasting.knownSpells.length +
+            character.spellcasting.preparedSpells.length +
+            character.spellcasting.spellbook.length,
           preparedCount: character.spellcasting.preparedSpells.length,
         })
       : null;
