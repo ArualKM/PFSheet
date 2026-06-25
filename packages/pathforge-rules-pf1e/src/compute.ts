@@ -298,12 +298,23 @@ export type ComputedValue = {
   errors: string[];
 };
 
+export type ComputedAttack = {
+  id: string;
+  name: string;
+  attackType: string;
+  attackBonus: number;
+  /** Raw damage expression (e.g. "1d8+7"); dice are not evaluated. */
+  damage?: string;
+  warnings: string[];
+};
+
 export type ComputedCharacter = {
   abilities: Record<string, AbilityComputation>;
   armorClass: { total: ComputedValue; touch: ComputedValue; flatFooted: ComputedValue; cmd: ComputedValue };
   saves: { fortitude: ComputedValue; reflex: ComputedValue; will: ComputedValue };
   initiative: ComputedValue;
   attackBonuses: { melee: ComputedValue; ranged: ComputedValue; cmb: ComputedValue };
+  attacks: ComputedAttack[];
   skills: Record<string, ComputedValue>;
   /** Compact summary for dashboard cards / API. */
   summary: {
@@ -397,12 +408,29 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   }
   resolver.local = {};
 
+  // Individual attack lines: resolve each attack's to-hit formula; damage dice
+  // are presentation-only and passed through untouched.
+  const attacks: ComputedAttack[] = character.combat.attacks
+    .filter((a) => a.enabled !== false)
+    .map((a) => {
+      const r = a.attackFormula ? evaluate(a.attackFormula, resolver) : null;
+      return {
+        id: a.id,
+        name: a.name,
+        attackType: a.attackType,
+        attackBonus: r ? r.value : 0,
+        damage: a.damageFormula,
+        warnings: r?.warnings ?? [],
+      };
+    });
+
   return {
     abilities,
     armorClass,
     saves: savesComputed,
     initiative,
     attackBonuses,
+    attacks,
     skills,
     summary: {
       totalLevel: character.identity.totalLevel,

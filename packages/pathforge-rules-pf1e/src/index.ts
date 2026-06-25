@@ -42,4 +42,5 @@ export type {
   ModifierIndex,
   ComputedValue,
   ComputedCharacter,
+  ComputedAttack,
 } from "./compute";

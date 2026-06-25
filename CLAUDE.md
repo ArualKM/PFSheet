@@ -49,5 +49,12 @@ Always run `pnpm lint && pnpm test && pnpm typecheck` before considering work do
 
 Milestone 0 (foundation) complete: scaffold, design system, app shell, auth, dashboard,
 characters list + create + computed overview, spell browser, DB schema + RLS, schema & formula
-packages with tests. Next per spec: Milestone 4/5 (full share dashboard + edit workspace),
-then Buff Center, GM audit, imports/exports, PWA.
+packages with tests.
+
+Milestone 4 (overview + share) complete: privacy view-model (`lib/character/view-model.ts`,
+§15 `buildCharacterViewModel`), full mockup-faithful `CharacterDashboard`, public share view at
+`/c/[publicSlug]` (admin-client + visibility gate, returns only the filtered model), share
+controls + publish/visibility action. Privacy + render tests cover "public never leaks private".
+
+Next per spec: Milestone 5 (edit workspace — inline editors, autosave, formula inspector,
+Simple/Advanced), then Buff Center, GM audit, imports/exports, PWA.
