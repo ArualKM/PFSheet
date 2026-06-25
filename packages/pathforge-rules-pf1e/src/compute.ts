@@ -156,6 +156,23 @@ export function buildModifierIndex(character: PathForgeCharacterV1): ModifierInd
     for (const e of f.automation) push(classifyTarget(e.target), effectToMod(e.id, f.name, f.name, e));
   }
 
+  // Always-on modifiers entered directly on a stat (entries with no condition).
+  for (const m of character.defenses.armorClass.conditionalModifiers) {
+    push("ac", modifierEntryToMod("Armor Class", m));
+  }
+  const saves = character.defenses.savingThrows;
+  for (const [key, domain] of [
+    ["fortitude", "save.fortitude"],
+    ["reflex", "save.reflex"],
+    ["will", "save.will"],
+  ] as const) {
+    for (const m of saves[key].misc) push(domain, modifierEntryToMod(`${key} save`, m));
+    for (const m of saves[key].conditionalModifiers) push(domain, modifierEntryToMod(`${key} save`, m));
+  }
+  for (const m of character.combat.initiative.conditionalModifiers) {
+    push("init", modifierEntryToMod("Initiative", m));
+  }
+
   return index;
 }
 
@@ -290,10 +307,14 @@ export class CharacterResolver implements Resolver {
 /* Top-level character computation                                            */
 /* -------------------------------------------------------------------------- */
 
+export type ComputedTerm = { ref: string; value: number };
+
 export type ComputedValue = {
   value: number;
   formula: string;
   dependencies: string[];
+  /** Each referenced path with its resolved value — powers the "Show Math" inspector. */
+  terms: ComputedTerm[];
   warnings: string[];
   errors: string[];
 };
@@ -335,10 +356,13 @@ export type ComputedCharacter = {
 function evalWith(formula: string, resolver: CharacterResolver, overrideFormula?: string): ComputedValue {
   const f = overrideFormula ?? formula;
   const r = evaluate(f, resolver);
+  // Resolve each dependency now, while any local (per-skill) scope is still set.
+  const terms = r.dependencies.map((ref) => ({ ref, value: resolver.resolve(ref).value }));
   return {
     value: r.value,
     formula: f,
     dependencies: r.dependencies,
+    terms,
     warnings: r.warnings,
     errors: r.errors,
   };

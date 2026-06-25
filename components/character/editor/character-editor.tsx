@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, CircleAlert, Loader2, Cloud, Undo2, Plus, Trash2, ExternalLink } from "lucide-react";
+import {
+  Check,
+  CircleAlert,
+  Loader2,
+  Cloud,
+  Undo2,
+  Plus,
+  Trash2,
+  ExternalLink,
+  Sigma,
+} from "lucide-react";
 import { ABILITY_KEYS, type PathForgeCharacterV1, type AbilityKey } from "@pathforge/schema";
+import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,8 +22,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
-const TABS = ["Identity", "Abilities", "Health", "Saves", "Skills", "Feats", "Profile"] as const;
+const TABS = ["Identity", "Abilities", "Health", "Saves", "AC", "Skills", "Feats", "Profile"] as const;
 type Tab = (typeof TABS)[number];
+
+const AC_COMPONENTS = [
+  { key: "armor", label: "Armor", bonusType: "armor" },
+  { key: "shield", label: "Shield", bonusType: "shield" },
+  { key: "natural", label: "Natural armor", bonusType: "natural_armor" },
+  { key: "deflection", label: "Deflection", bonusType: "deflection" },
+  { key: "dodge", label: "Dodge", bonusType: "dodge" },
+  { key: "misc", label: "Misc (untyped)", bonusType: "untyped" },
+] as const;
 
 const FEATURE_CATEGORIES = [
   "racial_trait",
@@ -42,6 +62,7 @@ export function CharacterEditor({
 }) {
   const ed = useCharacterEditor(characterId, initial);
   const [tab, setTab] = useState<Tab>("Identity");
+  const [advanced, setAdvanced] = useState(false);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
@@ -66,6 +87,20 @@ export function CharacterEditor({
             ))}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAdvanced((v) => !v)}
+              aria-pressed={advanced}
+              title="Toggle Simple / Advanced mode"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                advanced
+                  ? "border-gold/40 bg-gold/10 text-gold"
+                  : "border-border text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Sigma className="size-3.5" /> {advanced ? "Advanced" : "Simple"}
+            </button>
             <Button
               variant="ghost"
               size="sm"
@@ -85,6 +120,7 @@ export function CharacterEditor({
             {tab === "Abilities" && <AbilitiesEditor ed={ed} />}
             {tab === "Health" && <HealthEditor ed={ed} />}
             {tab === "Saves" && <SavesEditor ed={ed} />}
+            {tab === "AC" && <ACEditor ed={ed} />}
             {tab === "Skills" && <SkillsEditor ed={ed} />}
             {tab === "Feats" && <FeatsEditor ed={ed} />}
             {tab === "Profile" && <ProfileEditor ed={ed} />}
@@ -93,7 +129,7 @@ export function CharacterEditor({
       </div>
 
       <aside className="h-fit lg:sticky lg:top-20">
-        <LivePreview ed={ed} characterId={characterId} />
+        <LivePreview ed={ed} characterId={characterId} advanced={advanced} />
       </aside>
     </div>
   );
@@ -280,6 +316,71 @@ function SavesEditor({ ed }: { ed: EditorApi }) {
             />
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-raised p-2 text-center">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="tnum text-lg font-semibold text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function ACEditor({ ed }: { ed: EditorApi }) {
+  const mods = ed.draft.defenses.armorClass.conditionalModifiers;
+  const getVal = (key: string): number => {
+    const m = mods.find((x) => x.id === `ac_${key}`);
+    if (!m) return 0;
+    return typeof m.value === "number" ? m.value : Number(m.value) || 0;
+  };
+  const setVal = (comp: (typeof AC_COMPONENTS)[number], v: number) =>
+    ed.update((c) => {
+      const arr = c.defenses.armorClass.conditionalModifiers;
+      const idx = arr.findIndex((x) => x.id === `ac_${comp.key}`);
+      if (v === 0) {
+        if (idx >= 0) arr.splice(idx, 1);
+      } else if (idx >= 0) {
+        const t = arr[idx];
+        if (t) t.value = v;
+      } else {
+        arr.push({
+          id: `ac_${comp.key}`,
+          label: comp.label,
+          value: v,
+          bonusType: comp.bonusType,
+          enabled: true,
+        });
+      }
+    });
+
+  const ac = ed.computed.armorClass;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Enter your AC component bonuses. Dexterity, size, and base attack bonus are applied
+        automatically; touch and flat-footed are derived.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {AC_COMPONENTS.map((comp) => (
+          <NumberField
+            key={comp.key}
+            label={comp.label}
+            value={getVal(comp.key)}
+            onChange={(v) => setVal(comp, v)}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MiniStat label="AC" value={ac.total.value} />
+        <MiniStat label="Touch" value={ac.touch.value} />
+        <MiniStat label="Flat-footed" value={ac.flatFooted.value} />
+        <MiniStat label="CMD" value={ac.cmd.value} />
       </div>
     </div>
   );
@@ -517,7 +618,16 @@ function ProfileEditor({ ed }: { ed: EditorApi }) {
 /* Live preview + status                                                      */
 /* -------------------------------------------------------------------------- */
 
-function LivePreview({ ed, characterId }: { ed: EditorApi; characterId: string }) {
+function LivePreview({
+  ed,
+  characterId,
+  advanced,
+}: {
+  ed: EditorApi;
+  characterId: string;
+  advanced: boolean;
+}) {
+  const [showMath, setShowMath] = useState(false);
   const s = ed.computed.summary;
   const cells: Array<{ label: string; value: string | number }> = [
     { label: "AC", value: s.ac },
@@ -529,6 +639,15 @@ function LivePreview({ ed, characterId }: { ed: EditorApi; characterId: string }
     { label: "Fort", value: formatModifier(s.fortitude) },
     { label: "Reflex", value: formatModifier(s.reflex) },
     { label: "Will", value: formatModifier(s.will) },
+  ];
+  const breakdowns: Array<{ label: string; cv: ComputedValue }> = [
+    { label: "Armor Class", cv: ed.computed.armorClass.total },
+    { label: "Touch AC", cv: ed.computed.armorClass.touch },
+    { label: "CMD", cv: ed.computed.armorClass.cmd },
+    { label: "Fortitude", cv: ed.computed.saves.fortitude },
+    { label: "Reflex", cv: ed.computed.saves.reflex },
+    { label: "Will", cv: ed.computed.saves.will },
+    { label: "Initiative", cv: ed.computed.initiative },
   ];
   return (
     <Card>
@@ -554,8 +673,56 @@ function LivePreview({ ed, characterId }: { ed: EditorApi; characterId: string }
             </div>
           ))}
         </div>
+
+        {advanced && (
+          <div className="mt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => setShowMath((v) => !v)}
+            >
+              <Sigma className="size-4" /> {showMath ? "Hide math" : "Show math"}
+            </Button>
+            {showMath && (
+              <div className="mt-2 space-y-2">
+                {breakdowns.map((b) => (
+                  <FormulaBreakdown key={b.label} label={b.label} cv={b.cv} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function FormulaBreakdown({ label, cv }: { label: string; cv: ComputedValue }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-raised p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <span className="tnum text-sm font-semibold text-gold">{cv.value}</span>
+      </div>
+      <code className="mt-1 block break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
+        {cv.formula}
+      </code>
+      {cv.terms.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {cv.terms.map((t, i) => (
+            <li key={i} className="flex items-center justify-between text-xs">
+              <span className="truncate font-mono text-muted-foreground">{`@{${t.ref}}`}</span>
+              <span className="tnum ml-2 shrink-0 text-foreground">{t.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cv.warnings.length > 0 && (
+        <p className="mt-2 text-[11px] text-warning">{cv.warnings.join("; ")}</p>
+      )}
+      {cv.errors.length > 0 && <p className="mt-2 text-[11px] text-danger">{cv.errors.join("; ")}</p>}
+    </div>
   );
 }
 

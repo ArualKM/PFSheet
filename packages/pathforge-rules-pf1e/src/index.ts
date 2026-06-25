@@ -41,6 +41,7 @@ export type {
   AbilityComputation,
   ModifierIndex,
   ComputedValue,
+  ComputedTerm,
   ComputedCharacter,
   ComputedAttack,
 } from "./compute";

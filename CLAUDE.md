@@ -56,11 +56,16 @@ Milestone 4 (overview + share) complete: privacy view-model (`lib/character/view
 `/c/[publicSlug]` (admin-client + visibility gate, returns only the filtered model), share
 controls + publish/visibility action. Privacy + render tests cover "public never leaks private".
 
-Milestone 5 (edit workspace) — core in place: `useCharacterEditor` (client draft + live
-recompute + debounced autosave + undo + unsaved-changes guard), `CharacterEditor` with
-Identity/Abilities/Health/Saves/Profile tabs and a live-values preview, `saveCharacterSheetAction`
-(validates + recomputes + persists, RLS-gated). Pending in M5: AC/CMD editor, Skills editor,
-Feats/Features editor, inventory, the "Show Math" formula inspector drawer, and the
-Simple/Advanced formula-field toggle.
+Milestone 5 (edit workspace) — complete: `useCharacterEditor` (client draft + live recompute +
+debounced autosave + undo + unsaved-changes guard), `CharacterEditor` with Identity/Abilities/
+Health/Saves/AC/Skills/Feats/Profile tabs, a live-values preview, the Simple/Advanced toggle, and
+a "Show Math" formula inspector (formula + resolved terms per value). `saveCharacterSheetAction`
+validates + recomputes + persists (RLS-gated). Engine now resolves per-stat modifiers
+(AC components, save misc, init) entered directly on the sheet, and exposes `ComputedValue.terms`
+for the inspector. AC editor writes typed component bonuses into
+`defenses.armorClass.conditionalModifiers`.
 
-Next per spec after M5: Buff Center, GM audit, imports/exports, PWA.
+Pending later: inventory/wealth editor, spellcasting editor.
+
+Next per spec after M5: Buff Center (M6), GM audit + campaign workflow (M7), imports (M8),
+exports + API (M9), PWA/offline (M10), polish/QA (M11).

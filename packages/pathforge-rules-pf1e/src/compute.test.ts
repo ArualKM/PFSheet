@@ -49,6 +49,35 @@ describe("computeCharacter — ability + save math", () => {
   });
 });
 
+describe("computeCharacter — per-stat modifiers + inspector terms", () => {
+  it("applies an armor bonus entered directly on the AC stat (and respects touch/flat-footed)", () => {
+    const c = createDefaultCharacter();
+    c.defenses.armorClass.conditionalModifiers = [
+      { id: "ac_armor", label: "Armor", value: 6, bonusType: "armor", enabled: true },
+    ];
+    const computed = computeCharacter(c);
+    expect(computed.armorClass.total.value).toBe(16); // 10 + armor 6
+    expect(computed.armorClass.flatFooted.value).toBe(16); // armor applies when flat-footed
+    expect(computed.armorClass.touch.value).toBe(10); // armor never applies to touch AC
+  });
+
+  it("applies a typed misc bonus entered on a saving throw", () => {
+    const c = createDefaultCharacter();
+    c.defenses.savingThrows.will.misc = [
+      { id: "cloak", label: "Cloak of Resistance", value: 2, bonusType: "resistance", enabled: true },
+    ];
+    expect(computeCharacter(c).saves.will.value).toBe(2);
+  });
+
+  it("exposes resolved reference terms for the formula inspector", () => {
+    const computed = computeCharacter(createDefaultCharacter());
+    const terms = computed.armorClass.total.terms;
+    expect(terms.length).toBeGreaterThan(0);
+    expect(terms.find((t) => t.ref === "ac.armor")).toBeTruthy();
+    expect(terms.every((t) => typeof t.value === "number")).toBe(true);
+  });
+});
+
 describe("computeCharacter — resolver hardening", () => {
   it("does not resolve Object.prototype keys as references", () => {
     const c = createDefaultCharacter();
