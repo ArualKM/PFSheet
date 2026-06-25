@@ -178,6 +178,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                   label="Wt (lb)"
                   value={item.weight ?? 0}
                   min={0}
+                  integer={false}
                   onChange={(v) => updateItem(item.id, { weight: v })}
                   className="w-24"
                 />

@@ -189,7 +189,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             onClick={() =>
               ed.update((c) => {
                 c.identity.classes.push({
-                  id: `class_${c.identity.classes.length + 1}_${Date.now().toString(36)}`,
+                  id: newId("class"),
                   name: "Class",
                   level: 1,
                 });
@@ -417,6 +417,10 @@ function AbilitiesEditor({ ed, advanced }: { ed: EditorApi; advanced: boolean })
 
 function newModId(): string {
   return `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+}
+
+function newId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function ModifierRows({
@@ -717,7 +721,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                       value={s.ranks}
                       aria-label={`${s.label} ranks`}
                       onChange={(e) => {
-                        const n = e.target.value === "" ? 0 : Number(e.target.value);
+                        const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
                         if (!Number.isNaN(n))
                           ed.update((c) => {
                             const t = c.skills.list[i];
@@ -754,7 +758,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             onClick={() =>
               ed.update((c) =>
                 c.feats.list.push({
-                  id: `feat_${c.feats.list.length}_${Date.now().toString(36)}`,
+                  id: newId("feat"),
                   name: "New Feat",
                   tags: [],
                   automation: [],
@@ -814,7 +818,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             onClick={() =>
               ed.update((c) =>
                 c.features.list.push({
-                  id: `feat_${c.features.list.length}_${Date.now().toString(36)}`,
+                  id: newId("feature"),
                   name: "New Feature",
                   category: "class_feature",
                   automation: [],

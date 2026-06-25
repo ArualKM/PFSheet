@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ export function NumberField({
   onChange,
   min,
   max,
+  integer = true,
   hint,
   className,
 }: {
@@ -18,22 +20,54 @@ export function NumberField({
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  /** Coerce committed values to whole numbers (default: true — most stats are ints). */
+  integer?: boolean;
   hint?: string;
   className?: string;
 }) {
+  const id = useId();
+  // Local string draft so the field can be cleared and accept a leading "-"
+  // without the controlled value snapping back to 0 mid-edit.
+  const [text, setText] = useState(Number.isFinite(value) ? String(value) : "");
+  const [seen, setSeen] = useState(value);
+  // Re-sync the draft when the model value changes from elsewhere (undo, live
+  // recompute) — the React "adjust state on prop change" pattern, not an effect.
+  if (value !== seen) {
+    setSeen(value);
+    setText(Number.isFinite(value) ? String(value) : "");
+  }
+
+  const commit = (raw: string) => {
+    if (raw === "" || raw === "-") return; // wait for a real number
+    let n = Number(raw);
+    if (Number.isNaN(n)) return;
+    if (integer) n = Math.trunc(n);
+    onChange(n);
+  };
+
   return (
     <div className={cn("space-y-1", className)}>
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <Input
+        id={id}
         type="number"
-        inputMode="numeric"
-        value={Number.isFinite(value) ? String(value) : ""}
+        inputMode={!integer ? "decimal" : min !== undefined && min >= 0 ? "numeric" : "decimal"}
+        value={text}
         min={min}
         max={max}
+        step={integer ? 1 : undefined}
         onChange={(e) => {
-          const raw = e.target.value;
-          const n = raw === "" || raw === "-" ? 0 : Number(raw);
-          if (!Number.isNaN(n)) onChange(n);
+          setText(e.target.value);
+          commit(e.target.value);
+        }}
+        onBlur={() => {
+          if (text === "" || text === "-") {
+            setText("0");
+            onChange(0);
+            return;
+          }
+          const n = Number(text);
+          if (!Number.isNaN(n)) setText(String(integer ? Math.trunc(n) : n));
         }}
         className="tnum"
       />
@@ -57,10 +91,11 @@ export function TextField({
   hint?: string;
   className?: string;
 }) {
+  const id = useId();
   return (
     <div className={cn("space-y-1", className)}>
-      <Label>{label}</Label>
-      <Input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       {hint && <p className="text-[11px] text-warning">{hint}</p>}
     </div>
   );
@@ -79,10 +114,12 @@ export function TextAreaField({
   rows?: number;
   className?: string;
 }) {
+  const id = useId();
   return (
     <div className={cn("space-y-1", className)}>
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <textarea
+        id={id}
         value={value}
         rows={rows}
         onChange={(e) => onChange(e.target.value)}

@@ -37,17 +37,19 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
       const caster = c.spellcasting.casters[i];
       if (caster) Object.assign(caster, patch);
     });
-  const setSlots = (i: number, level: number, total: number) =>
+  const setSlots = (i: number, level: number, total: number | null) =>
     ed.update((c) => {
       const caster = c.spellcasting.casters[i];
       if (!caster) return;
       const key = String(level);
-      if (total > 0) {
-        const existing = caster.spellsPerDay[key];
-        caster.spellsPerDay[key] = { used: existing?.used ?? 0, bonus: existing?.bonus, total };
-      } else {
+      const existing = caster.spellsPerDay[key];
+      // Empty (null) or 0 with nothing tracked → drop the level; otherwise keep
+      // any `used`/`bonus` so clearing-and-retyping the total doesn't lose them.
+      if ((total === null || total === 0) && !existing?.used && !existing?.bonus) {
         delete caster.spellsPerDay[key];
+        return;
       }
+      caster.spellsPerDay[key] = { used: existing?.used ?? 0, bonus: existing?.bonus, total: total ?? 0 };
     });
 
   return (
@@ -114,7 +116,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                 </Button>
               </div>
               <div className="mt-3">
-                <span className="mb-1 block text-[11px] uppercase tracking-wide text-muted-foreground">Spells / day</span>
+                <span className="mb-1 block text-[11px] uppercase tracking-wide text-muted-foreground">Spells / day · levels 0–9</span>
                 <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
                   {SPELL_LEVELS.map((lvl) => (
                     <label key={lvl} className="text-center">
@@ -124,7 +126,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                         min={0}
                         aria-label={`${caster.className} level ${lvl} spells per day`}
                         value={caster.spellsPerDay[String(lvl)]?.total ?? ""}
-                        onChange={(e) => setSlots(i, lvl, e.target.value === "" ? 0 : Number(e.target.value))}
+                        onChange={(e) => setSlots(i, lvl, e.target.value === "" ? null : Math.trunc(Number(e.target.value)))}
                         className="tnum h-8 w-full rounded-md border border-border bg-background px-1 text-center text-xs"
                       />
                     </label>
