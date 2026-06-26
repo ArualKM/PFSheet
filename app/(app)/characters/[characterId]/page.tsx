@@ -86,6 +86,9 @@ export default async function CharacterOverviewPage({
             <Button asChild variant="ghost" size="sm">
               <Link href={`/characters/${characterId}/history`}>History</Link>
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/characters/${characterId}/exports`}>Export</Link>
+            </Button>
             <Button asChild size="sm">
               <Link href={`/characters/${characterId}/edit`}>Edit</Link>
             </Button>
