@@ -10,6 +10,7 @@
 import type { PathForgeCharacterV1 } from "@pathforge/schema";
 import { pathforgeJsonAdapter } from "./pathforge-json";
 import { mythweaversJsonAdapter } from "./mythweavers-json";
+import { foundryPf1ActorJsonAdapter } from "./foundry-pf1-actor-json";
 
 export type ImportSourceType =
   | "pathforge_json"
@@ -77,9 +78,14 @@ export type ImportAdapter = {
 export { str, toInt, parseLeadingInt, isDivider, isPlaceholder, isRealValue } from "./util";
 export { pathforgeJsonAdapter } from "./pathforge-json";
 export { mythweaversJsonAdapter } from "./mythweavers-json";
+export { foundryPf1ActorJsonAdapter } from "./foundry-pf1-actor-json";
 
 /** Registry of available adapters (Milestone 8). */
-export const importAdapters: ImportAdapter[] = [pathforgeJsonAdapter, mythweaversJsonAdapter];
+export const importAdapters: ImportAdapter[] = [
+  pathforgeJsonAdapter,
+  foundryPf1ActorJsonAdapter,
+  mythweaversJsonAdapter,
+];
 
 /** Pick the highest-confidence adapter that matches the input, if any. */
 export async function detectAdapter(
