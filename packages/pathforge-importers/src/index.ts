@@ -8,6 +8,8 @@
  * in Milestone 8; this package currently defines the shared pipeline contract.
  */
 import type { PathForgeCharacterV1 } from "@pathforge/schema";
+import { pathforgeJsonAdapter } from "./pathforge-json";
+import { mythweaversJsonAdapter } from "./mythweavers-json";
 
 export type ImportSourceType =
   | "pathforge_json"
@@ -72,5 +74,62 @@ export type ImportAdapter = {
   validate(draft: NormalizedCharacterDraft): Promise<ImportValidationResult>;
 };
 
-/** Registry of available adapters. Populated in Milestone 8. */
-export const importAdapters: ImportAdapter[] = [];
+export { str, toInt, parseLeadingInt, isDivider, isPlaceholder, isRealValue } from "./util";
+export { pathforgeJsonAdapter } from "./pathforge-json";
+export { mythweaversJsonAdapter } from "./mythweavers-json";
+
+/** Registry of available adapters (Milestone 8). */
+export const importAdapters: ImportAdapter[] = [pathforgeJsonAdapter, mythweaversJsonAdapter];
+
+/** Pick the highest-confidence adapter that matches the input, if any. */
+export async function detectAdapter(
+  input: ImportInput,
+): Promise<{ adapter: ImportAdapter; detection: DetectionResult } | null> {
+  let best: { adapter: ImportAdapter; detection: DetectionResult } | null = null;
+  for (const adapter of importAdapters) {
+    const detection = await adapter.detect(input);
+    if (detection.matched && (!best || detection.confidence > best.detection.confidence)) {
+      best = { adapter, detection };
+    }
+  }
+  return best;
+}
+
+export type ImportPipelineResult = {
+  sourceType: ImportSourceType;
+  detection: DetectionResult;
+  draft: NormalizedCharacterDraft;
+  validation: ImportValidationResult;
+  sourceMetadata: Record<string, unknown>;
+};
+
+/**
+ * Run the full §12.1 pipeline: detect (or honor an explicit sourceType) → parse →
+ * normalize → validate. Returns null when no adapter recognizes the input.
+ */
+export async function runImportPipeline(input: ImportInput): Promise<ImportPipelineResult | null> {
+  let adapter: ImportAdapter | undefined;
+  let detection: DetectionResult | undefined;
+
+  if (input.sourceType && input.sourceType !== "unknown") {
+    adapter = importAdapters.find((a) => a.key === input.sourceType);
+    if (adapter) detection = await adapter.detect(input);
+  }
+  if (!adapter) {
+    const best = await detectAdapter(input);
+    if (!best) return null;
+    adapter = best.adapter;
+    detection = best.detection;
+  }
+
+  const parsed = await adapter.parse(input);
+  const draft = await adapter.normalize(parsed);
+  const validation = await adapter.validate(draft);
+  return {
+    sourceType: adapter.key,
+    detection: detection ?? { matched: true, confidence: 1, sourceType: adapter.key },
+    draft,
+    validation,
+    sourceMetadata: parsed.sourceMetadata,
+  };
+}
