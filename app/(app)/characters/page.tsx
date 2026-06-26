@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, ScrollText } from "lucide-react";
+import { Plus, ScrollText, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/app-shell/app-shell";
@@ -35,11 +35,18 @@ export default async function CharactersPage() {
         title="Characters"
         description="Every hero you've forged. Owner-only by default — share when you're ready."
         actions={
-          <Button asChild>
-            <Link href="/characters/new">
-              <Plus className="size-4" /> New character
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="secondary">
+              <Link href="/characters/import">
+                <Upload className="size-4" /> Import
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/characters/new">
+                <Plus className="size-4" /> New character
+              </Link>
+            </Button>
+          </>
         }
       />
 

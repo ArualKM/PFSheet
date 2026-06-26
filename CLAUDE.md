@@ -132,7 +132,26 @@ characters drop out of the active roster, the GM review queue, and the awaiting-
 "Archived" section on the dashboard lets a GM (or the character owner) Restore or Remove. archive/
 restore are `campaign_characters` updates gated by the existing `campchar_update` RLS (owner OR GM).
 
-Next per spec: imports (M8), exports + API (M9), PWA/offline (M10), polish/QA (M11).
+Milestone 8 (imports) — in progress. The §12 adapter pipeline + the import wizard, each shipped after
+an adversarial review. `packages/pathforge-importers` defines the `ImportAdapter` contract +
+`runImportPipeline` (detect → parse → normalize → validate); every adapter preserves unmapped source
+(metadata.unmapped / labeled notes) — "import never silently discards data".
+- **Pass A** — `pathforge-json` (canonical/wrapped/snapshot) + `mythweavers-json` (the user's real
+  sheets; flat overloaded slots → resilient mapping: skips dividers/placeholders/budget-trackers,
+  recomputes nothing it can't trust, dumps text areas to notes, flags Mythic/Spheres).
+- **Pass C·1** — `foundry-pf1-actor-json`: modern (`system`, persisted-only → recomputes BAB/saves/HP
+  from class items) + legacy (`data`), maps the 35 skill codes incl. nested `subSkills`, translates
+  buff `changes[]` → effects, detects Mythic (class subType) + Spheres (`flags.pf1-pow`). Built against
+  the user's two real Foundry exports.
+- **Pass B** — import wizard (`/characters/import` + `/characters/[id]/imports`) + `lib/actions/
+  imports.ts`: server-only parse, §21.3 sanitize + size cap, `import_jobs` rows, preview→commit;
+  import-as-new OR merge (snapshots the target first, §16.1; the merge UPDATE is `.select()`-verified
+  so an RLS-filtered 0-row write can't report false success).
+Fixtures live in `docs/` (Mythweavers + Foundry exports). **Hero Lab is shelved** (deferred, low-prio):
+HL Online has no PF1e; HL Classic is paywalled legacy. See [[pathforge-import-samples]].
+Remaining for M8: a fillable-PDF (AcroForm) adapter; statblock parser is post-MVP per spec.
+
+Next per spec: exports + API (M9), PWA/offline (M10), polish/QA (M11).
 
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 
