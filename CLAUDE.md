@@ -132,7 +132,7 @@ characters drop out of the active roster, the GM review queue, and the awaiting-
 "Archived" section on the dashboard lets a GM (or the character owner) Restore or Remove. archive/
 restore are `campaign_characters` updates gated by the existing `campchar_update` RLS (owner OR GM).
 
-Milestone 8 (imports) — in progress. The §12 adapter pipeline + the import wizard, each shipped after
+Milestone 8 (imports) — "deliver first" set complete. The §12 adapter pipeline + the import wizard, each shipped after
 an adversarial review. `packages/pathforge-importers` defines the `ImportAdapter` contract +
 `runImportPipeline` (detect → parse → normalize → validate); every adapter preserves unmapped source
 (metadata.unmapped / labeled notes) — "import never silently discards data".
@@ -147,9 +147,14 @@ an adversarial review. `packages/pathforge-importers` defines the `ImportAdapter
   imports.ts`: server-only parse, §21.3 sanitize + size cap, `import_jobs` rows, preview→commit;
   import-as-new OR merge (snapshots the target first, §16.1; the merge UPDATE is `.select()`-verified
   so an RLS-filtered 0-row write can't report false success).
+- **Pass C·2** — `fillable-pdf` (AcroForm via `pdf-lib`): heuristic field-name mapping (abilities/HP/
+  BAB/saves/speed/identity/skill-ranks) + full preservation of the rest; binary upload path (wizard
+  reads the PDF as base64 → server decodes → bytes); parse bounded by a tighter byte cap + a wall-clock
+  timeout (untrusted-PDF DoS guard).
 Fixtures live in `docs/` (Mythweavers + Foundry exports). **Hero Lab is shelved** (deferred, low-prio):
 HL Online has no PF1e; HL Classic is paywalled legacy. See [[pathforge-import-samples]].
-Remaining for M8: a fillable-PDF (AcroForm) adapter; statblock parser is post-MVP per spec.
+M8's "deliver first" set is done (PathForge / Foundry / Myth-Weavers / PDF + wizard). Deferred/"then add":
+Myth-Weavers HTML mapper, Hero Lab `.por`, statblock parser (post-MVP per spec).
 
 Next per spec: exports + API (M9), PWA/offline (M10), polish/QA (M11).
 

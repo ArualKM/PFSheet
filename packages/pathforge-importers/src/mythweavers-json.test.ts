@@ -63,8 +63,8 @@ describe("mythweavers-json adapter", () => {
     expect(c.abilities?.primary.str.score).toBe(16);
     expect(c.health?.maxHp).toBe(45);
     expect(c.combat?.bab.total).toBe(5);
-    // Saves imported as fixed totals — formula pinned so the ability mod isn't added twice.
-    expect(c.defenses?.savingThrows.fortitude.base).toBe(7);
+    // Saves imported as fixed totals — formula pinned (base left 0 to avoid double-count on rebuild).
+    expect(c.defenses?.savingThrows.fortitude.base).toBe(0);
     expect(c.defenses?.savingThrows.fortitude.formula).toBe("7");
     // AC components became typed modifiers.
     const ac = c.defenses?.armorClass.conditionalModifiers ?? [];

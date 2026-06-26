@@ -112,21 +112,27 @@ export type PreviewState = { error?: string; preview?: ImportPreview };
 
 export async function previewImportAction(input: {
   text?: string;
+  dataBase64?: string;
   filename?: string;
   sourceType?: string;
 }): Promise<PreviewState> {
   const { supabase, user } = await authedClient();
   const text = input.text ?? "";
-  if (!text.trim()) return { error: "Paste or upload a character export first." };
-  if (text.length > MAX_SOURCE_BYTES) return { error: "That file is too large (max ~6 MB)." };
+  const isBinary = Boolean(input.dataBase64);
+  const size = isBinary ? input.dataBase64!.length : text.length;
+  if (!isBinary && !text.trim()) return { error: "Paste or upload a character export first." };
+  if (size > MAX_SOURCE_BYTES) return { error: "That file is too large (max ~6 MB)." };
 
   let result: Awaited<ReturnType<typeof runImportPipeline>>;
   try {
-    result = await runImportPipeline({
-      text,
-      sourceType: input.sourceType as ImportSourceType | undefined,
-      filename: input.filename,
-    });
+    const pipelineInput = isBinary
+      ? {
+          bytes: new Uint8Array(Buffer.from(input.dataBase64!, "base64")),
+          sourceType: input.sourceType as ImportSourceType | undefined,
+          filename: input.filename,
+        }
+      : { text, sourceType: input.sourceType as ImportSourceType | undefined, filename: input.filename };
+    result = await runImportPipeline(pipelineInput);
   } catch {
     return { error: "Couldn't parse that file." };
   }
@@ -148,7 +154,7 @@ export async function previewImportAction(input: {
       source_type: result.sourceType,
       status: "previewed",
       original_filename: input.filename ?? null,
-      source_metadata: { shape: result.sourceMetadata?.shape ?? null, length: text.length } as Json,
+      source_metadata: { shape: result.sourceMetadata?.shape ?? null, length: size } as Json,
       mapping_preview: { draft: parsed.ok ? parsed.character : draft, summary } as unknown as Json,
       warnings: result.draft.warnings as unknown as Json,
       errors: result.validation.errors as unknown as Json,

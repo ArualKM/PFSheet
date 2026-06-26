@@ -30,8 +30,8 @@ describe("Myth-Weavers import — real docs fixtures", () => {
     expect(perform?.ranks).toBe(20);
     expect(perform?.specialty).toBe("dance");
 
-    // Saves: formula pinned to the total so the ability mod isn't double-counted.
-    expect(c.defenses?.savingThrows.fortitude.base).toBe(47);
+    // Saves: formula pinned to the total (base stays 0 so a formula rebuild won't double-count).
+    expect(c.defenses?.savingThrows.fortitude.base).toBe(0);
     expect(c.defenses?.savingThrows.fortitude.formula).toBe("47");
 
     // Lossless: the gold ledger + mythic build land in notes; Campaign + CMD in unmapped;

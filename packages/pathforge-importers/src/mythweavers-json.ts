@@ -194,11 +194,10 @@ function normalizeMw(mw: Mw): NormalizedCharacterDraft {
       if (isRealValue(pv)) unmapped[`${mwKey}${part}`] = pv;
     }
     if (total !== undefined) {
-      const save = character.defenses.savingThrows[key];
-      save.base = total;
-      // The engine computes saves from save.formula (not abilityKey), so pin the
-      // formula to the imported total — otherwise the ability mod double-counts.
-      save.formula = String(total);
+      // The engine computes saves from save.formula, so pin it to the imported
+      // total. Leave base at 0 — putting the total in base would double-count if
+      // the user later restores the default (base + ability + misc) formula.
+      character.defenses.savingThrows[key].formula = String(total);
       setAnySave = true;
     }
   }

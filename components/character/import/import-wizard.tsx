@@ -15,6 +15,10 @@ import { Badge } from "@/components/ui/badge";
 const textareaClass =
   "flex w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs text-foreground shadow-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
+// Reject oversized files client-side before reading (the server cap is ~6 MB on the
+// base64 payload; ~4 MB of raw file keeps us comfortably under it).
+const MAX_FILE_BYTES = 4_000_000;
+
 export function ImportWizard({
   characters,
   defaultMergeId,
@@ -23,6 +27,7 @@ export function ImportWizard({
   defaultMergeId?: string;
 }) {
   const [text, setText] = useState("");
+  const [dataBase64, setDataBase64] = useState<string | undefined>();
   const [filename, setFilename] = useState<string | undefined>();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mode, setMode] = useState<"new" | "merge">(defaultMergeId ? "merge" : "new");
@@ -31,16 +36,44 @@ export function ImportWizard({
   const [pending, startTransition] = useTransition();
 
   const onFile = (file: File) => {
+    if (file.size > MAX_FILE_BYTES) {
+      setError("That file is too large (max ~4 MB).");
+      return;
+    }
+    setError(null);
     setFilename(file.name);
+    setText("");
+    setDataBase64(undefined);
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     const reader = new FileReader();
-    reader.onload = () => setText(typeof reader.result === "string" ? reader.result : "");
-    reader.readAsText(file);
+    reader.onerror = () => {
+      setText("");
+      setDataBase64(undefined);
+      setError("Couldn't read that file — try again.");
+    };
+    if (isPdf) {
+      // readAsDataURL → "data:application/pdf;base64,XXXX". The browser base64-encodes
+      // natively (no per-char loop); keep only the payload after the comma.
+      reader.onload = () => {
+        const res = typeof reader.result === "string" ? reader.result : "";
+        const comma = res.indexOf(",");
+        setDataBase64(comma >= 0 ? res.slice(comma + 1) : res);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      reader.onload = () => setText(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsText(file);
+    }
   };
 
   const doPreview = () => {
     setError(null);
     startTransition(async () => {
-      const res = await previewImportAction({ text, filename });
+      const res = await previewImportAction({
+        text: dataBase64 ? undefined : text,
+        dataBase64,
+        filename,
+      });
       if (res.error) setError(res.error);
       else if (res.preview) setPreview(res.preview);
     });
@@ -60,6 +93,7 @@ export function ImportWizard({
   const reset = () => {
     setPreview(null);
     setText("");
+    setDataBase64(undefined);
     setFilename(undefined);
     setError(null);
   };
@@ -77,14 +111,14 @@ export function ImportWizard({
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-surface-raised/40 px-6 py-8 text-center transition-colors hover:border-gold/40">
             <Upload className="size-6 text-gold" />
             <span className="text-sm font-medium text-foreground">
-              {filename ? filename : "Upload a .json export"}
+              {filename ? filename : "Upload a .json or .pdf export"}
             </span>
             <span className="text-xs text-muted-foreground">
-              PathForge, Myth-Weavers, or Foundry VTT PF1e JSON
+              PathForge / Myth-Weavers / Foundry JSON, or a fillable PF1e PDF
             </span>
             <input
               type="file"
-              accept=".json,.txt,application/json,text/plain"
+              accept=".json,.txt,.pdf,application/json,application/pdf,text/plain"
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -104,6 +138,7 @@ export function ImportWizard({
               onChange={(e) => {
                 setText(e.target.value);
                 setFilename(undefined);
+                setDataBase64(undefined);
               }}
               placeholder='{ "schemaVersion": "...", ... }  or a Myth-Weavers / Foundry export'
               className={textareaClass}
@@ -113,7 +148,7 @@ export function ImportWizard({
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex justify-end">
-            <Button type="button" onClick={doPreview} disabled={pending || !text.trim()}>
+            <Button type="button" onClick={doPreview} disabled={pending || (!text.trim() && !dataBase64)}>
               {pending ? "Reading…" : "Preview import"} <ArrowRight className="size-4" />
             </Button>
           </div>
