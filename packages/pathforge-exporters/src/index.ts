@@ -7,6 +7,8 @@
  * this package currently defines the shared export contract.
  */
 import type { PathForgeCharacterV1 } from "@pathforge/schema";
+import { pathforgeJsonExporter } from "./pathforge-json";
+import { foundryPf1ActorJsonExporter } from "./foundry-pf1-actor-json";
 
 export type ExportType =
   | "pathforge_json"
@@ -21,6 +23,10 @@ export type ExportContext = {
   character: PathForgeCharacterV1;
   computedSummary?: Record<string, unknown>;
   shareUrl?: string;
+  /** ISO timestamp to stamp into the export (passed in so exporters stay pure). */
+  exportedAt?: string;
+  /** The character's DB id, for provenance metadata (e.g. Foundry flags.pathforge). */
+  characterId?: string;
 };
 
 export type ExportResult = {
@@ -43,5 +49,15 @@ export type ExportAdapter = {
   run(ctx: ExportContext): Promise<ExportResult>;
 };
 
-/** Registry of available exporters. Populated in Milestone 9. */
-export const exportAdapters: ExportAdapter[] = [];
+export { pathforgeJsonExporter } from "./pathforge-json";
+export { foundryPf1ActorJsonExporter } from "./foundry-pf1-actor-json";
+
+/** Registry of available exporters (Milestone 9). Printable PDFs are planned (§13.3). */
+export const exportAdapters: ExportAdapter[] = [pathforgeJsonExporter, foundryPf1ActorJsonExporter];
+
+/** Run a specific exporter by type. Returns null if the type isn't implemented. */
+export async function runExport(type: ExportType, ctx: ExportContext): Promise<ExportResult | null> {
+  const adapter = exportAdapters.find((a) => a.key === type);
+  if (!adapter) return null;
+  return adapter.run(ctx);
+}
