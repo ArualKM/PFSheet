@@ -83,6 +83,23 @@ export const REVIEW_CHECKLIST = [
 
 export type ReviewChecklistKey = (typeof REVIEW_CHECKLIST)[number]["key"];
 
+/** Why a campaign character is archived (dead PC, break, retirement, …). */
+export const ARCHIVE_REASONS = [
+  { key: "dead", label: "Dead" },
+  { key: "on_break", label: "On break" },
+  { key: "retired", label: "Retired" },
+  { key: "left", label: "Player left" },
+  { key: "other", label: "Other" },
+] as const;
+
+export type ArchiveReason = (typeof ARCHIVE_REASONS)[number]["key"];
+
+export const ARCHIVE_REASON_KEYS = ARCHIVE_REASONS.map((r) => r.key) as readonly ArchiveReason[];
+
+export function archiveReasonLabel(reason: string | null | undefined): string {
+  return ARCHIVE_REASONS.find((r) => r.key === reason)?.label ?? "Archived";
+}
+
 export function reviewStatusMeta(status: string | null | undefined): ReviewStatusMeta {
   return REVIEW_STATUS_META[(status ?? "unreviewed") as GmReviewStatus] ?? REVIEW_STATUS_META.unreviewed;
 }

@@ -123,6 +123,8 @@ export type Database = {
         Row: {
           added_by: string | null
           approved_snapshot_id: string | null
+          archive_reason: string | null
+          archived_at: string | null
           campaign_id: string
           character_id: string
           created_at: string | null
@@ -133,6 +135,8 @@ export type Database = {
         Insert: {
           added_by?: string | null
           approved_snapshot_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           campaign_id: string
           character_id: string
           created_at?: string | null
@@ -143,6 +147,8 @@ export type Database = {
         Update: {
           added_by?: string | null
           approved_snapshot_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           campaign_id?: string
           character_id?: string
           created_at?: string | null

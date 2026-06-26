@@ -113,6 +113,47 @@ export async function removeCharacterFromCampaignAction(
   return { ok: true };
 }
 
+const ARCHIVE_REASONS = ["dead", "on_break", "retired", "left", "other"] as const;
+
+/**
+ * Archive a roster character (§17 — dead PC, player on break, retired, left)
+ * instead of removing it, keeping its review status + history. RLS lets a GM or
+ * the character owner do this.
+ */
+export async function archiveRosterCharacterAction(
+  campaignId: string,
+  characterId: string,
+  reason: string,
+): Promise<MutationState> {
+  const archiveReason = (ARCHIVE_REASONS as readonly string[]).includes(reason) ? reason : "other";
+  const { supabase } = await authedClient();
+  const { error } = await supabase
+    .from("campaign_characters")
+    .update({ archived_at: new Date().toISOString(), archive_reason: archiveReason })
+    .eq("campaign_id", campaignId)
+    .eq("character_id", characterId);
+  if (error) return { error: error.message };
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/gm`);
+  return { ok: true };
+}
+
+export async function restoreRosterCharacterAction(
+  campaignId: string,
+  characterId: string,
+): Promise<MutationState> {
+  const { supabase } = await authedClient();
+  const { error } = await supabase
+    .from("campaign_characters")
+    .update({ archived_at: null, archive_reason: null })
+    .eq("campaign_id", campaignId)
+    .eq("character_id", characterId);
+  if (error) return { error: error.message };
+  revalidatePath(`/campaigns/${campaignId}`);
+  revalidatePath(`/campaigns/${campaignId}/gm`);
+  return { ok: true };
+}
+
 /** Invite a member by their public handle. RLS requires the actor to be a GM. */
 export async function inviteMemberAction(
   campaignId: string,

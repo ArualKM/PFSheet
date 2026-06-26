@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ShieldCheck, Users, BookOpen, ScrollText, ClipboardList } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Users, BookOpen, ScrollText, ClipboardList, Archive } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { reviewStatusMeta, needsReview } from "@/lib/character/review-status";
+import { reviewStatusMeta, needsReview, archiveReasonLabel } from "@/lib/character/review-status";
 import { enabledModuleKeys, moduleName } from "@/lib/character/campaign-modules";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { AddCharacter } from "@/components/campaign/add-character";
 import { CampaignMembers, type CampaignMember } from "@/components/campaign/campaign-members";
 import { RemoveFromRoster } from "@/components/campaign/remove-from-roster";
+import { ArchiveButton, RestoreButton } from "@/components/campaign/archive-controls";
 import { DeleteCampaign } from "@/components/campaign/delete-campaign";
 
 export const metadata: Metadata = { title: "Campaign" };
@@ -46,7 +47,7 @@ export default async function CampaignDashboardPage({
       supabase.from("campaign_members").select("role").eq("campaign_id", campaignId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
       supabase
         .from("campaign_characters")
-        .select("character_id, gm_review_status, approved_snapshot_id")
+        .select("character_id, gm_review_status, approved_snapshot_id, archived_at, archive_reason")
         .eq("campaign_id", campaignId),
       supabase.from("campaign_members").select("user_id, role").eq("campaign_id", campaignId),
       supabase
@@ -62,6 +63,8 @@ export default async function CampaignDashboardPage({
 
   const roster = rosterRows ?? [];
   const rosterIds = roster.map((r) => r.character_id);
+  const activeRoster = roster.filter((r) => !r.archived_at);
+  const archivedRoster = roster.filter((r) => r.archived_at);
 
   // Admin-client reads: roster character details + display names for owners and
   // members. Authorized above by the RLS-gated campaign load.
@@ -113,7 +116,7 @@ export default async function CampaignDashboardPage({
 
   const candidates = (myChars ?? []).filter((c) => !rosterIds.includes(c.id));
   const moduleKeys = enabledModuleKeys(campaign.enabled_modules);
-  const needsReviewCount = roster.filter((r) => needsReview(r.gm_review_status)).length;
+  const needsReviewCount = activeRoster.filter((r) => needsReview(r.gm_review_status)).length;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -150,17 +153,17 @@ export default async function CampaignDashboardPage({
               <CardTitle className="flex items-center gap-2">
                 <ScrollText className="size-4 text-gold" /> Roster
               </CardTitle>
-              <Badge variant="default">{roster.length}</Badge>
+              <Badge variant="default">{activeRoster.length}</Badge>
             </CardHeader>
             <CardContent className="space-y-3">
-              {roster.length === 0 ? (
+              {activeRoster.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No characters yet. Add one of yours below — players can attach their own once they
-                  join.
+                  No active characters. Add one of yours below — players can attach their own once
+                  they join.
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {roster.map((r) => {
+                  {activeRoster.map((r) => {
                     const char = charById.get(r.character_id);
                     const meta = reviewStatusMeta(r.gm_review_status);
                     const mine = char?.owner_id === user.id;
@@ -197,6 +200,9 @@ export default async function CampaignDashboardPage({
                             </Button>
                           )}
                           {(isGm || mine) && (
+                            <ArchiveButton campaignId={campaignId} characterId={r.character_id} />
+                          )}
+                          {(isGm || mine) && (
                             <RemoveFromRoster
                               campaignId={campaignId}
                               characterId={r.character_id}
@@ -215,6 +221,55 @@ export default async function CampaignDashboardPage({
               </div>
             </CardContent>
           </Card>
+
+          {archivedRoster.length > 0 && (
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Archive className="size-4 text-muted-foreground" /> Archived
+                </CardTitle>
+                <Badge variant="default">{archivedRoster.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {archivedRoster.map((r) => {
+                    const char = charById.get(r.character_id);
+                    const mine = char?.owner_id === user.id;
+                    const masked = !isGm && !mine && char?.visibility === "private";
+                    const ownerName = char ? nameByUser.get(char.owner_id)?.display_name ?? "Player" : "Player";
+                    return (
+                      <li
+                        key={r.character_id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-raised/20 px-3 py-2.5"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-muted-foreground">
+                            {masked ? "Private character" : char?.name ?? "Character"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {masked ? "Hidden by the player" : mine ? "Yours" : ownerName}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="warning">{archiveReasonLabel(r.archive_reason)}</Badge>
+                          {(isGm || mine) && (
+                            <RestoreButton campaignId={campaignId} characterId={r.character_id} />
+                          )}
+                          {(isGm || mine) && (
+                            <RemoveFromRoster
+                              campaignId={campaignId}
+                              characterId={r.character_id}
+                              characterName={char?.name ?? "this character"}
+                            />
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
           {isGm && (
             <Card>

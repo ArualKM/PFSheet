@@ -28,7 +28,8 @@ export default async function GmQueuePage({ params }: { params: Promise<{ campai
   const { data: rosterRows } = await supabase
     .from("campaign_characters")
     .select("character_id, gm_review_status")
-    .eq("campaign_id", campaignId);
+    .eq("campaign_id", campaignId)
+    .is("archived_at", null);
   const roster = rosterRows ?? [];
   const ids = roster.map((r) => r.character_id);
 

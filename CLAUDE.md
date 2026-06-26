@@ -47,7 +47,8 @@ Always run `pnpm lint && pnpm test && pnpm typecheck` before considering work do
   the Supabase MCP for DB work; run `get_advisors` after DDL.
 - Migrations: `0001` schema, `0002` security/RLS, `0003` cleanup/hardening, `0004` RLS hardening,
   `0005` restore trigger grants, `0006` spell_compendium (table; data seeded separately), `0007`
-  fix `characters` SELECT-on-RETURNING.
+  fix `characters` SELECT-on-RETURNING, `0008` spell search RPC, `0009` spell-search hardening,
+  `0010` campaign-character archive (`archived_at` / `archive_reason`).
 
 ## Status
 
@@ -124,6 +125,12 @@ the UI + server actions + snapshot/diff logic on top.
 Adversarial reviews caught + fixed a privacy-leak class (the audit + diff must re-apply the GM
 viewer's §15 section gating, not read the raw sheet) and several data-integrity issues
 (approval-snapshot error handling, editor-collaborator stale flagging, stale-banner false positives).
+
+M7 addendum — **roster archiving** (migration `0010`): a campaign character can be archived (dead PC /
+on break / retired / left / other) instead of removed, keeping its review status + history. Archived
+characters drop out of the active roster, the GM review queue, and the awaiting-review counts; an
+"Archived" section on the dashboard lets a GM (or the character owner) Restore or Remove. archive/
+restore are `campaign_characters` updates gated by the existing `campchar_update` RLS (owner OR GM).
 
 Next per spec: imports (M8), exports + API (M9), PWA/offline (M10), polish/QA (M11).
 
