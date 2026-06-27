@@ -19,9 +19,12 @@ export default defineConfig({
     { name: "mobile-safari", use: { ...devices["iPhone 13"] } },
   ],
   webServer: {
-    command: "pnpm dev",
+    // In CI, run the PRODUCTION build — the RSC server→client serialization boundary
+    // (where the 2026-06-27 character-view crash lived) is only exercised by a real
+    // build/serve, not by jsdom unit tests. Locally, reuse a running dev server.
+    command: process.env.CI ? "pnpm build && pnpm start" : "pnpm dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 240_000,
   },
 });

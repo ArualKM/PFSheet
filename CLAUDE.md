@@ -12,10 +12,19 @@ pnpm build        # production build
 pnpm test         # Vitest unit tests (schema + rules engine)
 pnpm typecheck    # tsc across app + all packages
 pnpm lint         # ESLint
-pnpm test:e2e     # Playwright
+pnpm test:e2e     # Playwright (real-browser smoke tests — catches RSC-boundary crashes)
 ```
 
 Always run `pnpm lint && pnpm test && pnpm typecheck` before considering work done.
+
+**E2E (`tests/e2e/`):** `public.spec.ts` smoke-tests every public route + the API in a real
+browser (no auth/data needed). `sheet.spec.ts` is the regression guard for the RSC server→client
+crash — it logs in and opens a character to prove `<CharacterDashboard>` renders; it's skipped
+unless `E2E_EMAIL` + `E2E_PASSWORD` (a confirmed account owning ≥1 character) are set. Locally,
+run a server first (`pnpm build && pnpm start`) — Playwright reuses it. CI is wired in
+`.github/workflows/ci.yml`: `checks` (lint/typecheck/unit) always runs; the `e2e` job is opt-in
+(set repo var `RUN_E2E=true` + the Supabase secrets) so it never reddens a push until configured.
+Unit tests + `next build` do NOT exercise the RSC boundary — see [[pathforge-rsc-function-props]].
 
 ## Layout
 

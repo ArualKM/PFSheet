@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint · typecheck · unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  e2e:
+    name: e2e (Playwright)
+    # Opt-in. The E2E suite needs the app to boot (Supabase env), so it stays skipped
+    # — and green, never red — until you set the repo variable RUN_E2E=true AND add the
+    # secrets below. Public smoke tests run with just the Supabase secrets; the
+    # authenticated character-view guard (the 2026-06-27 RSC-crash regression test) also
+    # runs when E2E_EMAIL + E2E_PASSWORD are present.
+    if: ${{ vars.RUN_E2E == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+      PATHFORGE_API_KEY_PEPPER: ${{ secrets.PATHFORGE_API_KEY_PEPPER }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # webkit powers the mobile-safari (iPhone 13) project in playwright.config.ts.
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      # In CI the webServer runs `pnpm build && pnpm start` (real RSC boundary).
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
