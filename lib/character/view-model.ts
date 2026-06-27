@@ -152,6 +152,7 @@ export type CharacterViewModel = {
   skills: Array<{ key: string; label: string; total: number; ranks: number }> | null;
   feats: Array<{ name: string; type?: string }> | null;
   features: Array<{ name: string; category: string }> | null;
+  traits: Array<{ name: string; type?: string }> | null;
   /** Known languages + the PF1e bonus-language budget. Always visible (not a private section). */
   languages: { known: string[]; budget: LanguageBudget };
   /** Defensive abilities — DR, energy resistance, immunities, SR, conditions, nonlethal. */
@@ -381,6 +382,10 @@ export function buildCharacterViewModel(
     features: gate(
       "features",
       character.features.list.map((f) => ({ name: f.name, category: f.category })),
+    ),
+    traits: gate(
+      "features",
+      character.traits.list.map((t) => ({ name: t.name, type: t.type })),
     ),
     languages: {
       known: character.languages.known,

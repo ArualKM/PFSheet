@@ -240,6 +240,19 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
+          {vm.traits && vm.traits.length > 0 && (
+            <SectionCard title="Traits" icon={Sparkles}>
+              <ul className="space-y-1 text-sm">
+                {vm.traits.map((t, i) => (
+                  <li key={i} className="text-foreground">
+                    {t.name}
+                    {t.type && <span className="ml-1 text-xs text-muted-foreground">({t.type})</span>}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+
           {vm.languages.known.length > 0 && (
             <SectionCard title="Languages" icon={Languages}>
               <div className="flex flex-wrap gap-1.5">

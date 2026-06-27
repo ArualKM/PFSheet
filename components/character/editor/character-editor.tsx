@@ -1957,6 +1957,67 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
           ))}
         </div>
       </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Traits &amp; drawbacks</h3>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              ed.update((c) =>
+                c.traits.list.push({
+                  id: newId("trait"),
+                  name: "New Trait",
+                  automation: [],
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Add trait
+          </Button>
+        </div>
+        {ed.draft.traits.list.length === 0 && (
+          <p className="text-sm text-muted-foreground">No traits yet (most characters take two).</p>
+        )}
+        <div className="space-y-2">
+          {ed.draft.traits.list.map((t, i) => (
+            <div key={t.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
+              <TextField
+                label="Name"
+                value={t.name}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const e = c.traits.list[i];
+                    if (e) e.name = v;
+                  })
+                }
+                className="flex-1"
+              />
+              <TextField
+                label="Type"
+                value={t.type ?? ""}
+                placeholder="Combat, Social, Faith…"
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const e = c.traits.list[i];
+                    if (e) e.type = v || undefined;
+                  })
+                }
+                className="w-40"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove trait"
+                onClick={() => ed.update((c) => c.traits.list.splice(i, 1))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
