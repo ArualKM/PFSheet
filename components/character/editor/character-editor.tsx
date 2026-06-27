@@ -44,6 +44,7 @@ import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS }
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
+import { PortraitImage } from "../portrait-image";
 import { NumberField, TextField, TextAreaField, SelectField } from "./fields";
 import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
@@ -2041,9 +2042,14 @@ function ProfileEditor({ ed }: { ed: EditorApi }) {
   const p = ed.draft.profile;
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="Portrait URL" value={p.portraitUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.portraitUrl = v || undefined))} />
-        <TextField label="Token URL" value={p.tokenUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.tokenUrl = v || undefined))} />
+      <div className="flex items-start gap-3">
+        <div className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-raised">
+          <PortraitImage src={p.portraitUrl} alt="Portrait preview" fallback={ed.draft.identity.name.charAt(0) || "?"} />
+        </div>
+        <div className="grid flex-1 gap-4 sm:grid-cols-2">
+          <TextField label="Portrait URL" value={p.portraitUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.portraitUrl = v || undefined))} />
+          <TextField label="Token URL" value={p.tokenUrl ?? ""} onChange={(v) => ed.update((c) => (c.profile.tokenUrl = v || undefined))} />
+        </div>
       </div>
       <TextField label="Quote" value={p.quote ?? ""} onChange={(v) => ed.update((c) => (c.profile.quote = v || undefined))} />
       <TextAreaField
