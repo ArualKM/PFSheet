@@ -196,7 +196,20 @@ Migrations now run through `0012` (`0011` api_rate_limits table+RPC, `0012` prun
 **M10 (PWA/offline) complete** — privacy-safe service worker (`public/sw.js`: network-first
 navigations never cached; cache-first only for `/_next/static/` + the icon; /api never
 intercepted), `/offline` fallback, `ServiceWorkerRegister` (prod-only) in the root layout,
-`proxy.ts` excludes sw.js/offline. Full offline EDIT/sync deferred to S5b. Migrations still `0013`.
+`proxy.ts` excludes sw.js/offline. Full offline EDIT/sync deferred to S5b.
+
+**M11 (polish/QA/launch — in progress).** Landed: Playwright E2E harness (`tests/e2e/` +
+`.github/workflows/ci.yml` — checks always run; e2e opt-in via repo var `RUN_E2E`); **S2 /view
+polish** (dashboard viewer-aware empty states + `profile.appearance` render + CMB·CMD + section
+landmark regions; public `/c/[slug]` OG/Twitter cards from the gated portrait + chrome); and a
+**Supabase security/perf pass**: migration `0014` (15 FK indexes) + `0015` (wrapped `auth.uid()`/
+`auth.role()` in 52 RLS policies for the initplan optimization — branch-tested, behavior-identical).
+Migrations now run through `0015`. **Deferred (advisor items):** (1) leaked-password protection —
+a manual Auth-dashboard toggle (no API); (2) 8 RLS-helper `SECURITY DEFINER` fns callable via
+PostgREST RPC — branch-test proved revoking EXECUTE breaks RLS, so the only safe fix is a
+schema-move of all helpers + re-point every policy; low severity, deferred as its own careful task;
+(3) `multiple_permissive_policies` on `rule_modules`/`spell_compendium` (low value; spell_compendium
+is guardrailed); (4) the one remaining initplan WARN is spell_compendium's policy, left by design.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
