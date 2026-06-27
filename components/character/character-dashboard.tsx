@@ -285,6 +285,17 @@ export function CharacterDashboard({
 
 function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode }) {
   const raceLine = [vm.header.race, vm.header.alignment, vm.header.size].filter(Boolean).join(" · ");
+  const details = [
+    vm.header.gender,
+    vm.header.age,
+    vm.header.height,
+    vm.header.weight,
+    vm.header.ethnicity,
+    vm.header.deity && `Deity: ${vm.header.deity}`,
+    vm.header.homeland && `Homeland: ${vm.header.homeland}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <Card className="overflow-hidden">
       <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
@@ -304,6 +315,7 @@ function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode
             </h1>
             <p className="text-muted-foreground">{vm.header.classLine}</p>
             {raceLine && <p className="text-sm text-muted-foreground/70">{raceLine}</p>}
+            {details && <p className="mt-0.5 text-xs text-muted-foreground/60">{details}</p>}
             {vm.header.quote && (
               <p className="mt-1 max-w-md text-sm italic text-muted-foreground">
                 &ldquo;{vm.header.quote}&rdquo;

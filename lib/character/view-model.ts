@@ -115,6 +115,13 @@ export type CharacterViewModel = {
     race?: string;
     alignment?: string;
     size?: string;
+    deity?: string;
+    homeland?: string;
+    ethnicity?: string;
+    gender?: string;
+    age?: string;
+    height?: string;
+    weight?: string;
     quote?: string;
     portraitUrl?: string;
     visibility: string;
@@ -310,6 +317,13 @@ export function buildCharacterViewModel(
       race: character.identity.race,
       alignment: character.identity.alignment,
       size: character.identity.size,
+      deity: character.identity.deity,
+      homeland: character.identity.homeland,
+      ethnicity: character.identity.ethnicity,
+      gender: character.identity.gender,
+      age: character.identity.age,
+      height: character.identity.height,
+      weight: character.identity.weight,
       quote: character.profile.quote,
       portraitUrl: visible(character, "portrait", viewer)
         ? character.profile.portraitUrl

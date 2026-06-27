@@ -101,6 +101,39 @@ export function TextField({
   );
 }
 
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+  className?: string;
+}) {
+  const id = useId();
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground shadow-sm md:h-10"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function TextAreaField({
   label,
   value,

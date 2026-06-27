@@ -44,7 +44,7 @@ import { composeAbilityScore, pointBuyCost, pointBuySpent } from "@pathforge/rul
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
-import { NumberField, TextField, TextAreaField } from "./fields";
+import { NumberField, TextField, TextAreaField, SelectField } from "./fields";
 import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
@@ -701,12 +701,33 @@ function LanguagesEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+const PF_SIZES = [
+  "Fine",
+  "Diminutive",
+  "Tiny",
+  "Small",
+  "Medium",
+  "Large",
+  "Huge",
+  "Gargantuan",
+  "Colossal",
+];
+
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
   const [showCatalog, setShowCatalog] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const hasPresetClass = id.classes.some((c) => c.presetKey);
+
+  // Size is a controlled <select> over the 9 canonical sizes (matched case-insensitively, so
+  // the engine's getSizeModifiers always resolves) — a typo'd legacy value is kept as an option.
+  const matchedSize = PF_SIZES.find((s) => s.toLowerCase() === (id.size ?? "medium").toLowerCase());
+  const identitySizeValue = matchedSize ?? id.size ?? "Medium";
+  const identitySizeOptions = (matchedSize || !id.size ? PF_SIZES : [id.size, ...PF_SIZES]).map((s) => ({
+    value: s,
+    label: s,
+  }));
   const [fav, setFav] = useState("");
 
   const addFavored = () => {
@@ -725,7 +746,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         <TextField label="Player" value={id.playerName ?? ""} onChange={(v) => ed.update((c) => (c.identity.playerName = v || undefined))} />
         <TextField label="Race" value={id.race ?? ""} onChange={(v) => ed.update((c) => (c.identity.race = v || undefined))} />
         <TextField label="Alignment" value={id.alignment ?? ""} onChange={(v) => ed.update((c) => (c.identity.alignment = v || undefined))} placeholder="LG, N, CE…" />
-        <TextField label="Size" value={id.size ?? ""} onChange={(v) => ed.update((c) => (c.identity.size = v || undefined))} placeholder="Medium" />
+        <SelectField label="Size" value={identitySizeValue} onChange={(v) => ed.update((c) => (c.identity.size = v))} options={identitySizeOptions} />
         <TextField label="Deity" value={id.deity ?? ""} onChange={(v) => ed.update((c) => (c.identity.deity = v || undefined))} />
         <TextField label="Homeland" value={id.homeland ?? ""} onChange={(v) => ed.update((c) => (c.identity.homeland = v || undefined))} />
         <TextField label="Ethnicity" value={id.ethnicity ?? ""} onChange={(v) => ed.update((c) => (c.identity.ethnicity = v || undefined))} />
