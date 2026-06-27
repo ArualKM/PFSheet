@@ -41,7 +41,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /** Key-order-independent deep equality (documents are JSON-ish: objects, arrays, primitives). */
-function deepEqual(a: unknown, b: unknown): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -219,6 +219,78 @@ function mergeArray(
  * Returns the merged document and any true same-field conflicts (empty array = a clean,
  * fully-automatic merge). Callers persist `merged` only after `parseCharacter()` validates it.
  */
+// --- Per-field conflict resolution -----------------------------------------------------
+
+type PathToken = { key: string } | { id: string };
+
+/** Parse a merge-conflict path like `feats.list[id=f-x].notes` into navigable tokens. */
+function parsePath(path: string): PathToken[] {
+  const tokens: PathToken[] = [];
+  const re = /([^.[\]]+)|\[id=([^\]]+)\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(path)) !== null) {
+    if (m[2] !== undefined) tokens.push({ id: m[2] });
+    else if (m[1] !== undefined) tokens.push({ key: m[1] });
+  }
+  return tokens;
+}
+
+/**
+ * Set (or, with value === undefined, delete) the value at a conflict path on a mutable doc.
+ * Handles both object keys and `[id=…]` array-entry selectors. Silently no-ops if the parent
+ * path doesn't resolve (the structure changed out from under the conflict).
+ */
+function setAtPath(root: unknown, path: string, value: unknown): void {
+  const tokens = parsePath(path);
+  if (tokens.length === 0) return;
+  let cur: unknown = root;
+  for (let i = 0; i < tokens.length - 1; i++) {
+    const t = tokens[i]!;
+    if ("id" in t) {
+      cur = Array.isArray(cur) ? cur.find((e) => isPlainObject(e) && e.id === t.id) : undefined;
+    } else {
+      cur = isPlainObject(cur) ? cur[t.key] : undefined;
+    }
+    if (cur == null) return;
+  }
+  const last = tokens[tokens.length - 1]!;
+  if ("id" in last) {
+    if (!Array.isArray(cur)) return;
+    const idx = cur.findIndex((e) => isPlainObject(e) && e.id === last.id);
+    if (value === undefined) {
+      if (idx >= 0) cur.splice(idx, 1);
+    } else if (idx >= 0) {
+      cur[idx] = value;
+    } else {
+      cur.push(value); // the chosen side re-adds an entry the other deleted
+    }
+  } else if (isPlainObject(cur)) {
+    if (value === undefined) delete cur[last.key];
+    else cur[last.key] = value;
+  }
+}
+
+export type ConflictChoice = "mine" | "theirs";
+
+/**
+ * Apply per-field conflict choices to the auto-merged document. Starts from `merged` (disjoint
+ * edits already reconciled) and, for each conflict, forces the chosen side's value at that path
+ * — so "mine" on a delete actually deletes, and "theirs" on an edit takes their value. Unlisted
+ * conflicts default to "mine". Pure; returns a new document (validate before persisting).
+ */
+export function applyConflictChoices(
+  merged: PathForgeCharacterV1,
+  conflicts: MergeConflict[],
+  choices: Record<string, ConflictChoice>,
+): PathForgeCharacterV1 {
+  const result = structuredClone(merged) as unknown;
+  for (const c of conflicts) {
+    const choice = choices[c.path] ?? "mine";
+    setAtPath(result, c.path, choice === "theirs" ? c.theirs : c.mine);
+  }
+  return result as PathForgeCharacterV1;
+}
+
 export function threeWayMerge(
   base: PathForgeCharacterV1,
   mine: PathForgeCharacterV1,

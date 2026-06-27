@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createDefaultCharacter, parseCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
-import { threeWayMerge } from "@/lib/character/merge";
+import { threeWayMerge, applyConflictChoices } from "@/lib/character/merge";
 
 /** A base sheet + two independently-edited clones (the desktop/mobile scenario). */
 function forked(): [PathForgeCharacterV1, PathForgeCharacterV1, PathForgeCharacterV1] {
@@ -114,6 +114,43 @@ describe("threeWayMerge", () => {
     const { merged, conflicts } = threeWayMerge(base, mine, theirs);
     expect(conflicts).toHaveLength(0);
     expect(merged.feats.list.find((f) => f.id === "f-x")?.tags.sort()).toEqual(["base", "mine", "theirs"]);
+  });
+
+  it("applyConflictChoices: per-field pick of mine vs theirs", () => {
+    const [base, mine, theirs] = forked();
+    mine.identity.name = "MyName";
+    theirs.identity.name = "TheirName";
+    mine.identity.alignment = "CG";
+    theirs.identity.alignment = "LE";
+    const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+    expect(conflicts).toHaveLength(2);
+
+    // Default (no choices) keeps mine everywhere.
+    const allMine = applyConflictChoices(merged, conflicts, {});
+    expect(allMine.identity.name).toBe("MyName");
+    expect(allMine.identity.alignment).toBe("CG");
+
+    // Mixed: take their name, keep my alignment.
+    const mixed = applyConflictChoices(merged, conflicts, { "identity.name": "theirs" });
+    expect(mixed.identity.name).toBe("TheirName");
+    expect(mixed.identity.alignment).toBe("CG");
+  });
+
+  it("applyConflictChoices: choosing 'mine' on a delete actually deletes the entry", () => {
+    const [base, mine, theirs] = forked();
+    base.feats.list.push(feat("f-x", "Power Attack", { notes: "base" }));
+    mine.feats.list = []; // I deleted it
+    theirs.feats.list = [feat("f-x", "Power Attack", { notes: "theirs edited" })]; // they edited it
+    const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+    expect(conflicts).toHaveLength(1);
+
+    // Keep mine → the entry is gone.
+    const keptMine = applyConflictChoices(merged, conflicts, { [conflicts[0]!.path]: "mine" });
+    expect(keptMine.feats.list.find((f) => f.id === "f-x")).toBeUndefined();
+
+    // Take theirs → the edited entry survives.
+    const tookTheirs = applyConflictChoices(merged, conflicts, { [conflicts[0]!.path]: "theirs" });
+    expect(tookTheirs.feats.list.find((f) => f.id === "f-x")?.notes).toBe("theirs edited");
   });
 
   it("a realistic divergence merges to a schema-valid document", () => {

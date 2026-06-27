@@ -8,6 +8,7 @@ import {
   CircleAlert,
   Loader2,
   Cloud,
+  CloudOff,
   Undo2,
   Plus,
   Trash2,
@@ -41,7 +42,8 @@ import {
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
-import { useCharacterEditor, type SaveStatus, type ConflictState } from "./use-character-editor";
+import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
+import { ConflictResolver } from "./conflict-resolver";
 import { NumberField, TextField, TextAreaField } from "./fields";
 import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
@@ -361,7 +363,12 @@ export function CharacterEditor({
 
         {ed.conflict && (
           <div className="mb-3">
-            <ConflictBanner conflict={ed.conflict} onResolve={ed.resolveConflict} />
+            <ConflictResolver
+              merged={ed.conflict.merged}
+              conflicts={ed.conflict.conflicts}
+              serverSheet={ed.conflict.serverSheet}
+              onResolve={ed.resolveConflict}
+            />
           </div>
         )}
 
@@ -1728,47 +1735,8 @@ const STATUS_META: Record<SaveStatus, { label: string; icon: typeof Check; class
   saving: { label: "Saving…", icon: Loader2, className: "text-rune" },
   error: { label: "Save failed", icon: CircleAlert, className: "text-danger" },
   conflict: { label: "Edit conflict", icon: CircleAlert, className: "text-gold" },
+  offline: { label: "Offline — will sync", icon: CloudOff, className: "text-muted-foreground" },
 };
-
-function ConflictBanner({
-  conflict,
-  onResolve,
-}: {
-  conflict: ConflictState;
-  onResolve: (choice: "mine" | "theirs" | "merge") => void;
-}) {
-  const fields = conflict.conflicts.map((c) => c.path);
-  return (
-    <div role="alert" className="rounded-lg border border-gold/40 bg-gold/10 p-4 text-sm">
-      <p className="flex items-center gap-1.5 font-semibold text-gold">
-        <CircleAlert className="size-4" /> This character was also edited on another device
-      </p>
-      <p className="mt-1 text-muted-foreground">
-        Your edits were kept and the other device&rsquo;s changes were merged in. {conflict.conflicts.length}{" "}
-        field{conflict.conflicts.length === 1 ? "" : "s"} changed in both places — pick which wins:
-      </p>
-      <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
-        {fields.slice(0, 8).map((f, i) => (
-          <li key={i}>
-            <code className="text-foreground">{f}</code>
-          </li>
-        ))}
-        {fields.length > 8 && <li>…and {fields.length - 8} more</li>}
-      </ul>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => onResolve("merge")}>
-          Keep mine on conflicts
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => onResolve("mine")}>
-          Keep all my changes
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => onResolve("theirs")}>
-          Take the other device&rsquo;s
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string | null }) {
   const meta = STATUS_META[status];

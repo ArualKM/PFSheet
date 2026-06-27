@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { createDefaultCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
+import { applyConflictChoices } from "@/lib/character/merge";
+import { readOutbox, writeOutbox } from "@/lib/character/outbox";
 
 // Mock only the server action; the merge/compute/parse logic runs for real.
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }));
 vi.mock("@/lib/actions/characters", () => ({ saveCharacterSheetAction: saveMock }));
+
+function setOnline(online: boolean) {
+  Object.defineProperty(navigator, "onLine", { value: online, configurable: true });
+}
 
 import { useCharacterEditor } from "@/components/character/editor/use-character-editor";
 
@@ -29,9 +35,12 @@ describe("useCharacterEditor — version-guarded save + conflict handling", () =
   beforeEach(() => {
     vi.useFakeTimers();
     saveMock.mockReset();
+    localStorage.clear();
+    setOnline(true);
   });
   afterEach(() => {
     vi.useRealTimers();
+    setOnline(true);
   });
 
   it("saves an edit with the base version and advances on success", async () => {
@@ -112,8 +121,74 @@ describe("useCharacterEditor — version-guarded save + conflict handling", () =
     expect(result.current.conflict).not.toBeNull();
     expect(result.current.conflict?.conflicts.some((c) => c.path === "identity.name")).toBe(true);
 
-    act(() => result.current.resolveConflict("theirs"));
+    // Resolve by taking the server's value for the name (per-field choice → resolved doc).
+    const cf = result.current.conflict!;
+    const resolved = applyConflictChoices(cf.merged, cf.conflicts, { "identity.name": "theirs" });
+    act(() => result.current.resolveConflict(resolved));
     expect(result.current.conflict).toBeNull();
     expect(result.current.draft.identity.name).toBe("ServerName");
+  });
+
+  it("queues an edit offline and flushes it on reconnect", async () => {
+    setOnline(false);
+    saveMock.mockResolvedValue({ ok: true, version: 2 });
+    const base = createDefaultCharacter({ name: "A" });
+    const { result } = renderHook(() => useCharacterEditor("c-off", base, 1));
+
+    act(() => result.current.update((d) => void (d.identity.name = "Offline")));
+    await settle();
+
+    expect(result.current.status).toBe("offline");
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(readOutbox("c-off")?.sheet.identity.name).toBe("Offline");
+
+    // Reconnect → the queued draft flushes through the normal CAS save.
+    setOnline(true);
+    await act(async () => void window.dispatchEvent(new Event("online")));
+    await settle();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe("saved");
+    expect(readOutbox("c-off")).toBeNull(); // cleared once safely on the server
+  });
+
+  it("restores a draft queued offline in a previous session on mount", async () => {
+    const base = createDefaultCharacter({ name: "A" });
+    writeOutbox("c-hyd", {
+      sheet: withName(base, "FromLastSession"),
+      baseSheet: base,
+      baseVersion: 1,
+      schemaVersion: base.schemaVersion,
+      savedAt: 1,
+    });
+    saveMock.mockResolvedValue({ ok: true, version: 2 });
+
+    const { result } = renderHook(() => useCharacterEditor("c-hyd", base, 1));
+    await settle();
+
+    expect(result.current.draft.identity.name).toBe("FromLastSession");
+    expect(saveMock).toHaveBeenCalled();
+    expect(result.current.status).toBe("saved");
+  });
+
+  it("discards a queued draft from an older schema instead of feeding it to the engine", async () => {
+    const base = createDefaultCharacter({ name: "A" });
+    writeOutbox("c-stale", {
+      sheet: withName(base, "Stale"),
+      baseSheet: base,
+      baseVersion: 1,
+      schemaVersion: "pathforge-character-OLD",
+      savedAt: 1,
+    });
+    saveMock.mockResolvedValue({ ok: true, version: 2 });
+
+    const { result } = renderHook(() => useCharacterEditor("c-stale", base, 1));
+    await settle();
+
+    // The stale entry is dropped; the editor shows the freshly-loaded server sheet, no crash.
+    expect(result.current.draft.identity.name).toBe("A");
+    expect(readOutbox("c-stale")).toBeNull();
+    expect(result.current.status).toBe("saved");
+    expect(saveMock).not.toHaveBeenCalled();
   });
 });
