@@ -204,9 +204,15 @@ export type CharacterViewModel = {
   /** Milestone-leveling tracker (null unless the module is enabled). Replaces XP. */
   milestoneLeveling: {
     current: number;
+    level: number;
+    nextLevel: number;
+    currentThreshold: number;
     nextThreshold: number;
+    intoLevel: number;
+    span: number;
     remaining: number;
     readyToLevel: boolean;
+    atCap: boolean;
   } | null;
   spellcasting: {
     casters: Array<{

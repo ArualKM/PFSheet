@@ -250,34 +250,39 @@ export function CharacterDashboard({
           )}
           {vm.milestoneLeveling && (
             <SectionCard title="Milestones" icon={Flag}>
-              <div className="space-y-1 text-sm">
+              <div className="space-y-1.5 text-sm">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="tnum text-lg font-semibold text-foreground">
-                    {vm.milestoneLeveling.current}
-                    <span className="text-sm text-muted-foreground">
-                      /{vm.milestoneLeveling.nextThreshold}
-                    </span>
-                  </span>
-                  {vm.milestoneLeveling.readyToLevel ? (
+                  <span className="font-semibold text-foreground">Level {vm.milestoneLeveling.level}</span>
+                  {vm.milestoneLeveling.atCap ? (
+                    <span className="text-xs text-muted-foreground">Max level</span>
+                  ) : vm.milestoneLeveling.span === 0 ? (
+                    <span className="text-xs text-muted-foreground">Levels freely</span>
+                  ) : vm.milestoneLeveling.readyToLevel ? (
                     <span className="text-xs font-semibold text-success">Ready to level up!</span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {vm.milestoneLeveling.remaining} to next level
+                      {vm.milestoneLeveling.remaining} to level {vm.milestoneLeveling.nextLevel}
                     </span>
                   )}
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-rune"
-                    style={{
-                      width: `${
-                        vm.milestoneLeveling.nextThreshold > 0
-                          ? Math.min(100, (vm.milestoneLeveling.current / vm.milestoneLeveling.nextThreshold) * 100)
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
+                {!vm.milestoneLeveling.atCap && vm.milestoneLeveling.span > 0 && (
+                  <>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-rune"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (vm.milestoneLeveling.intoLevel / vm.milestoneLeveling.span) * 100,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="tnum text-xs text-muted-foreground">
+                      {vm.milestoneLeveling.current}/{vm.milestoneLeveling.nextThreshold} milestones
+                    </div>
+                  </>
+                )}
               </div>
             </SectionCard>
           )}

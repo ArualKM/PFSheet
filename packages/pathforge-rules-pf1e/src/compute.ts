@@ -17,6 +17,8 @@ import {
   mythicSurgeDie,
   isGestalt,
   bonusPowerPoints,
+  milestoneRequirementForLevel,
+  MILESTONE_MAX_LEVEL,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -589,12 +591,24 @@ export type ComputedCharacter = {
       powersKnown: number;
       focused: boolean;
     };
-    /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. */
+    /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. The level is the
+     * character's class level; the milestone total tells you when the next level is earned. */
     milestoneLeveling?: {
       current: number;
+      level: number;
+      nextLevel: number;
+      /** Cumulative milestones for the current level. */
+      currentThreshold: number;
+      /** Cumulative milestones to reach the next level (= currentThreshold at the cap). */
       nextThreshold: number;
+      /** Progress within the current level (current − currentThreshold, ≥ 0). */
+      intoLevel: number;
+      /** Milestones spanning the current level (nextThreshold − currentThreshold). */
+      span: number;
+      /** Milestones still needed to reach the next level (≥ 0). */
       remaining: number;
       readyToLevel: boolean;
+      atCap: boolean;
     };
   };
 };
@@ -957,14 +971,24 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
 
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
-    const ml = character.milestoneLeveling;
-    const current = Math.max(0, ml?.current ?? 0);
-    const nextThreshold = Math.max(0, ml?.nextThreshold ?? 0);
+    const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
+    const level = Math.max(1, character.identity.totalLevel || 1);
+    const atCap = level >= MILESTONE_MAX_LEVEL;
+    const currentThreshold = milestoneRequirementForLevel(level);
+    const nextThreshold = atCap ? currentThreshold : milestoneRequirementForLevel(level + 1);
     milestoneLeveling = {
       current,
+      level,
+      nextLevel: Math.min(MILESTONE_MAX_LEVEL, level + 1),
+      currentThreshold,
       nextThreshold,
+      intoLevel: Math.max(0, current - currentThreshold),
+      span: Math.max(0, nextThreshold - currentThreshold),
       remaining: Math.max(0, nextThreshold - current),
-      readyToLevel: nextThreshold > 0 && current >= nextThreshold,
+      // Only "ready" when there's a real threshold to cross — at levels 1–2 the ladder requires 0
+      // milestones, so `current >= 0` must not read as ready on a brand-new sheet.
+      readyToLevel: !atCap && nextThreshold > currentThreshold && current >= nextThreshold,
+      atCap,
     };
   }
 
