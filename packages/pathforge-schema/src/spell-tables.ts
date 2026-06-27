@@ -61,16 +61,62 @@ const SORCERER: SpellsPerDayTable = {
   "20": { "0": 6, "1": 6, "2": 6, "3": 6, "4": 6, "5": 6, "6": 6, "7": 6, "8": 6, "9": 6 },
 };
 
-/**
- * Per-class base spells/day, keyed by the CLASS_CATALOG preset key. Classes without
- * a verified table here (Bard, Paladin, Ranger, …) fall back to the manual slot grid
- * (autoSlots stays false) until their progression is added and verified.
- */
+// Bard (CRB, verified): no 0-level/day column (cantrips are at-will); spell levels 1-6.
+const BARD: SpellsPerDayTable = {
+  "1": { "1": 1 },
+  "2": { "1": 2 },
+  "3": { "1": 3 },
+  "4": { "1": 3, "2": 1 },
+  "5": { "1": 4, "2": 2 },
+  "6": { "1": 4, "2": 3 },
+  "7": { "1": 4, "2": 3, "3": 1 },
+  "8": { "1": 4, "2": 4, "3": 2 },
+  "9": { "1": 5, "2": 4, "3": 3 },
+  "10": { "1": 5, "2": 4, "3": 3, "4": 1 },
+  "11": { "1": 5, "2": 4, "3": 4, "4": 2 },
+  "12": { "1": 5, "2": 5, "3": 4, "4": 3 },
+  "13": { "1": 5, "2": 5, "3": 4, "4": 3, "5": 1 },
+  "14": { "1": 5, "2": 5, "3": 4, "4": 4, "5": 2 },
+  "15": { "1": 5, "2": 5, "3": 5, "4": 4, "5": 3 },
+  "16": { "1": 5, "2": 5, "3": 5, "4": 4, "5": 3, "6": 1 },
+  "17": { "1": 5, "2": 5, "3": 5, "4": 4, "5": 4, "6": 2 },
+  "18": { "1": 5, "2": 5, "3": 5, "4": 5, "5": 4, "6": 3 },
+  "19": { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 4 },
+  "20": { "1": 5, "2": 5, "3": 5, "4": 5, "5": 5, "6": 5 },
+};
+
+// Paladin & Ranger (CRB, verified) share one progression. Keyed by CLASS level (not
+// caster level, which is class level - 3). A "0" entry means "has access, 0 base" —
+// the caster still gets bonus spells of that level from a high casting stat.
+const PALADIN_RANGER: SpellsPerDayTable = {
+  "4": { "1": 0 },
+  "5": { "1": 1 },
+  "6": { "1": 1 },
+  "7": { "1": 1, "2": 0 },
+  "8": { "1": 1, "2": 1 },
+  "9": { "1": 2, "2": 1 },
+  "10": { "1": 2, "2": 1, "3": 0 },
+  "11": { "1": 2, "2": 1, "3": 1 },
+  "12": { "1": 2, "2": 2, "3": 1 },
+  "13": { "1": 3, "2": 2, "3": 1, "4": 0 },
+  "14": { "1": 3, "2": 2, "3": 1, "4": 1 },
+  "15": { "1": 3, "2": 2, "3": 2, "4": 1 },
+  "16": { "1": 3, "2": 3, "3": 2, "4": 1 },
+  "17": { "1": 4, "2": 3, "3": 2, "4": 1 },
+  "18": { "1": 4, "2": 3, "3": 2, "4": 2 },
+  "19": { "1": 4, "2": 3, "3": 3, "4": 2 },
+  "20": { "1": 4, "2": 4, "3": 3, "4": 3 },
+};
+
+/** Per-class base spells/day, keyed by the CLASS_CATALOG preset key. */
 export const SPELLS_PER_DAY_TABLES: Record<string, SpellsPerDayTable> = {
   wizard: FULL_PREPARED,
   cleric: FULL_PREPARED,
   druid: FULL_PREPARED,
   sorcerer: SORCERER,
+  bard: BARD,
+  paladin: PALADIN_RANGER,
+  ranger: PALADIN_RANGER,
 };
 
 /** The base spells/day table for a class preset key, if one ships (else manual slots). */

@@ -452,16 +452,21 @@ function computeSpellcasting(
       : `@{casterLevel} + @{abilities.${ability}.mod}`;
     const concentration = evalWith(concFormula, resolver);
 
-    const tableRow = caster.autoSlots ? caster.spellsPerDayTable?.[String(cl)] : undefined;
+    // Index the per-day table by CLASS level (paladin/ranger CL = class level - 3).
+    const tableRow = caster.autoSlots
+      ? caster.spellsPerDayTable?.[String(caster.classLevel ?? cl)]
+      : undefined;
 
     const slots: ComputedSpellSlots[] = [];
     for (let lvl = 0; lvl <= 9; lvl++) {
       const key = String(lvl);
       const manual = caster.spellsPerDay[key];
+      // "Access" = the level appears in the table row (even at 0 base, e.g. paladin L4),
+      // which is what grants ability bonus spells — not whether base > 0.
+      const hasAccess = !!tableRow && Object.prototype.hasOwnProperty.call(tableRow, key);
       const base = caster.autoSlots ? tableRow?.[key] ?? 0 : manual?.total ?? 0;
-      // Bonus spells apply only to a level the caster can actually cast (base > 0).
       const bonus = caster.autoSlots
-        ? base > 0
+        ? hasAccess
           ? bonusSpellsForLevel(abilityMod, lvl)
           : 0
         : manual?.bonus ?? 0;

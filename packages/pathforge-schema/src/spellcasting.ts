@@ -19,6 +19,9 @@ export const spellcasterEntrySchema = z.object({
   presetKey: z.string().optional(),
   casterType: z.enum(["prepared", "spontaneous", "spellbook", "hybrid"]).default("prepared"),
   casterLevel: numberOrFormulaSchema.default(0),
+  /** The class level (1..20) that indexes spellsPerDayTable — distinct from caster
+   *  level for partial casters (paladin/ranger CL = class level - 3). */
+  classLevel: z.number().int().optional(),
   concentrationFormula: z.string().default(""),
   castingAbility: z.string().default("int"),
   spellFailure: z.number().int().optional(),

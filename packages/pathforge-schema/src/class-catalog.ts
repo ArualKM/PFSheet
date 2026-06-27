@@ -410,6 +410,7 @@ export function applyClassPreset(
     const existing = findPresetCaster(character, preset);
     if (existing) {
       existing.casterLevel = cl;
+      existing.classLevel = level; // the class level indexes the per-day table
       existing.presetKey = preset.key; // backfill the link so future matches survive a rename
       // Backfill auto-slots for a caster created before its table existed — but never
       // re-enable it if the user deliberately turned it off (no table override present).
@@ -425,6 +426,7 @@ export function applyClassPreset(
         presetKey: preset.key,
         casterType: preset.caster.casterType,
         casterLevel: cl,
+        classLevel: level,
         concentrationFormula: "",
         castingAbility: preset.caster.castingAbility,
         conditionalModifiers: [],

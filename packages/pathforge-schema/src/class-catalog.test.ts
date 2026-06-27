@@ -173,13 +173,23 @@ describe("applyClassPreset", () => {
     expect(caster.spellsPerDayTable?.["5"]?.["1"]).toBe(3); // FULL_PREPARED[5][1]
   });
 
-  it("leaves bard on manual slots (no verified table yet)", () => {
+  it("seeds bard auto-slots from its verified table and records the class level", () => {
     const bard = getClassPreset("bard")!;
     const c = createDefaultCharacter();
     applyClassPreset(c, { preset: bard, level: 3 });
     const caster = c.spellcasting.casters.find((x) => x.presetKey === "bard")!;
-    expect(caster.autoSlots).toBe(false);
-    expect(caster.spellsPerDayTable).toBeUndefined();
+    expect(caster.autoSlots).toBe(true);
+    expect(caster.spellsPerDayTable).toBeDefined();
+    expect(caster.classLevel).toBe(3);
+  });
+
+  it("records paladin's class level (table index) distinct from its caster level", () => {
+    const c = createDefaultCharacter();
+    applyClassPreset(c, { preset: getClassPreset("paladin")!, level: 5 });
+    const caster = c.spellcasting.casters.find((x) => x.presetKey === "paladin")!;
+    expect(caster.classLevel).toBe(5);
+    expect(caster.casterLevel).toBe(2); // 5 - 3
+    expect(caster.autoSlots).toBe(true);
   });
 
   it("backfills auto-slots on re-apply if the caster lacks a table", () => {

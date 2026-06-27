@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   createDefaultCharacter,
+  applyClassPreset,
+  getClassPreset,
   spellsPerDayTableFor,
   bonusSpellsForLevel,
   type SpellcasterEntry,
@@ -111,6 +113,36 @@ describe("computeSpellcasting", () => {
     const sc = computeCharacter(c).spellcasting[0]!;
     expect(sc.slots.find((s) => s.level === 1)!.base).toBe(6); // SORCERER[4][1]
     expect(sc.slots.find((s) => s.level === 2)!.base).toBe(3); // SORCERER[4][2]
+  });
+
+  it("bard auto slots have no level-0 slot and use the verified table", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.cha.score = 10; // +0 to isolate base values
+    applyClassPreset(c, { preset: getClassPreset("bard")!, level: 5 });
+    const sc = computeCharacter(c).spellcasting[0]!;
+    expect(sc.slots.find((s) => s.level === 0)).toBeUndefined(); // bard cantrips are at-will
+    expect(sc.slots.find((s) => s.level === 1)!.base).toBe(4); // BARD[5][1]
+    expect(sc.slots.find((s) => s.level === 2)!.base).toBe(2);
+  });
+
+  it("indexes paladin by class level (CL = level-3) and grants bonus spells at a 0-base access level", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.cha.score = 14; // +2
+    applyClassPreset(c, { preset: getClassPreset("paladin")!, level: 4 });
+    const sc = computeCharacter(c).spellcasting[0]!;
+    expect(sc.casterLevel).toBe(1); // 4 - 3
+    const l1 = sc.slots.find((s) => s.level === 1)!;
+    expect(l1.base).toBe(0); // PALADIN_RANGER[4] = { 1: 0 }
+    expect(l1.bonus).toBe(1); // +2 Cha → bonus L1 even at 0 base (access, not base>0)
+    expect(l1.total).toBe(1);
+  });
+
+  it("does not list a 0-base access level when the caster has no ability bonus", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.cha.score = 10; // +0
+    applyClassPreset(c, { preset: getClassPreset("paladin")!, level: 4 });
+    const sc = computeCharacter(c).spellcasting[0]!;
+    expect(sc.slots.find((s) => s.level === 1)).toBeUndefined(); // total 0 → not castable
   });
 
   it("leaves non-casters without a spells summary", () => {
