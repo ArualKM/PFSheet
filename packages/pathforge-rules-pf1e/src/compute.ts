@@ -546,6 +546,8 @@ export type ComputedCharacter = {
     backgroundSkills?: { budget: number; spent: number };
     /** Honor score + tier (absent unless the module is enabled). */
     honor?: { score: number; tier: string; code: string; dishonored: boolean };
+    /** Stamina pool (absent unless the module is enabled). */
+    stamina?: { current: number; max: number };
   };
 };
 
@@ -850,6 +852,13 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     honor = { score, tier: honorTier(score), code: character.honor?.code ?? "general", dishonored: score <= 0 };
   }
 
+  // Stamina pool: max = base attack bonus + Con modifier + bonus.
+  let stamina: { current: number; max: number } | undefined;
+  if (isModuleKeyEnabled(character, "stamina")) {
+    const max = Math.max(0, num(character.combat.bab.total) + (abilities.con?.modifier ?? 0) + (character.stamina?.bonusMax ?? 0));
+    stamina = { current: Math.max(0, Math.min(max, character.stamina?.current ?? 0)), max };
+  }
+
   return {
     abilities,
     armorClass,
@@ -900,6 +909,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       heroPoints,
       backgroundSkills,
       honor,
+      stamina,
     },
   };
 }

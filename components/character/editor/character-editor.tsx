@@ -38,6 +38,7 @@ import {
   HONOR_CODES,
   HONOR_EVENTS,
   honorBaseline,
+  COMBAT_TRICKS,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -48,6 +49,7 @@ import {
   type PointBuyState,
   type HeroPointsBlock,
   type HonorBlock,
+  type StaminaBlock,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -158,6 +160,9 @@ export function CharacterEditor({
   }
   if (isModuleKeyEnabled(ed.draft, "honor")) {
     optionalSystemItems.push({ key: "honor", label: "Honor", render: () => <HonorEditor ed={ed} /> });
+  }
+  if (isModuleKeyEnabled(ed.draft, "stamina")) {
+    optionalSystemItems.push({ key: "stamina", label: "Stamina", render: () => <StaminaEditor ed={ed} /> });
   }
 
   const sections: SheetSection[] = [
@@ -691,6 +696,69 @@ function HonorEditor({ ed }: { ed: EditorApi }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function StaminaEditor({ ed }: { ed: EditorApi }) {
+  const stamina = ed.draft.stamina;
+  const max = ed.computed.summary.stamina?.max ?? 0;
+  const current = Math.min(stamina?.current ?? 0, max);
+  const featNames = new Set(ed.draft.feats.list.map((f) => f.name.toLowerCase()));
+  const tricks = COMBAT_TRICKS.filter((t) => featNames.has(t.feat.toLowerCase()));
+
+  const ensure = (mut: (s: StaminaBlock) => void) =>
+    ed.update((c) => {
+      if (!c.stamina) c.stamina = { current: 0, bonusMax: 0 };
+      mut(c.stamina);
+    });
+  const spend = (delta: number) => ensure((s) => (s.current = Math.max(0, Math.min(max, s.current + delta))));
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Stamina pool = base attack bonus + Con modifier + bonus ({max}). Spend it to power combat tricks
+        tied to your combat feats; it refreshes fully on a rest and partially after a full attack.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spend(-1)}>
+          − Spend
+        </Button>
+        <span className="tnum text-2xl font-semibold text-rune">
+          {current}
+          <span className="text-base text-muted-foreground">/{max}</span>
+        </span>
+        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spend(1)}>
+          + Regain
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.current = max))}>
+          Rest
+        </Button>
+      </div>
+      <NumberField
+        label="Bonus to max"
+        value={stamina?.bonusMax ?? 0}
+        min={0}
+        onChange={(v) => ensure((s) => (s.bonusMax = v))}
+        className="w-32"
+      />
+      <div>
+        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Combat tricks</h4>
+        {tricks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No combat feats with a known stamina trick yet. Add combat feats on the Feats tab.
+          </p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {tricks.map((t) => (
+              <li key={t.feat}>
+                <span className="font-medium text-foreground">{t.feat}</span>{" "}
+                <span className="text-xs text-muted-foreground">({t.cost} stamina)</span> — {t.effect}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

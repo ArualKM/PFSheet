@@ -184,6 +184,8 @@ export type CharacterViewModel = {
   heroPoints: { current: number; max: number } | null;
   /** Honor score + tier (null unless the module is enabled). */
   honor: { score: number; tier: string; dishonored: boolean } | null;
+  /** Stamina pool (null unless the module is enabled). */
+  stamina: { current: number; max: number } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -471,6 +473,7 @@ export function buildCharacterViewModel(
           dishonored: computed.summary.honor.dishonored,
         }
       : null,
+    stamina: computed.summary.stamina ?? null,
     spellcasting,
     profile,
     inventory: gate("inventory", {

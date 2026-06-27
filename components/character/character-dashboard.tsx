@@ -184,6 +184,14 @@ export function CharacterDashboard({
               </div>
             </SectionCard>
           )}
+          {vm.stamina && (
+            <SectionCard title="Stamina" icon={Zap}>
+              <span className="tnum text-lg font-semibold text-foreground">
+                {vm.stamina.current}
+                <span className="text-sm text-muted-foreground">/{vm.stamina.max}</span>
+              </span>
+            </SectionCard>
+          )}
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (
