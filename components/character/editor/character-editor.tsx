@@ -1487,41 +1487,139 @@ function ACEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+const REPEATABLE_SKILL_BASES = [
+  { value: "craft", label: "Craft", ability: "int", trainedOnly: false },
+  { value: "perform", label: "Perform", ability: "cha", trainedOnly: false },
+  { value: "profession", label: "Profession", ability: "wis", trainedOnly: true },
+] as const;
+const SKILL_ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
+
+function skillDisplayLabel(s: { label: string; specialty?: string }): string {
+  return s.specialty ? `${s.label} (${s.specialty})` : s.label;
+}
+
 function SkillsEditor({ ed }: { ed: EditorApi }) {
   const skills = ed.draft.skills.list;
+  const totalLevel = ed.draft.identity.totalLevel ?? 0;
+  const ranksSpent = skills.reduce((sum, s) => sum + (s.ranks ?? 0), 0);
+
+  const [addType, setAddType] = useState<string>("custom");
+  const [addName, setAddName] = useState("");
+  const [addAbility, setAddAbility] = useState<string>("int");
+
+  const manualMiscId = (id: string) => `${id}-manual-misc`;
+  const miscValue = (s: (typeof skills)[number]) => {
+    const m = s.misc.find((x) => x.id === manualMiscId(s.id));
+    return typeof m?.value === "number" ? m.value : 0;
+  };
+  const setMisc = (i: number, val: number) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (!t) return;
+      const mid = manualMiscId(t.id);
+      t.misc = t.misc.filter((x) => x.id !== mid);
+      if (val !== 0) t.misc.push({ id: mid, label: "Misc", value: val, enabled: true });
+    });
+
+  const addSkill = () => {
+    const name = addName.trim();
+    ed.update((c) => {
+      if (addType === "custom") {
+        if (!name) return;
+        c.skills.list.push({
+          id: newId("skill"),
+          key: newId("custom"),
+          label: name,
+          ability: addAbility,
+          ranks: 0,
+          misc: [],
+          conditional: [],
+          custom: true,
+        });
+        return;
+      }
+      const base = REPEATABLE_SKILL_BASES.find((b) => b.value === addType);
+      if (!base) return;
+      c.skills.list.push({
+        id: newId("skill"),
+        key: newId(base.value),
+        label: base.label,
+        ability: base.ability,
+        ranks: 0,
+        misc: [],
+        conditional: [],
+        custom: true,
+        trainedOnly: base.trainedOnly,
+        specialty: name || undefined,
+      });
+    });
+    setAddName("");
+  };
+
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Set ranks and mark class skills (trained class skills with ranks gain +3). Totals update live.
-      </p>
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Ranks (max {totalLevel}/skill) + class-skill (+3 when trained). Totals update live.
+        </p>
+        <span className="text-xs text-muted-foreground">
+          Ranks spent: <span className="tnum font-semibold text-foreground">{ranksSpent}</span>
+        </span>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[34rem] text-sm">
           <thead className="bg-surface-raised text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left font-semibold">Skill</th>
               <th className="px-2 py-2 font-semibold">Ability</th>
               <th className="px-2 py-2 font-semibold">Class</th>
-              <th className="w-20 px-2 py-2 font-semibold">Ranks</th>
+              <th className="w-16 px-2 py-2 font-semibold">Ranks</th>
+              <th className="w-16 px-2 py-2 font-semibold">Misc</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
+              <th className="w-8 px-2 py-2" aria-label="Remove" />
             </tr>
           </thead>
           <tbody>
             {skills.map((s, i) => {
               const total = ed.computed.skills[s.key]?.value ?? 0;
+              const over = s.ranks > totalLevel;
               return (
                 <tr key={s.id} className="border-t border-border/50">
                   <td className="px-3 py-1.5 text-foreground">
-                    {s.label}
-                    {s.trainedOnly && <span className="ml-1 text-[10px] text-muted-foreground">(trained)</span>}
+                    {skillDisplayLabel(s)}
+                    {s.trainedOnly && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">(trained)</span>
+                    )}
                   </td>
                   <td className="px-2 py-1.5 text-center text-[11px] uppercase text-muted-foreground">
-                    {s.ability}
+                    {s.custom ? (
+                      <select
+                        value={s.ability}
+                        aria-label={`${skillDisplayLabel(s)} ability`}
+                        onChange={(e) =>
+                          ed.update((c) => {
+                            const t = c.skills.list[i];
+                            if (t) t.ability = e.target.value;
+                          })
+                        }
+                        className="rounded border border-border bg-background px-1 py-0.5 text-[11px] uppercase"
+                      >
+                        {SKILL_ABILITIES.map((a) => (
+                          <option key={a} value={a}>
+                            {a}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      s.ability
+                    )}
                   </td>
                   <td className="px-2 py-1.5 text-center">
                     <input
                       type="checkbox"
                       checked={!!s.classSkill}
-                      aria-label={`${s.label} is a class skill`}
+                      aria-label={`${skillDisplayLabel(s)} is a class skill`}
                       onChange={(e) =>
                         ed.update((c) => {
                           const t = c.skills.list[i];
@@ -1536,7 +1634,8 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                       type="number"
                       min={0}
                       value={s.ranks}
-                      aria-label={`${s.label} ranks`}
+                      aria-label={`${skillDisplayLabel(s)} ranks`}
+                      title={over ? `Ranks exceed character level (${totalLevel})` : undefined}
                       onChange={(e) => {
                         const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
                         if (!Number.isNaN(n))
@@ -1545,17 +1644,100 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                             if (t) t.ranks = n;
                           });
                       }}
-                      className="tnum h-8 w-16 rounded-md border border-border bg-background px-2 text-sm"
+                      className={cn(
+                        "tnum h-8 w-14 rounded-md border bg-background px-2 text-sm",
+                        over ? "border-danger text-danger" : "border-border",
+                      )}
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      value={miscValue(s)}
+                      aria-label={`${skillDisplayLabel(s)} misc bonus`}
+                      onChange={(e) => {
+                        const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
+                        if (!Number.isNaN(n)) setMisc(i, n);
+                      }}
+                      className="tnum h-8 w-14 rounded-md border border-border bg-background px-2 text-sm"
                     />
                   </td>
                   <td className="tnum px-3 py-1.5 text-right font-semibold text-rune">
                     {formatModifier(total)}
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    {s.custom && (
+                      <button
+                        type="button"
+                        onClick={() => ed.update((c) => void c.skills.list.splice(i, 1))}
+                        aria-label={`Remove ${skillDisplayLabel(s)}`}
+                        className="tap-target inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-danger"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="rounded-lg border border-dashed border-border p-3">
+        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Add a skill
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <select
+            value={addType}
+            onChange={(e) => setAddType(e.target.value)}
+            aria-label="Skill type to add"
+            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="custom">Custom skill</option>
+            {REPEATABLE_SKILL_BASES.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
+          <input
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addSkill();
+              }
+            }}
+            placeholder={addType === "custom" ? "Skill name" : "Specialty (e.g. alchemy)"}
+            aria-label={addType === "custom" ? "Custom skill name" : "Specialty"}
+            className="h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          {addType === "custom" && (
+            <select
+              value={addAbility}
+              onChange={(e) => setAddAbility(e.target.value)}
+              aria-label="Custom skill ability"
+              className="h-10 rounded-md border border-border bg-background px-2 text-sm uppercase"
+            >
+              {SKILL_ABILITIES.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={addSkill}
+            disabled={addType === "custom" && !addName.trim()}
+          >
+            <Plus className="size-4" /> Add
+          </Button>
+        </div>
       </div>
     </div>
   );

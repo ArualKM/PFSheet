@@ -206,7 +206,7 @@ export function buildCharacterViewModel(
     "skills",
     character.skills.list.map((s) => ({
       key: s.key,
-      label: s.label,
+      label: s.specialty ? `${s.label} (${s.specialty})` : s.label,
       total: computed.skills[s.key]?.value ?? 0,
       ranks: s.ranks,
     })),
