@@ -42,6 +42,7 @@ export function characterStats(vm: CharacterViewModel) {
     abilities: vm.abilities,
     skills: vm.skills, // null if the viewer can't see the skills section
     attacks: vm.attacks,
+    fullAttack: vm.fullAttack,
     languages: vm.languages,
     spellcasting: vm.spellcasting, // full gated spellcasting (null if not visible)
   };

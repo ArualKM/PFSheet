@@ -2,6 +2,7 @@ import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef } from
 import { ABILITY_KEYS } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 import { languageBudget, type LanguageBudget } from "./languages";
+import { iterativeAttackBonuses } from "./combat";
 
 /**
  * §15 Privacy system. `buildCharacterViewModel` turns a canonical sheet + its
@@ -129,7 +130,18 @@ export type CharacterViewModel = {
   };
   abilities: Array<{ key: string; label: string; score: number; modifier: number }>;
   buffs: Array<{ name: string; enabled: boolean; remainingRounds?: number; category?: string }> | null;
-  attacks: Array<{ name: string; attackBonus: number; damage?: string; attackType: string }> | null;
+  attacks: Array<{
+    name: string;
+    attackBonus: number;
+    damage?: string;
+    damageType?: string;
+    critRange?: string;
+    critMultiplier?: string;
+    range?: string;
+    attackType: string;
+  }> | null;
+  /** Full-attack iterative routine (top bonus + each -5) for the general melee/ranged bonus. */
+  fullAttack: { bab: number; melee: number[]; ranged: number[] };
   skills: Array<{ key: string; label: string; total: number; ranks: number }> | null;
   feats: Array<{ name: string; type?: string }> | null;
   features: Array<{ name: string; category: string }> | null;
@@ -211,6 +223,11 @@ export function buildCharacterViewModel(
       ranks: s.ranks,
     })),
   );
+
+  // BAB is usually a stored number (class presets set it); a formula-valued BAB is rare and
+  // simply yields no full-attack routine here rather than a misleading guess.
+  const babRaw = character.combat.bab.total;
+  const bab = typeof babRaw === "number" ? babRaw : 0;
 
   const toSpellView = (ref: SpellRef): SpellView => ({
     name: ref.name,
@@ -317,9 +334,18 @@ export function buildCharacterViewModel(
         name: a.name,
         attackBonus: a.attackBonus,
         damage: a.damage,
+        damageType: a.damageType,
+        critRange: a.critRange,
+        critMultiplier: a.critMultiplier,
+        range: a.range,
         attackType: a.attackType,
       })),
     ),
+    fullAttack: {
+      bab,
+      melee: iterativeAttackBonuses(computed.attackBonuses.melee.value, bab),
+      ranged: iterativeAttackBonuses(computed.attackBonuses.ranged.value, bab),
+    },
     skills,
     feats: gate(
       "feats",

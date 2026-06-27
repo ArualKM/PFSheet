@@ -73,18 +73,47 @@ export function CharacterDashboard({
 
           {vm.attacks && vm.attacks.length > 0 && (
             <SectionCard title="Attacks" icon={Swords}>
+              {(vm.fullAttack.melee.length > 1 || vm.fullAttack.ranged.length > 1) && (
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Full attack:{" "}
+                  <span className="tnum text-foreground">
+                    {vm.fullAttack.melee.map(formatModifier).join("/")} melee
+                  </span>
+                  {" · "}
+                  <span className="tnum text-foreground">
+                    {vm.fullAttack.ranged.map(formatModifier).join("/")} ranged
+                  </span>
+                </p>
+              )}
               <ShowMore cap={6} noun="attacks" className="divide-y divide-border/60">
-                {vm.attacks.map((atk, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 py-2">
-                    <span className="truncate text-sm text-foreground">{atk.name}</span>
-                    <span className="flex items-center gap-4">
-                      <span className="tnum text-sm font-semibold text-rune">
-                        {formatModifier(atk.attackBonus)}
+                {vm.attacks.map((atk, i) => {
+                  const crit =
+                    atk.critRange || atk.critMultiplier
+                      ? `${atk.critRange ?? ""}${atk.critMultiplier ? `/${atk.critMultiplier}` : ""}`.trim()
+                      : null;
+                  const meta = [crit, atk.range].filter(Boolean).join(" · ");
+                  return (
+                    <div key={i} className="flex items-start justify-between gap-3 py-2">
+                      <div className="min-w-0">
+                        <span className="block truncate text-sm text-foreground">{atk.name}</span>
+                        {meta && <span className="text-[11px] text-muted-foreground">{meta}</span>}
+                      </div>
+                      <span className="flex shrink-0 items-center gap-4">
+                        <span className="tnum text-sm font-semibold text-rune">
+                          {formatModifier(atk.attackBonus)}
+                        </span>
+                        {atk.damage && (
+                          <span className="tnum text-sm text-gold">
+                            {atk.damage}
+                            {atk.damageType && (
+                              <span className="ml-1 text-[11px] text-muted-foreground">{atk.damageType}</span>
+                            )}
+                          </span>
+                        )}
                       </span>
-                      {atk.damage && <span className="tnum text-sm text-gold">{atk.damage}</span>}
-                    </span>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </ShowMore>
             </SectionCard>
           )}

@@ -348,6 +348,10 @@ export type ComputedAttack = {
   attackBonus: number;
   /** Raw damage expression (e.g. "1d8+7"); dice are not evaluated. */
   damage?: string;
+  damageType?: string;
+  critRange?: string;
+  critMultiplier?: string;
+  range?: string;
   warnings: string[];
 };
 
@@ -596,6 +600,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         attackType: a.attackType,
         attackBonus: r ? r.value : 0,
         damage: a.damageFormula,
+        damageType: a.damageType,
+        critRange: a.critRange,
+        critMultiplier: a.critMultiplier,
+        range: a.range,
         warnings: r?.warnings ?? [],
       };
     });
