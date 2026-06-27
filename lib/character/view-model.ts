@@ -167,6 +167,7 @@ export type CharacterViewModel = {
     spellResistance: number | null;
     conditions: string[];
     nonlethal: number;
+    conditional: Array<{ label: string; condition: string }>;
   };
   spellcasting: {
     casters: Array<{
@@ -428,6 +429,15 @@ export function buildCharacterViewModel(
         typeof character.defenses.spellResistance === "number" ? character.defenses.spellResistance : null,
       conditions: character.health.conditions,
       nonlethal: character.health.nonlethalDamage,
+      conditional: character.defenses.conditionalDefenses
+        .filter((cd) => cd.condition.trim() !== "" || cd.bonus !== 0)
+        .map((cd) => {
+          const tgt =
+            ({ ac: "AC", touch: "touch AC", saves: "saves", fortitude: "Fort", reflex: "Ref", will: "Will", all: "all" } as Record<string, string>)[
+              cd.target
+            ] ?? cd.target;
+          return { label: `${cd.bonus >= 0 ? "+" : ""}${cd.bonus} ${tgt}`, condition: cd.condition };
+        }),
     },
     spellcasting,
     profile,

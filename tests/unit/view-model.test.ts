@@ -34,6 +34,24 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(vm.header.name).toBe("Seraphina Vale");
   });
 
+  it("surfaces conditional defenses with formatted labels", () => {
+    const vm = build("owner", (c) => {
+      c.defenses.conditionalDefenses.push({ id: "cd1", target: "saves", bonus: 2, condition: "fear" });
+      c.defenses.conditionalDefenses.push({ id: "cd2", target: "fortitude", bonus: 4, condition: "poison" });
+    });
+    expect(vm.defenses.conditional).toEqual([
+      { label: "+2 saves", condition: "fear" },
+      { label: "+4 Fort", condition: "poison" },
+    ]);
+  });
+
+  it("omits blank conditional-defense rows", () => {
+    const vm = build("owner", (c) => {
+      c.defenses.conditionalDefenses.push({ id: "cd1", target: "saves", bonus: 0, condition: "" });
+    });
+    expect(vm.defenses.conditional).toHaveLength(0);
+  });
+
   it("hides backstory from anonymous when the owner marks it private", () => {
     const vm = build("anonymous", (c) => {
       c.privacy.sections.backstory = "private";

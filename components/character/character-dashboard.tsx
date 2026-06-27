@@ -402,14 +402,16 @@ function StatTile({
 }
 
 function DefensesCard({ defenses }: { defenses: CharacterViewModel["defenses"] }) {
-  const { damageReduction, energyResistance, immunities, spellResistance, conditions, nonlethal } = defenses;
+  const { damageReduction, energyResistance, immunities, spellResistance, conditions, nonlethal, conditional } =
+    defenses;
   const hasAny =
     damageReduction.length > 0 ||
     energyResistance.length > 0 ||
     immunities.length > 0 ||
     spellResistance != null ||
     conditions.length > 0 ||
-    nonlethal > 0;
+    nonlethal > 0 ||
+    conditional.length > 0;
   if (!hasAny) return null;
 
   return (
@@ -429,6 +431,13 @@ function DefensesCard({ defenses }: { defenses: CharacterViewModel["defenses"] }
         {immunities.length > 0 && <DefenseRow label="Immune" value={immunities.join(", ")} />}
         {spellResistance != null && <DefenseRow label="SR" value={String(spellResistance)} />}
         {nonlethal > 0 && <DefenseRow label="Nonlethal" value={String(nonlethal)} />}
+        {conditional.length > 0 && (
+          <div className="space-y-1 pt-0.5">
+            {conditional.map((c, i) => (
+              <DefenseRow key={i} label={c.label} value={c.condition ? `vs ${c.condition}` : "(conditional)"} />
+            ))}
+          </div>
+        )}
       </div>
     </SectionCard>
   );

@@ -50,6 +50,22 @@ export const armorClassSchema = z.object({
 });
 export type ArmorClass = z.infer<typeof armorClassSchema>;
 
+/**
+ * A situational defense bonus (e.g. "+2 vs fear", "+4 vs poison", dwarf's "+2 vs spells"). These are
+ * conditional by nature, so they are recorded + shown for reference rather than folded into base
+ * AC/save totals — the player applies them when the trigger condition is met.
+ */
+export const conditionalDefenseSchema = z.object({
+  id: z.string(),
+  target: z
+    .enum(["ac", "touch", "saves", "fortitude", "reflex", "will", "all"])
+    .default("saves"),
+  bonus: z.number().int().default(0),
+  condition: z.string().default(""),
+  notes: z.string().optional(),
+});
+export type ConditionalDefense = z.infer<typeof conditionalDefenseSchema>;
+
 export const defenseBlockSchema = z.object({
   armorClass: armorClassSchema,
   savingThrows: z.object({
@@ -58,6 +74,7 @@ export const defenseBlockSchema = z.object({
     will: saveEntrySchema,
   }),
   spellResistance: numberOrFormulaSchema.optional(),
+  conditionalDefenses: z.array(conditionalDefenseSchema).default([]),
   defensiveItemIds: z.array(z.string()).default([]),
   defensiveFeatureIds: z.array(z.string()).default([]),
 });

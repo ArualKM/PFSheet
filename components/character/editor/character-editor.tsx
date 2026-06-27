@@ -1339,6 +1339,17 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
     setImm("");
   };
 
+  const cds = ed.draft.defenses.conditionalDefenses;
+  type CondTarget = (typeof cds)[number]["target"];
+  const addCondDef = () =>
+    ed.update((c) => c.defenses.conditionalDefenses.push({ id: newId("cd"), target: "saves", bonus: 2, condition: "" }));
+  const updateCondDef = (i: number, patch: Partial<(typeof cds)[number]>) =>
+    ed.update((c) => {
+      const cd = c.defenses.conditionalDefenses[i];
+      if (cd) Object.assign(cd, patch);
+    });
+  const removeCondDef = (i: number) => ed.update((c) => c.defenses.conditionalDefenses.splice(i, 1));
+
   return (
     <div className="space-y-6">
       <div className="grid max-w-xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1476,6 +1487,56 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
           <Button size="sm" variant="secondary" onClick={addImmunity}>
             Add
           </Button>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Conditional defenses</h3>
+          <Button size="sm" variant="ghost" onClick={addCondDef}>
+            <Plus className="size-4" /> Add
+          </Button>
+        </div>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Situational bonuses (e.g. +2 vs fear, +4 vs poison, +2 vs spells). Recorded for reference —
+          not folded into base AC/save totals.
+        </p>
+        <div className="space-y-2">
+          {cds.length === 0 && <p className="text-sm text-muted-foreground">None.</p>}
+          {cds.map((cd, i) => (
+            <div key={cd.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
+              <NumberField
+                label="Bonus"
+                value={cd.bonus}
+                onChange={(v) => updateCondDef(i, { bonus: v })}
+                className="w-20"
+              />
+              <SelectField
+                label="To"
+                value={cd.target}
+                onChange={(v) => updateCondDef(i, { target: v as CondTarget })}
+                options={[
+                  { value: "saves", label: "All saves" },
+                  { value: "fortitude", label: "Fort" },
+                  { value: "reflex", label: "Reflex" },
+                  { value: "will", label: "Will" },
+                  { value: "ac", label: "AC" },
+                  { value: "touch", label: "Touch AC" },
+                  { value: "all", label: "All" },
+                ]}
+              />
+              <TextField
+                label="Condition"
+                value={cd.condition}
+                placeholder="vs fear"
+                onChange={(v) => updateCondDef(i, { condition: v })}
+                className="min-w-[10rem] flex-1"
+              />
+              <Button variant="ghost" size="icon" aria-label="Remove conditional defense" onClick={() => removeCondDef(i)}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
         </div>
       </section>
     </div>
