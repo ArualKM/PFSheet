@@ -86,6 +86,18 @@ export const OPTIONAL_RULE_MODULES: OptionalRuleModule[] = [
     description: "Downtime fame and prestige points for organizations, contacts, and special perks.",
   },
   {
+    key: "honor",
+    name: "Honor",
+    group: "subsystem",
+    description: "A 0–100 reputation score with honor codes, checks, and a dishonor penalty.",
+  },
+  {
+    key: "stamina",
+    name: "Stamina & Combat Tricks",
+    group: "subsystem",
+    description: "A stamina pool (BAB + Con) spent to power combat tricks tied to your combat feats.",
+  },
+  {
     key: "kineticist_burn",
     name: "Kineticist Burn",
     group: "subsystem",

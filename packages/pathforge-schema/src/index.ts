@@ -25,6 +25,7 @@ export * from "./class-catalog";
 export * from "./spell-tables";
 export * from "./metamagic-catalog";
 export * from "./hero-points";
+export * from "./honor";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";

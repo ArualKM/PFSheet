@@ -174,6 +174,16 @@ export function CharacterDashboard({
               </div>
             </SectionCard>
           )}
+          {vm.honor && (
+            <SectionCard title="Honor" icon={Shield}>
+              <div className="flex items-baseline gap-2">
+                <span className={vm.honor.dishonored ? "text-2xl font-semibold text-danger" : "text-2xl font-semibold text-gold"}>
+                  {vm.honor.score}
+                </span>
+                <span className="text-sm text-muted-foreground">{vm.honor.tier}</span>
+              </div>
+            </SectionCard>
+          )}
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (

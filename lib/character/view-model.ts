@@ -182,6 +182,8 @@ export type CharacterViewModel = {
   };
   /** Hero Points pool (count only; null unless the module is enabled). */
   heroPoints: { current: number; max: number } | null;
+  /** Honor score + tier (null unless the module is enabled). */
+  honor: { score: number; tier: string; dishonored: boolean } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -462,6 +464,13 @@ export function buildCharacterViewModel(
         }),
     },
     heroPoints: computed.summary.heroPoints ?? null,
+    honor: computed.summary.honor
+      ? {
+          score: computed.summary.honor.score,
+          tier: computed.summary.honor.tier,
+          dishonored: computed.summary.honor.dishonored,
+        }
+      : null,
     spellcasting,
     profile,
     inventory: gate("inventory", {

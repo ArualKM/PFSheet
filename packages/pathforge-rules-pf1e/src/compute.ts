@@ -5,7 +5,14 @@ import type {
   ModifierEntry,
   PathForgeCharacterV1,
 } from "@pathforge/schema";
-import { ABILITY_KEYS, bonusSpellsForLevel, isModuleKeyEnabled, maxHeroPoints } from "@pathforge/schema";
+import {
+  ABILITY_KEYS,
+  bonusSpellsForLevel,
+  isModuleKeyEnabled,
+  maxHeroPoints,
+  honorScore,
+  honorTier,
+} from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
@@ -221,6 +228,13 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
       });
       if (mod) push(classifyTarget(target), mod);
     }
+  }
+
+  // Honor: a dishonored character (0 honor) takes −2 on Will saves (the Cha-skill half is applied in
+  // the skill loop, since skills aren't bucketed by ability).
+  if (isModuleKeyEnabled(character, "honor") && honorScore(character) <= 0) {
+    const mod = modifierEntryToMod("Dishonored", { id: "honor-will", label: "Dishonored", value: -2, enabled: true });
+    if (mod) push("save.will", mod);
   }
 
   // Always-on modifiers entered directly on a stat (entries with no condition).
@@ -530,6 +544,8 @@ export type ComputedCharacter = {
     heroPoints?: { current: number; max: number };
     /** Background-skill rank budget vs spent (absent unless the variant is enabled). */
     backgroundSkills?: { budget: number; spent: number };
+    /** Honor score + tier (absent unless the module is enabled). */
+    honor?: { score: number; tier: string; code: string; dishonored: boolean };
   };
 };
 
@@ -705,6 +721,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         .filter((i) => i.equipped && typeof i.armorCheckPenalty === "number")
         .reduce((sum, i) => sum + Math.abs(i.armorCheckPenalty ?? 0), 0)
     : 0;
+  // Dishonored characters take −2 on Charisma-based skill checks (the Will half is in the index).
+  const dishonored = isModuleKeyEnabled(character, "honor") && honorScore(character) <= 0;
   for (const skill of character.skills.list) {
     const abilityMod = abilities[skill.ability]?.modifier ?? 0;
     const classSkillBonus = skill.classSkill && skill.ranks > 0 ? classBonusDefault : 0;
@@ -712,6 +730,9 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       ...skill.misc
         .map((m) => modifierEntryToMod(skill.label, m))
         .filter((m): m is IndexedMod => m !== null),
+      ...(dishonored && skill.ability === "cha"
+        ? [{ id: "honor-skill", label: "Dishonored", source: "Dishonored", value: -2, bonusType: "untyped" as BonusType }]
+        : []),
       ...(index.get(`skill.${skill.key}`) ?? []),
       ...(index.get("skill.all") ?? []),
     ];
@@ -823,6 +844,12 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let honor: { score: number; tier: string; code: string; dishonored: boolean } | undefined;
+  if (isModuleKeyEnabled(character, "honor")) {
+    const score = honorScore(character);
+    honor = { score, tier: honorTier(score), code: character.honor?.code ?? "general", dishonored: score <= 0 };
+  }
+
   return {
     abilities,
     armorClass,
@@ -872,6 +899,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         : undefined,
       heroPoints,
       backgroundSkills,
+      honor,
     },
   };
 }

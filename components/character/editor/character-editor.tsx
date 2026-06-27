@@ -35,6 +35,9 @@ import {
   isModuleKeyEnabled,
   isBackgroundSkill,
   maxHeroPoints,
+  HONOR_CODES,
+  HONOR_EVENTS,
+  honorBaseline,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -44,6 +47,7 @@ import {
   type RuleModuleGroup,
   type PointBuyState,
   type HeroPointsBlock,
+  type HonorBlock,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -151,6 +155,9 @@ export function CharacterEditor({
   const optionalSystemItems: SheetSection["items"] = [];
   if (isModuleKeyEnabled(ed.draft, "hero_points")) {
     optionalSystemItems.push({ key: "hero_points", label: "Hero Points", render: () => <HeroPointsEditor ed={ed} /> });
+  }
+  if (isModuleKeyEnabled(ed.draft, "honor")) {
+    optionalSystemItems.push({ key: "honor", label: "Honor", render: () => <HonorEditor ed={ed} /> });
   }
 
   const sections: SheetSection[] = [
@@ -587,6 +594,98 @@ function HeroPointsEditor({ ed }: { ed: EditorApi }) {
                   {e.delta >= 0 ? `+${e.delta}` : e.delta}
                 </span>
                 <span className="text-muted-foreground">{e.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HonorEditor({ ed }: { ed: EditorApi }) {
+  const honor = ed.draft.honor;
+  const computed = ed.computed.summary.honor;
+  const baseline = honorBaseline(ed.draft);
+
+  const ensure = (mut: (h: HonorBlock) => void) =>
+    ed.update((c) => {
+      if (!c.honor) c.honor = { code: "general", events: [] };
+      mut(c.honor);
+    });
+  const addEvent = (delta: number, reason: string) =>
+    ensure((h) => {
+      h.events = [{ id: newId("honor"), delta, reason }, ...(h.events ?? [])].slice(0, 50);
+    });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Honor runs 0–100, starting at your Charisma score + level ({baseline}). At 0 you are dishonored:
+        −2 on Will saves and Charisma-based skills.
+      </p>
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="space-y-1">
+          <span className="block text-sm font-medium text-foreground">Score</span>
+          <span
+            className={cn(
+              "text-2xl font-semibold",
+              computed?.dishonored ? "text-danger" : "text-gold",
+            )}
+          >
+            {computed?.score ?? baseline}
+            <span className="ml-2 text-sm text-muted-foreground">{computed?.tier ?? "—"}</span>
+          </span>
+        </div>
+        <SelectField
+          label="Honor code"
+          value={honor?.code ?? "general"}
+          onChange={(v) => ensure((h) => (h.code = v as HonorBlock["code"]))}
+          options={HONOR_CODES.map((c) => ({ value: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
+          className="w-40"
+        />
+        <NumberField
+          label="Baseline override"
+          value={honor?.baselineOverride ?? baseline}
+          onChange={(v) => ensure((h) => (h.baselineOverride = v === baseline ? undefined : v))}
+          className="w-32"
+        />
+      </div>
+
+      <div>
+        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Record an event</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {HONOR_EVENTS.map((e) => (
+            <button
+              key={e.label}
+              type="button"
+              onClick={() => addEvent(e.delta, e.label)}
+              className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-gold/50"
+            >
+              {e.label} {e.delta >= 0 ? `+${e.delta}` : e.delta}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {honor?.events && honor.events.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">History</h4>
+          <ul className="space-y-0.5 text-sm">
+            {honor.events.slice(0, 8).map((e, i) => (
+              <li key={e.id} className="flex items-baseline gap-2">
+                <span className={e.delta >= 0 ? "tnum text-gold" : "tnum text-danger"}>
+                  {e.delta >= 0 ? `+${e.delta}` : e.delta}
+                </span>
+                <span className="flex-1 text-muted-foreground">{e.reason}</span>
+                <button
+                  type="button"
+                  aria-label="Remove event"
+                  onClick={() => ed.update((c) => void c.honor?.events.splice(i, 1))}
+                  className="text-xs text-muted-foreground hover:text-danger"
+                >
+                  ×
+                </button>
               </li>
             ))}
           </ul>

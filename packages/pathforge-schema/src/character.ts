@@ -15,6 +15,7 @@ import { buffBlockSchema } from "./buffs";
 import { formulaBlockSchema } from "./formulas";
 import { rulesBlockSchema } from "./rules";
 import { heroPointsBlockSchema } from "./hero-points";
+import { honorBlockSchema } from "./honor";
 import {
   characterMetadataSchema,
   languageBlockSchema,
@@ -54,6 +55,7 @@ export const pathForgeCharacterV1Schema = z.object({
   rules: rulesBlockSchema,
   /** Optional rule subsystems (§18) — present only when the character enables the module. */
   heroPoints: heroPointsBlockSchema.optional(),
+  honor: honorBlockSchema.optional(),
   privacy: privacyBlockSchema,
   notes: notesBlockSchema,
   metadata: characterMetadataSchema,
