@@ -171,6 +171,12 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
   ];
   for (const item of allItems) {
     if (!item.equipped) continue;
+    // Armor/shield AC bonus: armor and shield stack (different types); same-category keeps the
+    // highest via the stacking engine. Type is chosen by the item's category.
+    if (typeof item.armorBonus === "number" && item.armorBonus !== 0) {
+      const bonusType: BonusType = item.category === "shield" ? "shield" : "armor";
+      push("ac", { id: `armor-${item.id}`, label: item.name, source: item.name, value: item.armorBonus, bonusType });
+    }
     for (const m of item.modifiers) push(classifyTarget(m.target ?? ""), modifierEntryToMod(item.name, m));
     for (const e of item.automation) push(classifyTarget(e.target), effectToMod(e.id, item.name, item.name, e, resolver));
   }
@@ -244,6 +250,17 @@ function stackTotalOfType(mods: IndexedMod[], type: BonusType): number {
   return applyStacking(mods.filter((m) => m.bonusType === type)).total;
 }
 
+/** All equipment items across every inventory bucket, in a single flat list. */
+function allInventory(character: PathForgeCharacterV1) {
+  return [
+    ...character.inventory.weapons,
+    ...character.inventory.armorAndShields,
+    ...character.inventory.potionsScrollsMagicItems,
+    ...character.inventory.gear,
+    ...character.inventory.otherItems,
+  ];
+}
+
 /** Resolves `@{path}` references against a character + its modifier index. */
 export class CharacterResolver implements Resolver {
   private readonly abilities: Record<string, AbilityComputation>;
@@ -271,9 +288,24 @@ export class CharacterResolver implements Resolver {
       const mods = this.bucket("ac").filter((m) => !AC_NAMED.has(m.bonusType));
       return applyStacking(mods).total;
     }
+    if (name === "maxDexPenalty") return this.maxDexPenalty();
     const type = AC_COMPONENT_TYPES[name];
     if (!type) return 0;
     return stackTotalOfType(this.bucket("ac"), type);
+  }
+
+  /**
+   * The Max Dex penalty from equipped armor: the lowest maxDexBonus among equipped armor/shields
+   * caps the Dex bonus to AC. Returns a non-positive number (the excess Dex to subtract), or 0 when
+   * nothing caps Dex or the Dex bonus is already within the cap. A Dex *penalty* is never capped.
+   */
+  private maxDexPenalty(): number {
+    const caps = allInventory(this.character)
+      .filter((i) => i.equipped && typeof i.maxDexBonus === "number")
+      .map((i) => i.maxDexBonus as number);
+    if (caps.length === 0) return 0;
+    const dexMod = this.abilities.dex?.modifier ?? 0;
+    return Math.min(0, Math.min(...caps) - dexMod);
   }
 
   private lookup(path: string): number | undefined {
@@ -558,9 +590,17 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   const ac = character.defenses.armorClass.formulas;
   const saves = character.defenses.savingThrows;
 
+  // Apply the equipped-armor Max Dex cap to the Dex-bearing AC values. Inject @{ac.maxDexPenalty}
+  // when a formula counts Dex but predates the cap (older sheets) — new sheets already include it,
+  // and a formula with no Dex (e.g. flat-footed) is left alone since there is nothing to cap.
+  const withMaxDex = (f: string) =>
+    f.includes("@{ac.maxDexPenalty}") || !f.includes("@{abilities.dex.mod}")
+      ? f
+      : `${f} + @{ac.maxDexPenalty}`;
+
   const armorClass = {
-    total: evalWith(ac.total, resolver, overrideFor(character, "defenses.armorClass.total")),
-    touch: evalWith(ac.touch, resolver, overrideFor(character, "defenses.armorClass.touch")),
+    total: evalWith(withMaxDex(ac.total), resolver, overrideFor(character, "defenses.armorClass.total")),
+    touch: evalWith(withMaxDex(ac.touch), resolver, overrideFor(character, "defenses.armorClass.touch")),
     flatFooted: evalWith(ac.flatFooted, resolver, overrideFor(character, "defenses.armorClass.flatFooted")),
     cmd: evalWith(ac.cmd, resolver, overrideFor(character, "defenses.armorClass.cmd")),
   };
@@ -586,6 +626,15 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // Skills — evaluate each row with a local scope overlay.
   const skills: Record<string, ComputedValue> = {};
   const classBonusDefault = character.skills.settings.classSkillBonusDefault ?? 3;
+  // Total armor check penalty from equipped armor/shields, applied to ACP-affected skills (Climb,
+  // Swim, Stealth, …). Honors the sheet-wide toggle, and uses the magnitude so a sheet that stores
+  // ACP as a negative ("-3", the common PF1e convention) still subtracts rather than adds.
+  const acpApplies = character.skills.settings.armorCheckPenaltyApplies !== false;
+  const equippedAcp = acpApplies
+    ? allInventory(character)
+        .filter((i) => i.equipped && typeof i.armorCheckPenalty === "number")
+        .reduce((sum, i) => sum + Math.abs(i.armorCheckPenalty ?? 0), 0)
+    : 0;
   for (const skill of character.skills.list) {
     const abilityMod = abilities[skill.ability]?.modifier ?? 0;
     const classSkillBonus = skill.classSkill && skill.ranks > 0 ? classBonusDefault : 0;
@@ -601,10 +650,18 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       ranks: skill.ranks,
       abilityMod,
       classSkillBonus,
-      armorCheckPenalty: 0,
+      armorCheckPenalty: skill.armorCheckPenalty ? -equippedAcp : 0,
       misc: miscTotal,
     };
-    const formula = skill.formula ?? "@{ranks} + @{abilityMod} + @{classSkillBonus} + @{misc}";
+    // Skill rows persist their own formula (the factory seeds one per skill at create time), so
+    // sheets created before ACP support stored a formula WITHOUT @{armorCheckPenalty} — the term
+    // would never reach them. Inject it when an ACP-affected skill's stored formula omits it
+    // (new sheets already include it → no-op), so ACP applies to existing and new characters alike.
+    let formula =
+      skill.formula ?? "@{ranks} + @{abilityMod} + @{classSkillBonus} + @{armorCheckPenalty} + @{misc}";
+    if (skill.armorCheckPenalty && !formula.includes("@{armorCheckPenalty}")) {
+      formula = `${formula} + @{armorCheckPenalty}`;
+    }
     skills[skill.key] = evalWith(formula, resolver);
   }
   resolver.local = {};

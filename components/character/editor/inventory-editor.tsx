@@ -241,6 +241,28 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                   <Trash2 className="size-4" />
                 </Button>
               </div>
+
+              {(item.category === "armor" || item.category === "shield") && (
+                <div className="mt-2 grid grid-cols-3 gap-2 rounded-md border border-border/60 p-2">
+                  <NumberField
+                    label="AC bonus"
+                    value={item.armorBonus ?? 0}
+                    onChange={(v) => updateItem(item.id, { armorBonus: v || undefined })}
+                  />
+                  <NumberField
+                    label="Max Dex"
+                    value={item.maxDexBonus ?? 0}
+                    onChange={(v) => updateItem(item.id, { maxDexBonus: v || undefined })}
+                  />
+                  <NumberField
+                    label="ACP"
+                    value={item.armorCheckPenalty ?? 0}
+                    min={0}
+                    onChange={(v) => updateItem(item.id, { armorCheckPenalty: v || undefined })}
+                  />
+                </div>
+              )}
+
               <TextField
                 label="Notes"
                 value={item.notes ?? ""}

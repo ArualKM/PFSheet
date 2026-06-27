@@ -187,7 +187,14 @@ export type CharacterViewModel = {
     foes?: string;
   } | null;
   inventory: {
-    items: Array<{ name: string; quantity: number; equipped: boolean; category: string }>;
+    items: Array<{
+      name: string;
+      quantity: number;
+      equipped: boolean;
+      category: string;
+      armorBonus?: number;
+      armorCheckPenalty?: number;
+    }>;
   } | null;
   wealth: { pp: number; gp: number; sp: number; cp: number; totalGp: number } | null;
   /** Human-readable labels of sections hidden from this viewer. */
@@ -418,6 +425,8 @@ export function buildCharacterViewModel(
         quantity: i.quantity,
         equipped: !!i.equipped,
         category: i.category,
+        ...(typeof i.armorBonus === "number" ? { armorBonus: i.armorBonus } : {}),
+        ...(typeof i.armorCheckPenalty === "number" ? { armorCheckPenalty: i.armorCheckPenalty } : {}),
       })),
     }),
     wealth: gate("wealth", {

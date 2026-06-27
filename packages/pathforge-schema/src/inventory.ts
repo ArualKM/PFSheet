@@ -12,6 +12,11 @@ export const equipmentItemSchema = z.object({
   weight: z.number().optional(),
   cost: z.string().optional(),
   equipped: z.boolean().optional().default(false),
+  /** Armor/shield stats (PF1e). When equipped: armorBonus feeds AC (armor vs shield bonus by
+   * category); armorCheckPenalty applies to ACP-affected skills; maxDexBonus caps Dex-to-AC. */
+  armorBonus: z.number().int().optional(),
+  maxDexBonus: z.number().int().optional(),
+  armorCheckPenalty: z.number().int().optional(),
   containerId: z.string().optional(),
   description: z.string().optional(),
   /** Effects this item applies while equipped/active. */

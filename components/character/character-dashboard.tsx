@@ -268,6 +268,12 @@ export function CharacterDashboard({
                     <span className="min-w-0 truncate text-foreground">
                       {it.name}
                       {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
+                      {(it.armorBonus || it.armorCheckPenalty) && (
+                        <span className="text-xs text-muted-foreground">
+                          {it.armorBonus ? ` +${it.armorBonus} AC` : ""}
+                          {it.armorCheckPenalty ? ` · ACP −${it.armorCheckPenalty}` : ""}
+                        </span>
+                      )}
                     </span>
                     {it.equipped && (
                       <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>

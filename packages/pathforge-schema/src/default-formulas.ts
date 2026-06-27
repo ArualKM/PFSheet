@@ -7,9 +7,9 @@
 export const DEFAULT_FORMULAS = {
   ac: {
     total:
-      "10 + @{abilities.dex.mod} + @{ac.armor} + @{ac.shield} + @{ac.naturalArmor} + @{ac.deflection} + @{ac.dodge} + @{size.acMod} + @{ac.misc}",
+      "10 + @{abilities.dex.mod} + @{ac.maxDexPenalty} + @{ac.armor} + @{ac.shield} + @{ac.naturalArmor} + @{ac.deflection} + @{ac.dodge} + @{size.acMod} + @{ac.misc}",
     touch:
-      "10 + @{abilities.dex.mod} + @{ac.deflection} + @{ac.dodge} + @{size.acMod} + @{ac.misc}",
+      "10 + @{abilities.dex.mod} + @{ac.maxDexPenalty} + @{ac.deflection} + @{ac.dodge} + @{size.acMod} + @{ac.misc}",
     flatFooted:
       "10 + @{ac.armor} + @{ac.shield} + @{ac.naturalArmor} + @{ac.deflection} + @{size.acMod} + @{ac.misc}",
     cmd: "10 + @{combat.bab.total} + @{abilities.str.mod} + @{abilities.dex.mod} + @{size.cmdMod} + @{cmd.misc}",
