@@ -14,6 +14,7 @@ export function characterSummary(vm: CharacterViewModel) {
     alignment: vm.header.alignment ?? null,
     hp: vm.vitals.hp,
     ac: vm.vitals.ac,
+    cmb: vm.vitals.cmb,
     cmd: vm.vitals.cmd,
     saves: vm.vitals.saves,
     initiative: vm.vitals.initiative,

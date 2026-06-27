@@ -120,6 +120,7 @@ export type CharacterViewModel = {
   vitals: {
     hp: { current: number; max: number; temp: number };
     ac: { total: number; touch: number; flatFooted: number };
+    cmb: number;
     cmd: number;
     initiative: number;
     speed: string;
@@ -293,6 +294,7 @@ export function buildCharacterViewModel(
         touch: computed.summary.touch,
         flatFooted: computed.summary.flatFooted,
       },
+      cmb: computed.attackBonuses.cmb.value,
       cmd: computed.summary.cmd,
       initiative: computed.summary.initiative,
       speed: character.combat.speed.base,

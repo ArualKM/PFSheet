@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
@@ -35,10 +36,39 @@ export async function generateMetadata({
   const { publicSlug } = await params;
   const data = await loadShared(publicSlug);
   if (!data) return { title: "Character not found" };
+
+  // Build the public view-model so the OG image only ever uses a portrait the owner
+  // actually made public (a gated/private portrait resolves to null and is omitted).
+  let portraitUrl: string | null = null;
+  let classLine = "a Pathfinder 1e character";
+  const parsed = safeParseCharacter(data.sheet_data);
+  if (parsed.ok) {
+    const vm = buildCharacterViewModel(
+      parsed.character,
+      computeCharacter(parsed.character),
+      "public",
+      data.visibility,
+    );
+    portraitUrl = vm.header.portraitUrl ?? null;
+    if (vm.header.classLine) classLine = vm.header.classLine;
+  }
+  const description = `${classLine} — built on PathForge.`;
+
   return {
     title: data.name,
-    description: `${data.name} — a Pathfinder 1e character on PathForge.`,
-    openGraph: { title: data.name, type: "profile" },
+    description,
+    openGraph: {
+      title: data.name,
+      description,
+      type: "profile",
+      images: portraitUrl ? [{ url: portraitUrl }] : undefined,
+    },
+    twitter: {
+      card: portraitUrl ? "summary_large_image" : "summary",
+      title: data.name,
+      description,
+      images: portraitUrl ? [portraitUrl] : undefined,
+    },
   };
 }
 
@@ -58,8 +88,29 @@ export default async function PublicSharePage({
   const vm = buildCharacterViewModel(result.character, computed, "public", data.visibility);
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <header className="mb-4 flex items-center justify-between">
+        <Link href="/" className="font-display text-lg font-semibold text-gold">
+          PathForge
+        </Link>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+          Public character sheet
+        </span>
+      </header>
+
       <CharacterDashboard vm={vm} />
+
+      <footer className="mt-10 border-t border-border/60 pt-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Build, compute, and share your own Pathfinder 1e characters — free.
+        </p>
+        <Link
+          href="/signup"
+          className="mt-3 inline-flex h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
+        >
+          Create your character
+        </Link>
+      </footer>
     </div>
   );
 }

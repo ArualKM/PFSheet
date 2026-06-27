@@ -26,6 +26,8 @@ export function CharacterDashboard({
   actions?: ReactNode;
 }) {
   const rankedSkills = (vm.skills ?? []).slice().sort((a, b) => b.total - a.total);
+  // Owner/editor see editing affordances + empty-state prompts; read-only viewers don't.
+  const editable = vm.viewer === "owner" || vm.viewer === "editor";
 
   return (
     <div className="space-y-3">
@@ -48,7 +50,8 @@ export function CharacterDashboard({
               <MiniStat label="Reflex" value={formatModifier(vm.vitals.saves.reflex)} />
               <MiniStat label="Will" value={formatModifier(vm.vitals.saves.will)} />
             </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <MiniStat label="CMB" value={formatModifier(vm.vitals.cmb)} subtle />
               <MiniStat label="CMD" value={vm.vitals.cmd} subtle />
             </div>
           </SectionCard>
@@ -101,7 +104,7 @@ export function CharacterDashboard({
 
         {/* Right / sidebar column */}
         <div className="space-y-3">
-          {vm.buffs && (
+          {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -207,6 +210,12 @@ export function CharacterDashboard({
             <SectionCard title="Character Profile" icon={ScrollText}>
               <div className="space-y-2 text-sm text-muted-foreground">
                 {vm.profile.backstory && <p className="whitespace-pre-line">{vm.profile.backstory}</p>}
+                {vm.profile.appearance && (
+                  <p>
+                    <span className="font-medium text-foreground">Appearance:</span>{" "}
+                    {vm.profile.appearance}
+                  </p>
+                )}
                 {vm.profile.personality && (
                   <p>
                     <span className="font-medium text-foreground">Personality:</span>{" "}
@@ -301,13 +310,21 @@ function SectionCard({
   icon: React.ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
+  // A <section> named by its heading is a region landmark — screen-reader users can jump
+  // between sheet sections, and the heading is programmatically associated with its content.
+  const headingId = `sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
     <Card>
       <CardContent className="p-5">
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          <Icon className="size-4 text-gold" /> {title}
-        </h2>
-        {children}
+        <section aria-labelledby={headingId}>
+          <h2
+            id={headingId}
+            className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            <Icon className="size-4 text-gold" /> {title}
+          </h2>
+          {children}
+        </section>
       </CardContent>
     </Card>
   );

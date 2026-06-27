@@ -22,7 +22,7 @@ export type ApiEndpoint = {
 
 export const API_SCOPE_INFO: { scope: string; description: string }[] = [
   { scope: "characters:read", description: "Full read of your characters — every section you can see (implies the narrower character scopes)." },
-  { scope: "characters:summary", description: "Computed summary: level, HP, AC, CMD, saves, initiative, speed." },
+  { scope: "characters:summary", description: "Computed summary: level, HP, AC, CMB, CMD, saves, initiative, speed." },
   { scope: "characters:portrait", description: "Character name and portrait URL only." },
   { scope: "discord:embed", description: "Discord character cards for your own characters." },
   { scope: "campaigns:read", description: "Read your campaigns. Reserved — no endpoints use it yet." },
@@ -44,7 +44,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     auth: "none",
     summary: "Public character summary (public-safe values only).",
     returns:
-      "Summary: name, classLine, level, race, alignment, hp, ac, cmd, saves, initiative, speed, spellcasting (roll-up: casterCount/highestLevel/slotsRemaining).",
+      "Summary: name, classLine, level, race, alignment, hp, ac, cmb, cmd, saves, initiative, speed, spellcasting (roll-up: casterCount/highestLevel/slotsRemaining).",
   },
   {
     method: "GET",
