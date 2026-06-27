@@ -11,6 +11,10 @@ export const skillEntrySchema = z.object({
   armorCheckPenalty: z.boolean().optional(),
   classSkill: z.boolean().optional(),
   ranks: z.number().int().min(0).default(0),
+  /** Whether this is a Background skill (Background Skills variant). */
+  background: z.boolean().optional(),
+  /** Ranks bought from the separate background-skill pool (added to `ranks` for the total). */
+  backgroundRanks: z.number().int().min(0).optional(),
   misc: z.array(modifierEntrySchema).default([]),
   conditional: z.array(modifierEntrySchema).default([]),
   formula: z.string().optional(),
@@ -64,7 +68,8 @@ export const DEFAULT_SKILLS: DefaultSkillDef[] = [
   { key: "disguise", label: "Disguise", ability: "cha" },
   { key: "escape_artist", label: "Escape Artist", ability: "dex", armorCheckPenalty: true },
   { key: "fly", label: "Fly", ability: "dex", armorCheckPenalty: true },
-  { key: "handle_animal", label: "Handle Animal", ability: "cha", trainedOnly: true },
+  { key: "handle_animal", label: "Handle Animal", ability: "cha", trainedOnly: true, background: true },
+  { key: "artistry", label: "Artistry", ability: "int", trainedOnly: true, repeatable: true, background: true },
   { key: "heal", label: "Heal", ability: "wis" },
   { key: "intimidate", label: "Intimidate", ability: "cha" },
   { key: "knowledge_arcana", label: "Knowledge (Arcana)", ability: "int", trainedOnly: true },
@@ -79,17 +84,19 @@ export const DEFAULT_SKILLS: DefaultSkillDef[] = [
     label: "Knowledge (Engineering)",
     ability: "int",
     trainedOnly: true,
+    background: true,
   },
-  { key: "knowledge_geography", label: "Knowledge (Geography)", ability: "int", trainedOnly: true },
-  { key: "knowledge_history", label: "Knowledge (History)", ability: "int", trainedOnly: true },
+  { key: "knowledge_geography", label: "Knowledge (Geography)", ability: "int", trainedOnly: true, background: true },
+  { key: "knowledge_history", label: "Knowledge (History)", ability: "int", trainedOnly: true, background: true },
   { key: "knowledge_local", label: "Knowledge (Local)", ability: "int", trainedOnly: true },
   { key: "knowledge_nature", label: "Knowledge (Nature)", ability: "int", trainedOnly: true },
-  { key: "knowledge_nobility", label: "Knowledge (Nobility)", ability: "int", trainedOnly: true },
+  { key: "knowledge_nobility", label: "Knowledge (Nobility)", ability: "int", trainedOnly: true, background: true },
+  { key: "lore", label: "Lore", ability: "int", trainedOnly: true, repeatable: true, background: true },
   { key: "knowledge_planes", label: "Knowledge (Planes)", ability: "int", trainedOnly: true },
   { key: "knowledge_religion", label: "Knowledge (Religion)", ability: "int", trainedOnly: true },
   { key: "linguistics", label: "Linguistics", ability: "int", trainedOnly: true, background: true },
   { key: "perception", label: "Perception", ability: "wis" },
-  { key: "perform", label: "Perform", ability: "cha", repeatable: true },
+  { key: "perform", label: "Perform", ability: "cha", repeatable: true, background: true },
   {
     key: "profession",
     label: "Profession",
@@ -106,6 +113,7 @@ export const DEFAULT_SKILLS: DefaultSkillDef[] = [
     ability: "dex",
     trainedOnly: true,
     armorCheckPenalty: true,
+    background: true,
   },
   { key: "spellcraft", label: "Spellcraft", ability: "int", trainedOnly: true },
   { key: "stealth", label: "Stealth", ability: "dex", armorCheckPenalty: true },
@@ -113,3 +121,27 @@ export const DEFAULT_SKILLS: DefaultSkillDef[] = [
   { key: "swim", label: "Swim", ability: "str", armorCheckPenalty: true },
   { key: "use_magic_device", label: "Use Magic Device", ability: "cha", trainedOnly: true },
 ];
+
+/** Base keys of the Background Skills set (Pathfinder Unchained). */
+export const BACKGROUND_SKILL_KEYS = new Set([
+  "appraise",
+  "artistry",
+  "craft",
+  "handle_animal",
+  "knowledge_engineering",
+  "knowledge_geography",
+  "knowledge_history",
+  "knowledge_nobility",
+  "linguistics",
+  "lore",
+  "perform",
+  "profession",
+  "sleight_of_hand",
+]);
+
+/** Whether a skill counts as a Background skill — the stored flag, falling back to the key set for
+ * sheets seeded before the flag existed (and for repeatable specialties keyed off the base). */
+export function isBackgroundSkill(skill: { key: string; background?: boolean }): boolean {
+  if (skill.background !== undefined) return skill.background;
+  return BACKGROUND_SKILL_KEYS.has(skill.key);
+}

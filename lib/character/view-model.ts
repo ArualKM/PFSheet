@@ -266,7 +266,7 @@ export function buildCharacterViewModel(
       key: s.key,
       label: s.specialty ? `${s.label} (${s.specialty})` : s.label,
       total: computed.skills[s.key]?.value ?? 0,
-      ranks: s.ranks,
+      ranks: s.ranks + (s.backgroundRanks ?? 0), // effective ranks (adventuring + background)
     })),
   );
 

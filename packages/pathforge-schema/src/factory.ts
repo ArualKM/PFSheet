@@ -45,6 +45,7 @@ function defaultSkills(): SkillEntry[] {
     ability: s.ability,
     trainedOnly: s.trainedOnly,
     armorCheckPenalty: s.armorCheckPenalty,
+    background: s.background,
     classSkill: false,
     ranks: 0,
     misc: [],

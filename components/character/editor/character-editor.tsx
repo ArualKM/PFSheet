@@ -33,6 +33,7 @@ import {
   OPTIONAL_RULE_MODULES,
   isRuleEnabled,
   isModuleKeyEnabled,
+  isBackgroundSkill,
   maxHeroPoints,
   recomputeClassDerived,
   computeMaxHpFromLevels,
@@ -1829,9 +1830,11 @@ function ACEditor({ ed }: { ed: EditorApi }) {
 }
 
 const REPEATABLE_SKILL_BASES = [
-  { value: "craft", label: "Craft", ability: "int", trainedOnly: false },
-  { value: "perform", label: "Perform", ability: "cha", trainedOnly: false },
-  { value: "profession", label: "Profession", ability: "wis", trainedOnly: true },
+  { value: "craft", label: "Craft", ability: "int", trainedOnly: false, background: true },
+  { value: "perform", label: "Perform", ability: "cha", trainedOnly: false, background: true },
+  { value: "profession", label: "Profession", ability: "wis", trainedOnly: true, background: true },
+  { value: "artistry", label: "Artistry", ability: "int", trainedOnly: true, background: true },
+  { value: "lore", label: "Lore", ability: "int", trainedOnly: true, background: true },
 ] as const;
 const SKILL_ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -1843,6 +1846,13 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
   const skills = ed.draft.skills.list;
   const totalLevel = ed.draft.identity.totalLevel ?? 0;
   const ranksSpent = skills.reduce((sum, s) => sum + (s.ranks ?? 0), 0);
+  const bgEnabled = isModuleKeyEnabled(ed.draft, "background_skills");
+  const bgBudget = ed.computed.summary.backgroundSkills;
+  const setBgRanks = (i: number, val: number) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (t) t.backgroundRanks = val > 0 ? val : undefined;
+    });
 
   const [addType, setAddType] = useState<string>("custom");
   const [addName, setAddName] = useState("");
@@ -1891,6 +1901,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
         conditional: [],
         custom: true,
         trainedOnly: base.trainedOnly,
+        background: base.background,
         specialty: name || undefined,
       });
     });
@@ -1905,6 +1916,19 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
         </p>
         <span className="text-xs text-muted-foreground">
           Ranks spent: <span className="tnum font-semibold text-foreground">{ranksSpent}</span>
+          {bgBudget && (
+            <span className="ml-3">
+              Background:{" "}
+              <span
+                className={cn(
+                  "tnum font-semibold",
+                  bgBudget.spent > bgBudget.budget ? "text-danger" : "text-foreground",
+                )}
+              >
+                {bgBudget.spent}/{bgBudget.budget}
+              </span>
+            </span>
+          )}
         </span>
       </div>
 
@@ -1915,7 +1939,8 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
               <th className="px-3 py-2 text-left font-semibold">Skill</th>
               <th className="px-2 py-2 font-semibold">Ability</th>
               <th className="px-2 py-2 font-semibold">Class</th>
-              <th className="w-16 px-2 py-2 font-semibold">Ranks</th>
+              <th className="w-16 px-2 py-2 font-semibold">{bgEnabled ? "Adv" : "Ranks"}</th>
+              {bgEnabled && <th className="w-16 px-2 py-2 font-semibold">BG</th>}
               <th className="w-16 px-2 py-2 font-semibold">Misc</th>
               <th className="px-3 py-2 text-right font-semibold">Total</th>
               <th className="w-8 px-2 py-2" aria-label="Remove" />
@@ -1924,7 +1949,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
           <tbody>
             {skills.map((s, i) => {
               const total = ed.computed.skills[s.key]?.value ?? 0;
-              const over = s.ranks > totalLevel;
+              const over = s.ranks + (s.backgroundRanks ?? 0) > totalLevel;
               return (
                 <tr key={s.id} className="border-t border-border/50">
                   <td className="px-3 py-1.5 text-foreground">
@@ -1991,6 +2016,25 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                       )}
                     />
                   </td>
+                  {bgEnabled && (
+                    <td className="px-2 py-1.5">
+                      {isBackgroundSkill(s) ? (
+                        <input
+                          type="number"
+                          min={0}
+                          value={s.backgroundRanks ?? 0}
+                          aria-label={`${skillDisplayLabel(s)} background ranks`}
+                          onChange={(e) => {
+                            const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
+                            if (!Number.isNaN(n)) setBgRanks(i, n);
+                          }}
+                          className="tnum h-8 w-14 rounded-md border border-rune/40 bg-background px-2 text-sm"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-2 py-1.5">
                     <input
                       type="number"

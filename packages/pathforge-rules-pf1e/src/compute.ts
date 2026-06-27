@@ -528,6 +528,8 @@ export type ComputedCharacter = {
     spells?: { casterCount: number; highestSpellLevel: number; totalSlots: number; usedSlots: number };
     /** Hero Points pool (absent unless the module is enabled). */
     heroPoints?: { current: number; max: number };
+    /** Background-skill rank budget vs spent (absent unless the variant is enabled). */
+    backgroundSkills?: { budget: number; spent: number };
   };
 };
 
@@ -715,7 +717,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     ];
     const miscTotal = applyStacking(miscMods).total;
     resolver.local = {
-      ranks: skill.ranks,
+      // Background Skills: adventuring ranks + ranks bought from the background pool both count.
+      ranks: skill.ranks + (skill.backgroundRanks ?? 0),
       abilityMod,
       classSkillBonus,
       armorCheckPenalty: skill.armorCheckPenalty ? -equippedAcp : 0,
@@ -810,6 +813,16 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     heroPoints = { current: Math.max(0, Math.min(max, character.heroPoints.current)), max };
   }
 
+  // Background Skills (variant): +2 ranks/level in a PC class, tracked separately. PC-vs-racial-HD
+  // isn't modeled yet, so the budget approximates with total level.
+  let backgroundSkills: { budget: number; spent: number } | undefined;
+  if (isModuleKeyEnabled(character, "background_skills")) {
+    backgroundSkills = {
+      budget: 2 * character.identity.totalLevel,
+      spent: character.skills.list.reduce((s, sk) => s + (sk.backgroundRanks ?? 0), 0),
+    };
+  }
+
   return {
     abilities,
     armorClass,
@@ -858,6 +871,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
           }
         : undefined,
       heroPoints,
+      backgroundSkills,
     },
   };
 }
