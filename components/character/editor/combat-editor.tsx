@@ -35,7 +35,11 @@ export function CombatEditor({ ed }: { ed: CharacterEditorApi }) {
   const attacks = ed.draft.combat.attacks;
   const speed = ed.draft.combat.speed;
   const computedSpeed = ed.computed.summary.speed;
-  const computedById = new Map(ed.computed.attacks.map((a) => [a.id, a]));
+  // Only manual attacks are editable rows here; weapon-generated computed attacks (id "pf:weapon:…")
+  // are excluded so they can never shadow a manual row's computed values.
+  const computedById = new Map(
+    ed.computed.attacks.filter((a) => !a.id.startsWith("pf:weapon:")).map((a) => [a.id, a]),
+  );
 
   const addAttack = () =>
     ed.update((c) =>

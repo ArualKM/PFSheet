@@ -261,6 +261,18 @@ function allInventory(character: PathForgeCharacterV1) {
   ];
 }
 
+/** PF1e damage ability modifier by grip: ×1.5 two-handed, ×0.5 off-hand; a penalty applies in full. */
+function weaponDamageMod(abilityMod: number, handed: string): number {
+  if (abilityMod <= 0) return abilityMod;
+  if (handed === "two") return Math.floor(abilityMod * 1.5);
+  if (handed === "off") return Math.floor(abilityMod * 0.5);
+  return abilityMod;
+}
+
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
 /** Resolves `@{path}` references against a character + its modifier index. */
 export class CharacterResolver implements Resolver {
   private readonly abilities: Record<string, AbilityComputation>;
@@ -672,7 +684,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
 
   // Individual attack lines: resolve each attack's to-hit formula; damage dice
   // are presentation-only and passed through untouched.
-  const attacks: ComputedAttack[] = character.combat.attacks
+  const manualAttacks: ComputedAttack[] = character.combat.attacks
     .filter((a) => a.enabled !== false)
     .map((a) => {
       const r = a.attackFormula ? evaluate(a.attackFormula, resolver) : null;
@@ -689,6 +701,46 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         warnings: r?.warnings ?? [],
       };
     });
+
+  // Equipped weapons with stats generate a computed attack alongside the manual ones.
+  const sizeMods = getSizeModifiers(character.identity.size);
+  const babTotal = num(character.combat.bab.total);
+  const weaponAttacks: ComputedAttack[] = allInventory(character)
+    .filter((i) => i.equipped && i.weapon)
+    .map((i) => {
+      const w = i.weapon!;
+      const atkMod = abilities[w.attackAbility]?.modifier ?? 0;
+      const broad = stackTotal([
+        ...(index.get(w.ranged ? "attack.ranged" : "attack.melee") ?? []),
+        ...(index.get("attack.all") ?? []),
+      ]);
+      const attackBonus = babTotal + atkMod + sizeMods.attackMod + w.enhancement + broad;
+      let dmgMod = w.enhancement;
+      if (w.damageAbility !== "none") {
+        dmgMod += weaponDamageMod(abilities[w.damageAbility]?.modifier ?? 0, w.handed);
+      }
+      const damage = w.damageDice
+        ? `${w.damageDice}${dmgMod !== 0 ? signed(dmgMod) : ""}`
+        : dmgMod !== 0
+          ? signed(dmgMod)
+          : undefined;
+      return {
+        // Reserved sentinel prefix so a generated weapon attack can never collide with a free-form
+        // manual attack id (which would shadow the manual row in the combat editor's lookup).
+        id: `pf:weapon:${i.id}`,
+        name: i.name,
+        attackType: w.ranged ? "ranged" : "melee",
+        attackBonus,
+        damage,
+        damageType: w.damageType,
+        critRange: w.critRange,
+        critMultiplier: w.critMultiplier,
+        range: w.range,
+        warnings: [],
+      };
+    });
+
+  const attacks: ComputedAttack[] = [...manualAttacks, ...weaponAttacks];
 
   const spellcasting = computeSpellcasting(character, abilities, resolver);
   resolver.local = {};

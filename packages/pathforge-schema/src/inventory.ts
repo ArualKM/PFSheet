@@ -17,6 +17,23 @@ export const equipmentItemSchema = z.object({
   armorBonus: z.number().int().optional(),
   maxDexBonus: z.number().int().optional(),
   armorCheckPenalty: z.number().int().optional(),
+  /** Weapon stats (PF1e). When present + equipped, generates a computed attack: attack bonus =
+   * BAB + ability + size + enhancement (+ broad attack mods); damage = dice + ability (×1.5 two-
+   * handed, ×0.5 off-hand, none for ranged) + enhancement. */
+  weapon: z
+    .object({
+      ranged: z.boolean().default(false),
+      attackAbility: z.enum(["str", "dex"]).default("str"),
+      damageDice: z.string().optional(),
+      damageAbility: z.enum(["str", "dex", "none"]).default("str"),
+      handed: z.enum(["one", "two", "off", "light"]).default("one"),
+      enhancement: z.number().int().default(0),
+      critRange: z.string().optional(),
+      critMultiplier: z.string().optional(),
+      damageType: z.string().optional(),
+      range: z.string().optional(),
+    })
+    .optional(),
   containerId: z.string().optional(),
   description: z.string().optional(),
   /** Effects this item applies while equipped/active. */

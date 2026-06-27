@@ -3,7 +3,7 @@
 import { Plus, Trash2, Coins, Backpack } from "lucide-react";
 import type { EquipmentItem } from "@pathforge/schema";
 import { BONUS_TYPES } from "@pathforge/schema";
-import { NumberField, TextField } from "./fields";
+import { NumberField, SelectField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +23,32 @@ const ITEM_TARGETS = [
   { value: "abilities.wis", label: "WIS" },
   { value: "abilities.cha", label: "CHA" },
 ];
+
+/**
+ * Bonus targets offered for an item. A weapon's to-hit belongs in its Enhancement field (per-weapon),
+ * so the global "Melee atk"/"Ranged atk" targets are hidden for weapons to avoid double-counting and
+ * cross-weapon leak — but a target already saved on an item stays selectable so editing never silently
+ * rewrites it.
+ */
+function targetOptions(category: string, current?: string) {
+  const base =
+    category === "weapon"
+      ? ITEM_TARGETS.filter((t) => t.value !== "attack.melee" && t.value !== "attack.ranged")
+      : ITEM_TARGETS;
+  if (current && !base.some((t) => t.value === current)) {
+    return [...base, { value: current, label: current }];
+  }
+  return base;
+}
+
+type WeaponStats = NonNullable<EquipmentItem["weapon"]>;
+const WEAPON_DEFAULTS: WeaponStats = {
+  ranged: false,
+  attackAbility: "str",
+  damageAbility: "str",
+  handed: "one",
+  enhancement: 0,
+};
 
 type ItemArrayKey = "weapons" | "armorAndShields" | "potionsScrollsMagicItems" | "gear" | "otherItems";
 
@@ -106,6 +132,9 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
         return;
       }
     });
+
+  const updateWeapon = (item: EquipmentItem, patch: Partial<WeaponStats>) =>
+    updateItem(item.id, { weapon: { ...WEAPON_DEFAULTS, ...item.weapon, ...patch } });
 
   const setModifiers = (item: EquipmentItem, modifiers: EquipmentItem["modifiers"]) =>
     updateItem(item.id, { modifiers });
@@ -263,6 +292,93 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                 </div>
               )}
 
+              {item.category === "weapon" && (
+                <div className="mt-2 space-y-2 rounded-md border border-border/60 p-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Weapon stats — an equipped weapon becomes a computed attack (BAB + ability + size + enhancement).
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="flex h-9 items-center gap-1.5 text-xs text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={!!item.weapon?.ranged}
+                        aria-label={`${item.name} is a ranged weapon`}
+                        onChange={(e) => updateWeapon(item, { ranged: e.target.checked })}
+                      />
+                      Ranged
+                    </label>
+                    <SelectField
+                      label="Attack"
+                      value={item.weapon?.attackAbility ?? "str"}
+                      onChange={(v) => updateWeapon(item, { attackAbility: v as WeaponStats["attackAbility"] })}
+                      options={[
+                        { value: "str", label: "STR" },
+                        { value: "dex", label: "DEX" },
+                      ]}
+                      className="w-20"
+                    />
+                    <SelectField
+                      label="Grip"
+                      value={item.weapon?.handed ?? "one"}
+                      onChange={(v) => updateWeapon(item, { handed: v as WeaponStats["handed"] })}
+                      options={[
+                        { value: "one", label: "One-handed" },
+                        { value: "two", label: "Two-handed" },
+                        { value: "off", label: "Off-hand" },
+                        { value: "light", label: "Light" },
+                      ]}
+                    />
+                    <SelectField
+                      label="Dmg ability"
+                      value={item.weapon?.damageAbility ?? "str"}
+                      onChange={(v) => updateWeapon(item, { damageAbility: v as WeaponStats["damageAbility"] })}
+                      options={[
+                        { value: "str", label: "STR" },
+                        { value: "dex", label: "DEX" },
+                        { value: "none", label: "None" },
+                      ]}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <TextField
+                      label="Damage"
+                      value={item.weapon?.damageDice ?? ""}
+                      placeholder="1d8"
+                      onChange={(v) => updateWeapon(item, { damageDice: v || undefined })}
+                    />
+                    <NumberField
+                      label="Enhancement"
+                      value={item.weapon?.enhancement ?? 0}
+                      onChange={(v) => updateWeapon(item, { enhancement: v })}
+                    />
+                    <TextField
+                      label="Damage type"
+                      value={item.weapon?.damageType ?? ""}
+                      placeholder="S / P / B"
+                      onChange={(v) => updateWeapon(item, { damageType: v || undefined })}
+                    />
+                    <TextField
+                      label="Crit range"
+                      value={item.weapon?.critRange ?? ""}
+                      placeholder="19-20"
+                      onChange={(v) => updateWeapon(item, { critRange: v || undefined })}
+                    />
+                    <TextField
+                      label="Crit mult"
+                      value={item.weapon?.critMultiplier ?? ""}
+                      placeholder="×2"
+                      onChange={(v) => updateWeapon(item, { critMultiplier: v || undefined })}
+                    />
+                    <TextField
+                      label="Range"
+                      value={item.weapon?.range ?? ""}
+                      placeholder="30 ft"
+                      onChange={(v) => updateWeapon(item, { range: v || undefined })}
+                    />
+                  </div>
+                </div>
+              )}
+
               <TextField
                 label="Notes"
                 value={item.notes ?? ""}
@@ -322,7 +438,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                           onChange={(e) => updateModifier(item, mi, { target: e.target.value })}
                           className="h-8 rounded border border-border bg-background px-1 text-xs"
                         >
-                          {ITEM_TARGETS.map((t) => (
+                          {targetOptions(item.category, m.target).map((t) => (
                             <option key={t.value} value={t.value}>
                               {t.label}
                             </option>
