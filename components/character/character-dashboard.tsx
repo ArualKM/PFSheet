@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { CharacterViewModel, SpellView } from "@/lib/character/view-model";
 import { SpellRow } from "./spell-row";
+import { ShowMore } from "./show-more";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
@@ -24,10 +25,7 @@ export function CharacterDashboard({
   vm: CharacterViewModel;
   actions?: ReactNode;
 }) {
-  const topSkills = (vm.skills ?? [])
-    .slice()
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8);
+  const rankedSkills = (vm.skills ?? []).slice().sort((a, b) => b.total - a.total);
 
   return (
     <div className="space-y-3">
@@ -71,36 +69,40 @@ export function CharacterDashboard({
 
           {vm.attacks && vm.attacks.length > 0 && (
             <SectionCard title="Attacks" icon={Swords}>
-              <ul className="divide-y divide-border/60">
-                {vm.attacks.map((atk, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 py-2">
+              <ShowMore
+                items={vm.attacks}
+                cap={6}
+                noun="attacks"
+                className="divide-y divide-border/60"
+                render={(atk, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 py-2">
                     <span className="truncate text-sm text-foreground">{atk.name}</span>
                     <span className="flex items-center gap-4">
                       <span className="tnum text-sm font-semibold text-rune">
                         {formatModifier(atk.attackBonus)}
                       </span>
-                      {atk.damage && (
-                        <span className="tnum text-sm text-gold">{atk.damage}</span>
-                      )}
+                      {atk.damage && <span className="tnum text-sm text-gold">{atk.damage}</span>}
                     </span>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )}
+              />
             </SectionCard>
           )}
 
-          {topSkills.length > 0 && (
-            <SectionCard title="Best Skills" icon={ScrollText}>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
-                {topSkills.map((s) => (
+          {rankedSkills.length > 0 && (
+            <SectionCard title="Skills" icon={ScrollText}>
+              <ShowMore
+                items={rankedSkills}
+                cap={8}
+                noun="skills"
+                className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3"
+                render={(s) => (
                   <div key={s.key} className="flex items-center justify-between border-b border-border/40 py-1">
                     <span className="truncate text-sm text-foreground">{s.label}</span>
-                    <span className="tnum text-sm font-semibold text-rune">
-                      {formatModifier(s.total)}
-                    </span>
+                    <span className="tnum text-sm font-semibold text-rune">{formatModifier(s.total)}</span>
                   </div>
-                ))}
-              </div>
+                )}
+              />
             </SectionCard>
           )}
         </div>
@@ -187,13 +189,17 @@ export function CharacterDashboard({
 
           {vm.feats && vm.feats.length > 0 && (
             <SectionCard title="Feats" icon={Sparkles}>
-              <div className="flex flex-wrap gap-1.5">
-                {vm.feats.map((f, i) => (
+              <ShowMore
+                items={vm.feats}
+                cap={12}
+                noun="feats"
+                className="flex flex-wrap gap-1.5"
+                render={(f, i) => (
                   <Badge key={i} variant="outline">
                     {f.name}
                   </Badge>
-                ))}
-              </div>
+                )}
+              />
             </SectionCard>
           )}
 
