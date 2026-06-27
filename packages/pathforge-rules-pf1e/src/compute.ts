@@ -13,6 +13,8 @@ import {
   honorScore,
   honorTier,
   computeMaxHpFromLevels,
+  maxMythicPower,
+  mythicSurgeDie,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -236,6 +238,18 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
   if (isModuleKeyEnabled(character, "honor") && honorScore(character) <= 0) {
     const mod = modifierEntryToMod("Dishonored", { id: "honor-will", label: "Dishonored", value: -2, enabled: true });
     if (mod) push("save.will", mod);
+  }
+
+  // Mythic — Amazing Initiative (tier 2+): an untyped +tier bonus to initiative.
+  if (isModuleKeyEnabled(character, "mythic") && (character.mythic?.tier ?? 0) >= 2) {
+    const tier = character.mythic!.tier;
+    const mod = modifierEntryToMod("Amazing Initiative", {
+      id: "mythic-init",
+      label: `Amazing Initiative (mythic tier ${tier})`,
+      value: tier,
+      enabled: true,
+    });
+    if (mod) push("init", mod);
   }
 
   // Always-on modifiers entered directly on a stat (entries with no condition).
@@ -554,6 +568,15 @@ export type ComputedCharacter = {
       vigor: { current: number; max: number; temp: number };
       wound: { current: number; max: number; threshold: number };
       status: "ok" | "wounded" | "dead";
+    };
+    /** Mythic roll-up (absent unless the variant is enabled). */
+    mythic?: {
+      tier: number;
+      path: string;
+      surgeDie: string;
+      power: { current: number; max: number };
+      /** +½ tier to effective level — display/CR only; never fed to level-derived formulas. */
+      effectiveLevelBonus: number;
     };
   };
 };
@@ -886,6 +909,19 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let mythic: ComputedCharacter["summary"]["mythic"];
+  if (isModuleKeyEnabled(character, "mythic")) {
+    const tier = character.mythic?.tier ?? 0;
+    const max = maxMythicPower(tier);
+    mythic = {
+      tier,
+      path: character.mythic?.path ?? "none",
+      surgeDie: mythicSurgeDie(tier),
+      power: { current: Math.max(0, Math.min(max, character.mythic?.mythicPowerCurrent ?? max)), max },
+      effectiveLevelBonus: Math.floor(tier / 2),
+    };
+  }
+
   return {
     abilities,
     armorClass,
@@ -938,6 +974,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       honor,
       stamina,
       woundsVigor,
+      mythic,
     },
   };
 }

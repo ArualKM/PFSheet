@@ -41,6 +41,9 @@ import {
   COMBAT_TRICKS,
   isGestalt,
   gestaltLevel,
+  MYTHIC_PATHS,
+  maxMythicPower,
+  mythicSurgeDie,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -52,6 +55,7 @@ import {
   type HeroPointsBlock,
   type HonorBlock,
   type StaminaBlock,
+  type MythicBlock,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -165,6 +169,9 @@ export function CharacterEditor({
   }
   if (isModuleKeyEnabled(ed.draft, "stamina")) {
     optionalSystemItems.push({ key: "stamina", label: "Stamina", render: () => <StaminaEditor ed={ed} /> });
+  }
+  if (isModuleKeyEnabled(ed.draft, "mythic")) {
+    optionalSystemItems.push({ key: "mythic", label: "Mythic", render: () => <MythicEditor ed={ed} /> });
   }
 
   const sections: SheetSection[] = [
@@ -761,6 +768,72 @@ function StaminaEditor({ ed }: { ed: EditorApi }) {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function MythicEditor({ ed }: { ed: EditorApi }) {
+  const mythic = ed.draft.mythic;
+  const tier = mythic?.tier ?? 0;
+  const max = maxMythicPower(tier);
+  const current = Math.min(mythic?.mythicPowerCurrent ?? max, max);
+
+  const ensure = (mut: (m: MythicBlock) => void) =>
+    ed.update((c) => {
+      if (!c.mythic) c.mythic = { tier: 0, path: "none", abilityBoosts: [], pathAbilities: [] };
+      mut(c.mythic);
+    });
+  const spendPower = (delta: number) =>
+    ensure((m) => {
+      m.mythicPowerCurrent = Math.max(0, Math.min(maxMythicPower(m.tier), current + delta));
+    });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Mythic layers a tier track on your class levels. Spend mythic power on the Surge ({mythicSurgeDie(tier) || "—"})
+        and path abilities. Amazing Initiative adds +tier to initiative at tier 2+.
+      </p>
+      <div className="flex flex-wrap items-end gap-4">
+        <NumberField
+          label="Tier"
+          value={tier}
+          min={0}
+          onChange={(v) => ensure((m) => (m.tier = Math.max(0, Math.min(10, v))))}
+          className="w-20"
+        />
+        <SelectField
+          label="Path"
+          value={mythic?.path ?? "none"}
+          onChange={(v) => ensure((m) => (m.path = v as MythicBlock["path"]))}
+          options={MYTHIC_PATHS.map((p) => ({ value: p, label: p[0]!.toUpperCase() + p.slice(1) }))}
+          className="w-36"
+        />
+        <div className="pb-1 text-sm text-muted-foreground">
+          +½ tier ={" "}
+          <span className="font-semibold text-foreground">+{Math.floor(tier / 2)}</span> effective level
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-foreground">Mythic power</span>
+        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendPower(-1)}>
+          − Spend
+        </Button>
+        <span className="tnum text-xl font-semibold text-gold">
+          {current}
+          <span className="text-sm text-muted-foreground">/{max}</span>
+        </span>
+        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendPower(1)}>
+          +
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ensure((m) => (m.mythicPowerCurrent = maxMythicPower(m.tier)))}>
+          Rest
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Path abilities, mythic feats, and tier ability-score boosts get their own editor + a searchable
+        compendium in a later pass.
+      </p>
     </div>
   );
 }

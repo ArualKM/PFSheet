@@ -209,6 +209,27 @@ export function CharacterDashboard({
               </span>
             </SectionCard>
           )}
+          {vm.mythic && (
+            <SectionCard title="Mythic" icon={Sparkles}>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-gold">
+                    Tier {vm.mythic.tier}
+                    {vm.mythic.path !== "none" && (
+                      <span className="ml-1 font-normal capitalize text-muted-foreground">{vm.mythic.path}</span>
+                    )}
+                  </span>
+                  {vm.mythic.surgeDie && <span className="text-xs text-muted-foreground">Surge {vm.mythic.surgeDie}</span>}
+                </div>
+                <div className="text-muted-foreground">
+                  Mythic power{" "}
+                  <span className="tnum text-foreground">
+                    {vm.mythic.power.current}/{vm.mythic.power.max}
+                  </span>
+                </div>
+              </div>
+            </SectionCard>
+          )}
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (

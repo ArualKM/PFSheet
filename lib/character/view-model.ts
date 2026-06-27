@@ -192,6 +192,8 @@ export type CharacterViewModel = {
   honor: { score: number; tier: string; dishonored: boolean } | null;
   /** Stamina pool (null unless the module is enabled). */
   stamina: { current: number; max: number } | null;
+  /** Mythic roll-up (null unless the variant is enabled). */
+  mythic: { tier: number; path: string; surgeDie: string; power: { current: number; max: number } } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -481,6 +483,14 @@ export function buildCharacterViewModel(
         }
       : null,
     stamina: computed.summary.stamina ?? null,
+    mythic: computed.summary.mythic
+      ? {
+          tier: computed.summary.mythic.tier,
+          path: computed.summary.mythic.path,
+          surgeDie: computed.summary.mythic.surgeDie,
+          power: computed.summary.mythic.power,
+        }
+      : null,
     spellcasting,
     profile,
     inventory: gate("inventory", {
