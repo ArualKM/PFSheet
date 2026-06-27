@@ -160,7 +160,8 @@ export async function inviteMemberAction(
   handle: string,
 ): Promise<MutationState> {
   const { supabase } = await authedClient();
-  const clean = handle.trim().replace(/^@/, "");
+  // Handles are stored lowercased (see updateProfileAction) — match case-insensitively.
+  const clean = handle.trim().replace(/^@/, "").toLowerCase();
   if (!clean) return { error: "Enter a player's handle." };
 
   const { data: profile, error: lookupError } = await supabase
