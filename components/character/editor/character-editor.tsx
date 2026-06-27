@@ -768,6 +768,8 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
     ed.update((c) => {
       if (mod.variantKey) {
         c.rules.variants[mod.variantKey] = on || undefined;
+        // Fractional changes the BAB/save math — recompute so the toggle takes effect immediately.
+        if (mod.variantKey === "fractionalBabSaves") recomputeClassDerived(c, { hpMethod: "manual" });
         return;
       }
       const arr = c.rules.modules;

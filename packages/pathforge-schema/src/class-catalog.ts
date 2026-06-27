@@ -212,6 +212,30 @@ export function skillRanksForLevel(perLevel: number, intMod: number, level: numb
   return Math.max(1, perLevel + intMod) * level;
 }
 
+const BAB_FRACTION: Record<BabProgression, number> = { full: 1, three_quarter: 0.75, half: 0.5 };
+type LinkedClass = { row: { level: number }; preset: ClassPreset };
+
+/** Fractional BAB (Unchained): Σ per-class (level × fraction), rounded down once. */
+function fractionalBab(linked: LinkedClass[]): number {
+  return Math.floor(linked.reduce((f, { row, preset }) => f + row.level * BAB_FRACTION[preset.bab], 0));
+}
+
+/** Fractional save (Unchained): a single +2 if any class has a good save in the category, plus
+ * Σ per-class (level × 0.5 good / ⅓ poor), rounded down once. */
+function fractionalSave(linked: LinkedClass[], save: "fortitude" | "reflex" | "will"): number {
+  let frac = 0;
+  let anyGood = false;
+  for (const { row, preset } of linked) {
+    if (preset.saves[save] === "good") {
+      frac += row.level * 0.5;
+      anyGood = true;
+    } else {
+      frac += row.level / 3;
+    }
+  }
+  return Math.floor((anyGood ? 2 : 0) + frac);
+}
+
 function hitDieNumber(die: string | number | undefined): number {
   if (typeof die === "number") return die;
   if (!die) return 0;
@@ -311,11 +335,20 @@ export function recomputeClassDerived(
   let fort = 0;
   let ref = 0;
   let will = 0;
-  for (const { row, preset } of linked) {
-    bab += babForLevel(preset.bab, row.level);
-    fort += saveBaseForLevel(preset.saves.fortitude, row.level);
-    ref += saveBaseForLevel(preset.saves.reflex, row.level);
-    will += saveBaseForLevel(preset.saves.will, row.level);
+  if (character.rules.variants.fractionalBabSaves) {
+    // Fractional Base Bonuses (Unchained): sum each class's per-level fraction, then round down once
+    // (BAB full=1 / ¾=0.75 / ½=0.5; good save +0.5/level + a single +2, poor save +⅓/level).
+    bab = fractionalBab(linked);
+    fort = fractionalSave(linked, "fortitude");
+    ref = fractionalSave(linked, "reflex");
+    will = fractionalSave(linked, "will");
+  } else {
+    for (const { row, preset } of linked) {
+      bab += babForLevel(preset.bab, row.level);
+      fort += saveBaseForLevel(preset.saves.fortitude, row.level);
+      ref += saveBaseForLevel(preset.saves.reflex, row.level);
+      will += saveBaseForLevel(preset.saves.will, row.level);
+    }
   }
   character.combat.bab.total = bab;
   character.defenses.savingThrows.fortitude.base = fort;
