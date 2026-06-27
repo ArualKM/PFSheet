@@ -5,7 +5,7 @@ import { Plus, Trash2, Sparkles, BookOpen, Wand2, Search } from "lucide-react";
 import type { SpellcasterEntry } from "@pathforge/schema";
 import { METAMAGIC_CATALOG } from "@pathforge/schema";
 import type { ComputedSpellSlots } from "@pathforge/rules-pf1e";
-import { NumberField, TextField } from "./fields";
+import { NumberField, SelectField, TextField } from "./fields";
 import { SpellPicker } from "./spell-picker";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -175,36 +175,20 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
             <div key={caster.id} className="rounded-lg border border-border p-3">
               <div className="flex flex-wrap items-end gap-2">
                 <TextField label="Class" value={caster.className} onChange={(v) => updateCaster(i, { className: v })} className="min-w-[9rem] flex-1" />
-                <div className="space-y-1">
-                  <span className="block text-[11px] text-muted-foreground">Type</span>
-                  <select
-                    value={caster.casterType}
-                    aria-label={`${caster.className} caster type`}
-                    onChange={(e) => updateCaster(i, { casterType: e.target.value as SpellcasterEntry["casterType"] })}
-                    className="h-10 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-                  >
-                    {CASTER_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <span className="block text-[11px] text-muted-foreground">Ability</span>
-                  <select
-                    value={caster.castingAbility}
-                    aria-label={`${caster.className} casting ability`}
-                    onChange={(e) => updateCaster(i, { castingAbility: e.target.value })}
-                    className="h-10 rounded-lg border border-border bg-background px-2 text-sm uppercase text-foreground"
-                  >
-                    {CASTING_ABILITIES.map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SelectField
+                  label="Type"
+                  value={caster.casterType}
+                  options={CASTER_TYPES.map((t) => ({ value: t, label: t }))}
+                  onChange={(v) => updateCaster(i, { casterType: v as SpellcasterEntry["casterType"] })}
+                  className="w-[8rem]"
+                />
+                <SelectField
+                  label="Ability"
+                  value={caster.castingAbility}
+                  options={CASTING_ABILITIES.map((a) => ({ value: a, label: a.toUpperCase() }))}
+                  onChange={(v) => updateCaster(i, { castingAbility: v })}
+                  className="w-24"
+                />
                 <NumberField
                   label="Caster lvl"
                   value={typeof caster.casterLevel === "number" ? caster.casterLevel : 0}
@@ -259,7 +243,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                           aria-label={`${caster.className} level ${lvl} spells per day`}
                           value={caster.spellsPerDay[String(lvl)]?.total ?? ""}
                           onChange={(e) => setSlots(i, lvl, e.target.value === "" ? null : Math.trunc(Number(e.target.value)))}
-                          className="tnum h-8 w-full rounded-md border border-border bg-background px-1 text-center text-xs"
+                          className="tnum h-10 w-full rounded-md border border-border bg-background px-1 text-center text-xs sm:h-9"
                         />
                       </label>
                     ))}
@@ -330,61 +314,71 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                 .map((sp) => (
                   <div
                     key={sp.id}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-surface-raised/30 px-2 py-1.5 text-sm"
+                    className="flex flex-col gap-1.5 rounded-md border border-border/70 bg-surface-raised/30 px-2 py-1.5 text-sm"
                   >
-                    <span className="min-w-0 flex-1 truncate text-foreground">{sp.name}</span>
-                    {multiplePrepared && (
-                      <span className="shrink-0 truncate text-[10px] text-muted-foreground">
-                        {sc.casters.find((c) => c.id === sp.casterId)?.className}
-                      </span>
-                    )}
-                    <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      L{sp.level}
-                      {effLevelOf(sp) !== sp.level ? ` → ${effLevelOf(sp)}` : ""}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={(sp.prepared ?? 1) <= 1}
-                        aria-label={`Prepare one fewer of ${sp.name}`}
-                        onClick={() => adjustPrepared(sp.id, -1)}
-                      >
-                        −
-                      </Button>
-                      <span className="tnum">{sp.prepared}× prep</span>
-                      <Button size="sm" variant="ghost" aria-label={`Prepare one more of ${sp.name}`} onClick={() => adjustPrepared(sp.id, 1)}>
-                        +
-                      </Button>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={(sp.used ?? 0) >= (sp.prepared ?? 1)}
-                        aria-label={`Cast ${sp.name}`}
-                        onClick={() => castPrepared(sp.id, 1)}
-                      >
-                        Cast
-                      </Button>
-                      <span className="tnum text-xs text-muted-foreground">
-                        {sp.used ?? 0}/{sp.prepared}
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-foreground">{sp.name}</span>
+                      {multiplePrepared && (
+                        <span className="shrink-0 truncate text-[10px] text-muted-foreground">
+                          {sc.casters.find((c) => c.id === sp.casterId)?.className}
+                        </span>
+                      )}
+                      <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        L{sp.level}
+                        {effLevelOf(sp) !== sp.level ? ` → ${effLevelOf(sp)}` : ""}
                       </span>
                       <Button
-                        size="sm"
                         variant="ghost"
-                        disabled={(sp.used ?? 0) <= 0}
-                        aria-label={`Undo cast ${sp.name}`}
-                        onClick={() => castPrepared(sp.id, -1)}
+                        size="sm"
+                        className="shrink-0 px-2"
+                        aria-label={`Remove prepared ${sp.name}`}
+                        onClick={() => removePrepared(sp.id)}
                       >
-                        −
+                        <Trash2 className="size-4" />
                       </Button>
-                    </span>
-                    <Button variant="ghost" size="icon" aria-label={`Remove prepared ${sp.name}`} onClick={() => removePrepared(sp.id)}>
-                      <Trash2 className="size-4" />
-                    </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={(sp.prepared ?? 1) <= 1}
+                          aria-label={`Prepare one fewer of ${sp.name}`}
+                          onClick={() => adjustPrepared(sp.id, -1)}
+                        >
+                          −
+                        </Button>
+                        <span className="tnum">{sp.prepared}× prep</span>
+                        <Button size="sm" variant="ghost" aria-label={`Prepare one more of ${sp.name}`} onClick={() => adjustPrepared(sp.id, 1)}>
+                          +
+                        </Button>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={(sp.used ?? 0) >= (sp.prepared ?? 1)}
+                          aria-label={`Cast ${sp.name}`}
+                          onClick={() => castPrepared(sp.id, 1)}
+                        >
+                          Cast
+                        </Button>
+                        <span className="tnum text-xs text-muted-foreground">
+                          {sp.used ?? 0}/{sp.prepared}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={(sp.used ?? 0) <= 0}
+                          aria-label={`Undo cast ${sp.name}`}
+                          onClick={() => castPrepared(sp.id, -1)}
+                        >
+                          −
+                        </Button>
+                      </span>
+                    </div>
                     {sc.metamagic.length > 0 && (
-                      <div className="flex w-full flex-wrap items-center gap-1 pt-1">
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
                         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Metamagic</span>
                         {sc.metamagic.map((m) => {
                           const on = (sp.metamagicIds ?? []).includes(m.id);

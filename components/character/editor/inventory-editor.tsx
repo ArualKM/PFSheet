@@ -214,21 +214,13 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                   onChange={(v) => updateItem(item.id, { name: v })}
                   className="min-w-[10rem] flex-1"
                 />
-                <div className="space-y-1">
-                  <span className="block text-[11px] text-muted-foreground">Category</span>
-                  <select
-                    value={item.category}
-                    aria-label={`${item.name} category`}
-                    onChange={(e) => updateItem(item.id, { category: e.target.value as EquipmentItem["category"] })}
-                    className="h-10 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SelectField
+                  label="Category"
+                  value={item.category}
+                  options={CATEGORIES.map((cat) => ({ value: cat, label: cat.replace(/_/g, " ") }))}
+                  onChange={(v) => updateItem(item.id, { category: v as EquipmentItem["category"] })}
+                  className="w-40"
+                />
                 <NumberField
                   label="Qty"
                   value={item.quantity}
@@ -413,7 +405,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                               value: e.target.value === "" ? 0 : Math.trunc(Number(e.target.value)),
                             })
                           }
-                          className="tnum h-8 w-14 rounded border border-border bg-background px-2 text-sm"
+                          className="tnum h-11 w-16 rounded border border-border bg-background px-2 text-sm md:h-10"
                         />
                         <select
                           value={m.bonusType ?? "enhancement"}
@@ -423,7 +415,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                               bonusType: e.target.value as (typeof BONUS_TYPES)[number],
                             })
                           }
-                          className="h-8 rounded border border-border bg-background px-1 text-xs"
+                          className="h-11 rounded border border-border bg-background px-1 text-xs md:h-10"
                         >
                           {BONUS_TYPES.map((b) => (
                             <option key={b} value={b}>
@@ -436,7 +428,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                           value={m.target ?? "ac"}
                           aria-label={`${item.name} bonus target`}
                           onChange={(e) => updateModifier(item, mi, { target: e.target.value })}
-                          className="h-8 rounded border border-border bg-background px-1 text-xs"
+                          className="h-11 rounded border border-border bg-background px-1 text-xs md:h-10"
                         >
                           {targetOptions(item.category, m.target).map((t) => (
                             <option key={t.value} value={t.value}>

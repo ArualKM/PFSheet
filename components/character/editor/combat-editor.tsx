@@ -2,7 +2,7 @@
 
 import { Plus, Trash2, Swords, Gauge } from "lucide-react";
 import { DEFAULT_FORMULAS, type AttackEntry } from "@pathforge/schema";
-import { TextField } from "./fields";
+import { SelectField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -120,31 +120,23 @@ export function CombatEditor({ ed }: { ed: CharacterEditorApi }) {
                     onChange={(v) => updateAttack(i, { name: v })}
                     className="min-w-[9rem] flex-1"
                   />
-                  <div className="space-y-1">
-                    <span className="block text-[11px] text-muted-foreground">Type</span>
-                    <select
-                      value={a.attackType}
-                      aria-label={`${a.name} attack type`}
-                      onChange={(e) => {
-                        const attackType = e.target.value as AttackEntry["attackType"];
-                        // Only swap in the matching default if the user hasn't customized the formula.
-                        const wasDefault =
-                          !a.attackFormula ||
-                          Object.values(DEFAULT_ATTACK_FORMULA).includes(a.attackFormula);
-                        updateAttack(i, {
-                          attackType,
-                          ...(wasDefault ? { attackFormula: DEFAULT_ATTACK_FORMULA[attackType] } : {}),
-                        });
-                      }}
-                      className="h-10 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-                    >
-                      {ATTACK_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <SelectField
+                    label="Type"
+                    value={a.attackType}
+                    options={ATTACK_TYPES.map((t) => ({ value: t, label: t }))}
+                    onChange={(v) => {
+                      const attackType = v as AttackEntry["attackType"];
+                      // Only swap in the matching default if the user hasn't customized the formula.
+                      const wasDefault =
+                        !a.attackFormula ||
+                        Object.values(DEFAULT_ATTACK_FORMULA).includes(a.attackFormula);
+                      updateAttack(i, {
+                        attackType,
+                        ...(wasDefault ? { attackFormula: DEFAULT_ATTACK_FORMULA[attackType] } : {}),
+                      });
+                    }}
+                    className="w-[8rem]"
+                  />
                   <div className="flex h-10 items-center gap-2">
                     <Badge variant="rune">{a.enabled === false ? "—" : formatModifier(computed?.attackBonus ?? 0)}</Badge>
                     <label className="flex items-center gap-1 text-[11px] text-muted-foreground">

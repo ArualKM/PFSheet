@@ -693,7 +693,7 @@ function HonorEditor({ ed }: { ed: EditorApi }) {
               key={e.label}
               type="button"
               onClick={() => addEvent(e.delta, e.label)}
-              className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground hover:border-gold/50"
+              className="tap-target rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-gold/50"
             >
               {e.label} {e.delta >= 0 ? `+${e.delta}` : e.delta}
             </button>
@@ -715,7 +715,7 @@ function HonorEditor({ ed }: { ed: EditorApi }) {
                   type="button"
                   aria-label="Remove event"
                   onClick={() => ed.update((c) => void c.honor?.events.splice(i, 1))}
-                  className="text-xs text-muted-foreground hover:text-danger"
+                  className="tap-target -my-1 -mr-1 inline-flex size-6 items-center justify-center rounded text-xs text-muted-foreground hover:text-danger"
                 >
                   ×
                 </button>
@@ -1679,7 +1679,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                   type="button"
                   aria-label={`Remove ${fc}`}
                   onClick={() => ed.update((c) => c.progression.favoredClasses.splice(i, 1))}
-                  className="text-muted-foreground hover:text-danger"
+                  className="tap-target -my-1.5 -mr-1.5 inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:text-danger"
                 >
                   ×
                 </button>
@@ -1698,7 +1698,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                   addFavored();
                 }
               }}
-              className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+              className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10"
             />
             <Button size="sm" variant="secondary" onClick={addFavored}>
               Add
@@ -2604,6 +2604,27 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
       t.misc = t.misc.filter((x) => x.id !== mid);
       if (val !== 0) t.misc.push({ id: mid, label: "Misc", value: val, enabled: true });
     });
+  // Named handlers shared by the desktop table + the mobile card list below.
+  const setRanks = (i: number, n: number) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (t) t.ranks = n;
+    });
+  const setClassSkill = (i: number, v: boolean) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (t) t.classSkill = v;
+    });
+  const setAbility = (i: number, v: string) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (t) t.ability = v;
+    });
+  const removeSkill = (i: number) => ed.update((c) => void c.skills.list.splice(i, 1));
+  const intOr0 = (v: string) => {
+    const n = v === "" ? 0 : Math.trunc(Number(v));
+    return Number.isNaN(n) ? null : n;
+  };
 
   const addSkill = () => {
     const name = addName.trim();
@@ -2665,7 +2686,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="hidden overflow-x-auto rounded-lg border border-border md:block">
         <table className="w-full min-w-[34rem] text-sm">
           <thead className="bg-surface-raised text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -2800,6 +2821,111 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile: a card per skill so nothing forces horizontal scroll. */}
+      <div className="space-y-2 md:hidden">
+        {skills.map((s, i) => {
+          const total = ed.computed.skills[s.key]?.value ?? 0;
+          const over = s.ranks + (s.backgroundRanks ?? 0) > totalLevel;
+          return (
+            <div key={s.id} className="rounded-lg border border-border p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate font-medium text-foreground">
+                  {skillDisplayLabel(s)}
+                  {s.trainedOnly && <span className="ml-1 text-[10px] text-muted-foreground">(trained)</span>}
+                </span>
+                <span className="tnum shrink-0 font-semibold text-rune">{formatModifier(total)}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-2">
+                <label className="flex items-center gap-1.5 text-xs text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!s.classSkill}
+                    aria-label={`${skillDisplayLabel(s)} is a class skill`}
+                    onChange={(e) => setClassSkill(i, e.target.checked)}
+                    className="size-4 accent-[var(--pf-gold)]"
+                  />
+                  Class
+                </label>
+                {s.custom && (
+                  <label className="text-[10px] uppercase text-muted-foreground">
+                    Ability
+                    <select
+                      value={s.ability}
+                      aria-label={`${skillDisplayLabel(s)} ability`}
+                      onChange={(e) => setAbility(i, e.target.value)}
+                      className="ml-1 h-10 rounded border border-border bg-background px-1 text-[11px] uppercase text-foreground"
+                    >
+                      {SKILL_ABILITIES.map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className="text-[10px] uppercase text-muted-foreground">
+                  {bgEnabled ? "Adv" : "Ranks"}
+                  <input
+                    type="number"
+                    min={0}
+                    value={s.ranks}
+                    aria-label={`${skillDisplayLabel(s)} ranks`}
+                    title={over ? `Ranks exceed character level (${totalLevel})` : undefined}
+                    onChange={(e) => {
+                      const n = intOr0(e.target.value);
+                      if (n !== null) setRanks(i, n);
+                    }}
+                    className={cn(
+                      "tnum mt-0.5 block h-10 w-16 rounded-md border bg-background px-2 text-sm",
+                      over ? "border-danger text-danger" : "border-border",
+                    )}
+                  />
+                </label>
+                {bgEnabled && isBackgroundSkill(s) && (
+                  <label className="text-[10px] uppercase text-muted-foreground">
+                    BG
+                    <input
+                      type="number"
+                      min={0}
+                      value={s.backgroundRanks ?? 0}
+                      aria-label={`${skillDisplayLabel(s)} background ranks`}
+                      onChange={(e) => {
+                        const n = intOr0(e.target.value);
+                        if (n !== null) setBgRanks(i, n);
+                      }}
+                      className="tnum mt-0.5 block h-10 w-16 rounded-md border border-rune/40 bg-background px-2 text-sm"
+                    />
+                  </label>
+                )}
+                <label className="text-[10px] uppercase text-muted-foreground">
+                  Misc
+                  <input
+                    type="number"
+                    value={miscValue(s)}
+                    aria-label={`${skillDisplayLabel(s)} misc bonus`}
+                    onChange={(e) => {
+                      const n = intOr0(e.target.value);
+                      if (n !== null) setMisc(i, n);
+                    }}
+                    className="tnum mt-0.5 block h-10 w-16 rounded-md border border-border bg-background px-2 text-sm"
+                  />
+                </label>
+                {s.custom && (
+                  <button
+                    type="button"
+                    onClick={() => removeSkill(i)}
+                    aria-label={`Remove ${skillDisplayLabel(s)}`}
+                    className="tap-target ml-auto inline-flex size-10 items-center justify-center rounded text-muted-foreground hover:text-danger"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="rounded-lg border border-dashed border-border p-3">

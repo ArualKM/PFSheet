@@ -399,7 +399,7 @@ function ActiveBuffCard({
                 aria-label={`${buff.name} remaining rounds`}
                 value={buff.remainingRounds ?? ""}
                 onChange={(e) => onSetRemaining(e.target.value === "" ? 0 : Math.trunc(Number(e.target.value)))}
-                className="tnum h-7 w-12 rounded-md border border-border bg-background px-1.5 text-center text-xs"
+                className="tnum h-11 w-12 rounded-md border border-border bg-background px-1.5 text-center text-xs md:h-10"
               />
             </label>
           )}
