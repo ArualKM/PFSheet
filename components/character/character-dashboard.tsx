@@ -13,6 +13,7 @@ import {
   ScrollText,
   EyeOff,
   Wand2,
+  Flag,
 } from "lucide-react";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
@@ -243,6 +244,39 @@ export function CharacterDashboard({
                   <span>ML {vm.psionics.manifesterLevel}</span>
                   <span>{vm.psionics.powersKnown} powers</span>
                   {vm.psionics.focused && <span className="text-gold">Focused</span>}
+                </div>
+              </div>
+            </SectionCard>
+          )}
+          {vm.milestoneLeveling && (
+            <SectionCard title="Milestones" icon={Flag}>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="tnum text-lg font-semibold text-foreground">
+                    {vm.milestoneLeveling.current}
+                    <span className="text-sm text-muted-foreground">
+                      /{vm.milestoneLeveling.nextThreshold}
+                    </span>
+                  </span>
+                  {vm.milestoneLeveling.readyToLevel ? (
+                    <span className="text-xs font-semibold text-success">Ready to level up!</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {vm.milestoneLeveling.remaining} to next level
+                    </span>
+                  )}
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-rune"
+                    style={{
+                      width: `${
+                        vm.milestoneLeveling.nextThreshold > 0
+                          ? Math.min(100, (vm.milestoneLeveling.current / vm.milestoneLeveling.nextThreshold) * 100)
+                          : 0
+                      }%`,
+                    }}
+                  />
                 </div>
               </div>
             </SectionCard>

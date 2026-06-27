@@ -201,6 +201,13 @@ export type CharacterViewModel = {
     powersKnown: number;
     focused: boolean;
   } | null;
+  /** Milestone-leveling tracker (null unless the module is enabled). Replaces XP. */
+  milestoneLeveling: {
+    current: number;
+    nextThreshold: number;
+    remaining: number;
+    readyToLevel: boolean;
+  } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -506,6 +513,7 @@ export function buildCharacterViewModel(
           focused: computed.summary.psionics.focused,
         }
       : null,
+    milestoneLeveling: computed.summary.milestoneLeveling ?? null,
     spellcasting,
     profile,
     inventory: gate("inventory", {

@@ -31,6 +31,7 @@ export * from "./gestalt";
 export * from "./mythic";
 export * from "./psionics";
 export * from "./psionics-parser";
+export * from "./milestone-leveling";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";

@@ -105,6 +105,13 @@ export const OPTIONAL_RULE_MODULES: OptionalRuleModule[] = [
     description: "A stamina pool (BAB + Con) spent to power combat tricks tied to your combat feats.",
   },
   {
+    key: "milestone_leveling",
+    name: "Milestone Leveling",
+    group: "subsystem",
+    description:
+      "Replace XP with cumulative milestones — finish jobs/deeds to earn milestones and level up when your running total reaches the next threshold.",
+  },
+  {
     key: "kineticist_burn",
     name: "Kineticist Burn",
     group: "subsystem",

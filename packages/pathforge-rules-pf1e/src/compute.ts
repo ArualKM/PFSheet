@@ -589,6 +589,13 @@ export type ComputedCharacter = {
       powersKnown: number;
       focused: boolean;
     };
+    /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. */
+    milestoneLeveling?: {
+      current: number;
+      nextThreshold: number;
+      remaining: number;
+      readyToLevel: boolean;
+    };
   };
 };
 
@@ -948,6 +955,19 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
+  if (isModuleKeyEnabled(character, "milestone_leveling")) {
+    const ml = character.milestoneLeveling;
+    const current = Math.max(0, ml?.current ?? 0);
+    const nextThreshold = Math.max(0, ml?.nextThreshold ?? 0);
+    milestoneLeveling = {
+      current,
+      nextThreshold,
+      remaining: Math.max(0, nextThreshold - current),
+      readyToLevel: nextThreshold > 0 && current >= nextThreshold,
+    };
+  }
+
   let mythic: ComputedCharacter["summary"]["mythic"];
   if (isModuleKeyEnabled(character, "mythic")) {
     const tier = character.mythic?.tier ?? 0;
@@ -1015,6 +1035,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       woundsVigor,
       mythic,
       psionics,
+      milestoneLeveling,
     },
   };
 }

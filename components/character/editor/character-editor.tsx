@@ -60,6 +60,8 @@ import {
   type StaminaBlock,
   type MythicBlock,
   type PsionicsBlock,
+  type MilestoneLevelingBlock,
+  DEFAULT_MILESTONE_JOBS,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -179,6 +181,13 @@ export function CharacterEditor({
   }
   if (isModuleKeyEnabled(ed.draft, "psionics")) {
     optionalSystemItems.push({ key: "psionics", label: "Psionics", render: () => <PsionicsEditor ed={ed} /> });
+  }
+  if (isModuleKeyEnabled(ed.draft, "milestone_leveling")) {
+    optionalSystemItems.push({
+      key: "milestone_leveling",
+      label: "Milestones",
+      render: () => <MilestoneLevelingEditor ed={ed} />,
+    });
   }
 
   const sections: SheetSection[] = [
@@ -1044,6 +1053,142 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
+  const ml = ed.draft.milestoneLeveling;
+  const summary = ed.computed.summary.milestoneLeveling;
+  const ensure = (mut: (m: MilestoneLevelingBlock) => void) =>
+    ed.update((c) => {
+      if (!c.milestoneLeveling) {
+        c.milestoneLeveling = {
+          current: 0,
+          nextThreshold: 1,
+          jobs: DEFAULT_MILESTONE_JOBS.map((j) => ({ ...j, id: newId("job") })),
+        };
+      }
+      mut(c.milestoneLeveling);
+    });
+  // Before the first edit the block doesn't exist yet — show the default job sizes so the quick-adds
+  // and config rows are populated; any edit seeds the block with these same defaults.
+  const jobs = ml?.jobs ?? DEFAULT_MILESTONE_JOBS.map((j, i) => ({ ...j, id: `default-${i}` }));
+  const current = summary?.current ?? 0;
+  const threshold = summary?.nextThreshold ?? 0;
+  const pct = threshold > 0 ? Math.min(100, (current / threshold) * 100) : 0;
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        Replaces XP. Milestones are <strong>cumulative</strong> — finish jobs/deeds to earn them, and
+        level up (bump your class level on the Identity tab) when your running total reaches the
+        threshold. Set the thresholds and job values from your campaign&apos;s table.
+      </p>
+
+      <div className="space-y-2 rounded-lg border border-border p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="tnum text-2xl font-semibold text-foreground">
+            {current}
+            <span className="text-base text-muted-foreground">/{threshold}</span>
+          </span>
+          {summary?.readyToLevel ? (
+            <span className="text-sm font-semibold text-success">Ready to level up!</span>
+          ) : (
+            <span className="text-sm text-muted-foreground">{summary?.remaining ?? 0} to next level</span>
+          )}
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-rune" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <NumberField
+            label="Milestones earned"
+            value={ml?.current ?? 0}
+            min={0}
+            onChange={(v) => ensure((m) => (m.current = v))}
+            className="w-40"
+          />
+          <NumberField
+            label="To next level"
+            value={ml?.nextThreshold ?? 1}
+            min={0}
+            onChange={(v) => ensure((m) => (m.nextThreshold = v))}
+            className="w-40"
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-sm font-medium text-foreground">Earn milestones</p>
+        {jobs.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No job sizes configured — add some below.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {jobs.map((j) => (
+              <Button
+                key={j.id}
+                size="sm"
+                variant="secondary"
+                onClick={() => ensure((m) => (m.current = Math.max(0, m.current + j.value)))}
+              >
+                +{j.value} {j.label}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-sm font-medium text-foreground">
+          Job sizes <span className="font-normal text-muted-foreground">(milestone value at your level)</span>
+        </p>
+        <div className="space-y-2">
+          {jobs.map((j, i) => (
+            <div key={j.id} className="flex items-end gap-2">
+              <TextField
+                label="Label"
+                value={j.label}
+                onChange={(v) =>
+                  ensure((m) => {
+                    const t = m.jobs[i];
+                    if (t) t.label = v;
+                  })
+                }
+                className="flex-1"
+              />
+              <NumberField
+                label="Value"
+                value={j.value}
+                min={0}
+                onChange={(v) =>
+                  ensure((m) => {
+                    const t = m.jobs[i];
+                    if (t) t.value = v;
+                  })
+                }
+                className="w-24"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove ${j.label}`}
+                onClick={() => ensure((m) => m.jobs.splice(i, 1))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-2"
+          onClick={() => ensure((m) => m.jobs.push({ id: newId("job"), label: "Job", value: 1 }))}
+        >
+          + Add job size
+        </Button>
+      </div>
     </div>
   );
 }
