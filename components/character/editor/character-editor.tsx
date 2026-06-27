@@ -53,7 +53,10 @@ import { ClassPresetPicker } from "./class-preset-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn, formatModifier } from "@/lib/utils";
+import { COMMON_LANGUAGES, languageBudget } from "@/lib/character/languages";
 
 const AC_COMPONENTS = [
   { key: "armor", label: "Armor", bonusType: "armor" },
@@ -146,6 +149,7 @@ export function CharacterEditor({
       items: [
         { key: "details", label: "Character details", render: () => <IdentityEditor ed={ed} /> },
         { key: "abilities", label: "Ability scores", render: () => <AbilitiesEditor ed={ed} advanced={advanced} /> },
+        { key: "languages", label: "Languages", render: () => <LanguagesEditor ed={ed} /> },
         { key: "health", label: "Health & wounds", render: () => <HealthEditor ed={ed} /> },
       ],
     },
@@ -588,6 +592,114 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
 /* -------------------------------------------------------------------------- */
 
 type EditorApi = ReturnType<typeof useCharacterEditor>;
+
+function LanguagesEditor({ ed }: { ed: EditorApi }) {
+  const known = ed.draft.languages.known;
+  const budget = languageBudget(ed.draft, ed.computed);
+  const [input, setInput] = useState("");
+
+  const has = (lang: string) => known.some((l) => l.toLowerCase() === lang.trim().toLowerCase());
+  const add = (lang: string) => {
+    const v = lang.trim();
+    if (!v || has(v)) {
+      setInput("");
+      return;
+    }
+    ed.update((d) => {
+      d.languages.known.push(v);
+    });
+    setInput("");
+  };
+  const remove = (lang: string) =>
+    ed.update((d) => {
+      d.languages.known = d.languages.known.filter((l) => l !== lang);
+    });
+
+  const available = COMMON_LANGUAGES.filter((l) => !has(l));
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Languages</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Bonus languages available: <span className="font-semibold text-foreground">{budget.total}</span>{" "}
+          <span className="text-xs">
+            ({formatModifier(budget.intBonus)} Int mod + {budget.linguisticsRanks} Linguistics rank
+            {budget.linguisticsRanks === 1 ? "" : "s"})
+          </span>
+          {" — "}beyond your racial / starting languages.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {known.length === 0 && <span className="text-sm text-muted-foreground">No languages added yet.</span>}
+        {known.map((l) => (
+          <span
+            key={l}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-raised px-2 py-1 text-sm text-foreground"
+          >
+            {l}
+            <button
+              type="button"
+              onClick={() => remove(l)}
+              aria-label={`Remove ${l}`}
+              className="tap-target -my-1 -mr-1 inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-danger"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex-1 space-y-1">
+          <Label htmlFor="pf-language-add">Add a language</Label>
+          <Input
+            id="pf-language-add"
+            value={input}
+            list="pf-language-options"
+            placeholder="e.g. Draconic, or a custom language"
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                add(input);
+              }
+            }}
+          />
+          <datalist id="pf-language-options">
+            {available.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+        </div>
+        <Button type="button" size="sm" onClick={() => add(input)} disabled={!input.trim()}>
+          <Plus className="size-4" /> Add
+        </Button>
+      </div>
+
+      {available.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Common languages
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {available.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => add(l)}
+                className="tap-target rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-rune hover:text-foreground"
+              >
+                + {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;

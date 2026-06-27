@@ -7,6 +7,7 @@ import {
   Zap,
   Footprints,
   Sparkles,
+  Languages,
   ScrollText,
   EyeOff,
   Wand2,
@@ -203,6 +204,18 @@ export function CharacterDashboard({
                   </li>
                 ))}
               </ul>
+            </SectionCard>
+          )}
+
+          {vm.languages.known.length > 0 && (
+            <SectionCard title="Languages" icon={Languages}>
+              <div className="flex flex-wrap gap-1.5">
+                {vm.languages.known.map((l, i) => (
+                  <Badge key={i} variant="outline">
+                    {l}
+                  </Badge>
+                ))}
+              </div>
             </SectionCard>
           )}
 

@@ -1,6 +1,7 @@
 import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef } from "@pathforge/schema";
 import { ABILITY_KEYS } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
+import { languageBudget, type LanguageBudget } from "./languages";
 
 /**
  * §15 Privacy system. `buildCharacterViewModel` turns a canonical sheet + its
@@ -132,6 +133,8 @@ export type CharacterViewModel = {
   skills: Array<{ key: string; label: string; total: number; ranks: number }> | null;
   feats: Array<{ name: string; type?: string }> | null;
   features: Array<{ name: string; category: string }> | null;
+  /** Known languages + the PF1e bonus-language budget. Always visible (not a private section). */
+  languages: { known: string[]; budget: LanguageBudget };
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -326,6 +329,10 @@ export function buildCharacterViewModel(
       "features",
       character.features.list.map((f) => ({ name: f.name, category: f.category })),
     ),
+    languages: {
+      known: character.languages.known,
+      budget: languageBudget(character, computed),
+    },
     spellcasting,
     profile,
     hiddenSections: [...hidden],
