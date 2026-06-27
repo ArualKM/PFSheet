@@ -227,6 +227,35 @@ version-guarded save + 3-way merge for v1 (not live multi-cursor); web stays at 
   now run through `0016`.** Phase 2 (deferred): per-field conflict UI + offline outbox + the
   offline→reconnect→merge integration test.
 
+**Sheet-depth audit (pre-S4) — COMPLETE.** A 10-agent grounded audit (`docs/SHEET_AUDIT_AND_PLAN.md`,
+110 findings) found the dominant pattern "data modeled + editable but never reaches the engine or read
+sheet." Every P0 + the P1 health cluster was wired engine→view-model→read-sheet, each shipped after an
+adversarial review: languages (Int/Linguistics budget), skills depth (Craft/Perform/Profession +
+misc/ACP), combat/iterative full-attack, **conditions ENGINE** (fear/fatigue tracks via stackingGroup),
+**armor→AC** (+ Max-Dex cap via `@{ac.maxDexPenalty}`) + **ACP→skills** (injects `@{armorCheckPenalty}`
+into legacy stored formulas), **weapon→attack** (BAB+ability+grip damage, `pf:weapon:<id>` ids),
+**metamagic→effective spell level**, conditional defenses, identity/size `<select>`, **negative levels +
+nonlethal→hpStatus + quick HP control**, **HP-from-Hit-Dice + Con + FCB** (`computeMaxHpFromLevels`),
+class daily-resource uses tracker, the owner-reported portrait-image fix (plain `<img>`, not next/image)
++ spell-list search/sort/collapse, and a **real-browser verification** that caught a mobile grid blowout
+(`min-w-0`). New engine seams: broad `save.all`/`skill.all` buckets; `allInventory()`; `summary.hp`
+gained nonlethal/negativeLevels/status.
+
+**S4 — optional rules & 3pp (in progress).** Plan: `docs/S4_OPTIONAL_RULES_PLAN.md` +
+`docs/S4_SYSTEM_DESIGNS.md` (11-agent grounded research). The toggle framework (`optional-rules.ts`)
+already existed; S4 builds the fields/calcs/UI behind each toggle. **Pattern:** optional
+`character.<system>` block → `isModuleKeyEnabled`-gated engine computation emitting `summary.<system>` →
+count-only view-model + dashboard card → editor panel in the gated **"Optional"** section group.
+**Done:** Hero Points, Background Skills (Adv/BG rank split + Artistry/Lore), Honor (0-100 + dishonor
+−2), Stamina & Combat Tricks; **core-math variants** (Fractional BAB/saves, Wounds & Vigor [sibling
+`summary.woundsVigor`, never mutates `summary.hp`], Gestalt [best-of-two-tracks; `gestaltLevel` = higher
+track NOT the sum; sole writer of `recomputeClassDerived`]); **Mythic core** (`mythic.ts` tier/path/pool/
+surge/Amazing-Initiative); **Psionics core** (`psionics.ts` PP pool/ML/powers/focus) + the **paste-parser**
+(`parsePsionicPowers`, lenient + never-discard, the copy/paste mega-stretch). **Remaining:** the seeded
+options-compendium (migration `0017` generic `<domain>_compendium` + search RPC + `<OptionPicker>` — gated
+on sourcing the OGL datasets); Path of War → Spheres → Akashic (XL each, reuse the parser+compendium);
+Mythic depth (ability-boosts→scores, path abilities, Hard-to-Kill). See `docs/NEXT_SESSION.md`.
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

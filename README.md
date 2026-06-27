@@ -16,7 +16,9 @@ GM-verifiable, import/export-capable Pathfinder 1e character platform.
 ## Status
 
 **Live in production** at [pfsheet.org](https://pfsheet.org) (auto-deploys from `main` via Vercel).
-Milestones **M0–M11** are complete; secondary milestones (S1–S7) are being built interleaved.
+Milestones **M0–M11** are complete; secondary milestones (S1–S7) are being built interleaved — a full
+**sheet-depth audit** (every core PF1e sheet feature wired engine→sheet) is done, and **S4 (optional
+rules & 3pp)** is in progress.
 
 What's shipped:
 
@@ -39,9 +41,18 @@ What's shipped:
   developer docs at `/developers` (+ OpenAPI 3.1).
 - **PWA** — installable, offline fallback, privacy-safe service worker.
 - **Mobile** — responsive overhaul (drawer nav, responsive editor, touch targets).
+- **Full PF1e sheet depth** — the rules engine now drives equipped armor→AC (+ Max-Dex cap) and
+  armor-check-penalty→skills, equipped weapons→attacks, conditions (fear/fatigue tracks, dishonor,
+  negative levels), metamagic→effective spell level, HP from Hit Dice + Con + favored-class bonus,
+  nonlethal→staggered/unconscious status, and class daily-resource uses — each surfaced on the read
+  sheet and privacy-gated.
+- **Optional rules & 3pp (S4, in progress)** — Hero Points, Background Skills, Honor, Stamina &
+  Combat Tricks, Fractional BAB/Saves, Wounds & Vigor, Gestalt, Mythic (core), and Psionics (core) —
+  each behind a per-character toggle — plus a **copy/paste statblock parser** that turns pasted
+  psionic powers into structured entries (generalizing to maneuvers/talents/veils).
 
-See [`CLAUDE.md`](CLAUDE.md) for the detailed milestone log and `docs/SECONDARY_MILESTONES.md` for
-the S1–S7 roadmap.
+See [`CLAUDE.md`](CLAUDE.md) for the detailed milestone log, `docs/SECONDARY_MILESTONES.md` for the
+S1–S7 roadmap, and `docs/S4_OPTIONAL_RULES_PLAN.md` for the optional-rules/3pp plan.
 
 ---
 
