@@ -15,6 +15,13 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-dvh">
+      {/* Skip past the nav straight to the page content (keyboard / screen-reader users). */}
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-surface/60 md:flex">
         <div className="flex h-14 items-center px-4">
@@ -46,7 +53,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 pb-24 pt-6 md:px-6 md:pb-8">{children}</main>
+        <main id="main-content" className="flex-1 px-4 pb-24 pt-6 md:px-6 md:pb-8">
+          {children}
+        </main>
       </div>
 
       <MobileBottomNav />
