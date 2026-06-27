@@ -8,6 +8,8 @@ import {
   Footprints,
   Sparkles,
   Languages,
+  Backpack,
+  Coins,
   ScrollText,
   EyeOff,
   Wand2,
@@ -247,6 +249,36 @@ export function CharacterDashboard({
                   </Badge>
                 ))}
               </div>
+            </SectionCard>
+          )}
+
+          {vm.inventory && vm.inventory.items.length > 0 && (
+            <SectionCard title="Inventory" icon={Backpack}>
+              <ShowMore cap={10} noun="items" className="space-y-1">
+                {vm.inventory.items.map((it, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0 truncate text-foreground">
+                      {it.name}
+                      {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
+                    </span>
+                    {it.equipped && (
+                      <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
+                    )}
+                  </div>
+                ))}
+              </ShowMore>
+            </SectionCard>
+          )}
+
+          {vm.wealth && (vm.wealth.pp > 0 || vm.wealth.gp > 0 || vm.wealth.sp > 0 || vm.wealth.cp > 0) && (
+            <SectionCard title="Wealth" icon={Coins}>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground">
+                <span className="tnum">{vm.wealth.pp} pp</span>
+                <span className="tnum">{vm.wealth.gp} gp</span>
+                <span className="tnum">{vm.wealth.sp} sp</span>
+                <span className="tnum">{vm.wealth.cp} cp</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">≈ {vm.wealth.totalGp} gp total</p>
             </SectionCard>
           )}
 

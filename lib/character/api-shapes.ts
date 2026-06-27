@@ -45,6 +45,8 @@ export function characterStats(vm: CharacterViewModel) {
     fullAttack: vm.fullAttack,
     languages: vm.languages,
     defenses: vm.defenses,
+    inventory: vm.inventory, // null if the viewer can't see the inventory section
+    wealth: vm.wealth, // null if the viewer can't see the wealth section
     spellcasting: vm.spellcasting, // full gated spellcasting (null if not visible)
   };
 }

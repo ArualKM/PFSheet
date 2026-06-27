@@ -185,6 +185,10 @@ export type CharacterViewModel = {
     allies?: string;
     foes?: string;
   } | null;
+  inventory: {
+    items: Array<{ name: string; quantity: number; equipped: boolean; category: string }>;
+  } | null;
+  wealth: { pp: number; gp: number; sp: number; cp: number; totalGp: number } | null;
   /** Human-readable labels of sections hidden from this viewer. */
   hiddenSections: string[];
 };
@@ -397,6 +401,34 @@ export function buildCharacterViewModel(
     },
     spellcasting,
     profile,
+    inventory: gate("inventory", {
+      items: [
+        ...character.inventory.weapons,
+        ...character.inventory.armorAndShields,
+        ...character.inventory.potionsScrollsMagicItems,
+        ...character.inventory.gear,
+        ...character.inventory.otherItems,
+      ].map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        equipped: !!i.equipped,
+        category: i.category,
+      })),
+    }),
+    wealth: gate("wealth", {
+      pp: character.wealth.pp,
+      gp: character.wealth.gp,
+      sp: character.wealth.sp,
+      cp: character.wealth.cp,
+      totalGp:
+        Math.round(
+          (character.wealth.pp * 10 +
+            character.wealth.gp +
+            character.wealth.sp / 10 +
+            character.wealth.cp / 100) *
+            100,
+        ) / 100,
+    }),
     hiddenSections: [...hidden],
   };
 }
