@@ -22,6 +22,7 @@ import {
   Zap,
   ScrollText,
   Settings,
+  Calculator,
 } from "lucide-react";
 import {
   ABILITY_KEYS,
@@ -32,7 +33,9 @@ import {
   type ModifierEntry,
   type OptionalRuleModule,
   type RuleModuleGroup,
+  type PointBuyState,
 } from "@pathforge/schema";
+import { composeAbilityScore, pointBuyCost, pointBuySpent } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
@@ -608,13 +611,238 @@ const ABILITY_ADJUSTS = [
   { key: "drain", label: "Drain" },
 ] as const;
 
+function makeDefaultPointBuy(ed: EditorApi): PointBuyState {
+  // Seed the panel from the current scores as pre-racial values (racial 0). We never
+  // try to auto-decompose an existing score into base + racial — see S1 open questions.
+  const allocations: Record<string, number> = {};
+  const racial: Record<string, number> = {};
+  for (const key of ABILITY_KEYS) {
+    const cur = ed.draft.abilities.primary[key]?.score ?? 10;
+    allocations[key] = Math.min(18, Math.max(7, cur));
+    racial[key] = 0;
+  }
+  return {
+    enabled: true,
+    done: false,
+    budget: 15,
+    system: "standard",
+    minScore: 7,
+    maxScore: 18,
+    allocations,
+    racial,
+  };
+}
+
+function PointBuyPanel({ ed, advanced }: { ed: EditorApi; advanced: boolean }) {
+  const pb = ed.draft.abilities.pointBuy;
+
+  if (!pb?.enabled) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-surface-raised/30 px-4 py-3">
+        <div className="min-w-0 text-sm">
+          <span className="font-medium text-foreground">Point Buy calculator</span>
+          <p className="text-xs text-muted-foreground">
+            Allocate a budget across abilities instead of typing scores by hand.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() =>
+            ed.update((c) => {
+              // Re-enable a previously-configured block in place (preserves the saved
+              // allocations / racial split / budget); only seed a fresh block when none exists.
+              if (c.abilities.pointBuy) c.abilities.pointBuy.enabled = true;
+              else c.abilities.pointBuy = makeDefaultPointBuy(ed);
+            })
+          }
+        >
+          <Calculator className="size-4" /> Use Point Buy
+        </Button>
+      </div>
+    );
+  }
+
+  const coreAlloc: Record<string, number> = {};
+  for (const key of ABILITY_KEYS) coreAlloc[key] = pb.allocations[key] ?? 10;
+  const spent = pointBuySpent(coreAlloc);
+  const remaining = pb.budget - spent;
+  // Fail closed: a score with no defined point-buy cost (e.g. a variant maxScore > 18)
+  // must block Apply rather than silently count as 0 in the spend total.
+  const allValid = ABILITY_KEYS.every((key) => pointBuyCost(pb.allocations[key] ?? 10) !== null);
+  const over = remaining < 0 || !allValid;
+
+  if (pb.done) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface-raised/30 px-4 py-3">
+        <span className="text-sm text-muted-foreground">
+          Point buy: <span className="text-foreground">{pb.budget} pts</span> · {remaining} remaining
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => ed.update((c) => { if (c.abilities.pointBuy) c.abilities.pointBuy.done = false; })}
+        >
+          Reopen
+        </Button>
+      </div>
+    );
+  }
+
+  const apply = () =>
+    ed.update((c) => {
+      const p = c.abilities.pointBuy;
+      if (!p) return;
+      for (const key of ABILITY_KEYS) {
+        const base = p.allocations[key] ?? 10;
+        const rac = p.racial[key] ?? 0;
+        c.abilities.primary[key].score = composeAbilityScore(base, rac, 0);
+        c.abilities.primary[key].pointBuyBase = base;
+      }
+    });
+
+  const markDone = () =>
+    ed.update((c) => {
+      const p = c.abilities.pointBuy;
+      if (!p) return;
+      for (const key of ABILITY_KEYS) {
+        const base = p.allocations[key] ?? 10;
+        const rac = p.racial[key] ?? 0;
+        c.abilities.primary[key].score = composeAbilityScore(base, rac, 0);
+        c.abilities.primary[key].pointBuyBase = base;
+      }
+      p.done = true;
+    });
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-surface-raised/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Calculator className="size-4 text-gold" />
+          <span className="text-sm font-semibold text-foreground">Point Buy</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {[15, 20, 25].map((b) => (
+            <Button
+              key={b}
+              size="sm"
+              variant={pb.budget === b ? "default" : "outline"}
+              onClick={() => ed.update((c) => { if (c.abilities.pointBuy) c.abilities.pointBuy.budget = b; })}
+            >
+              {b}
+            </Button>
+          ))}
+          <div className="w-20">
+            <NumberField
+              label="Budget"
+              value={pb.budget}
+              min={0}
+              onChange={(v) => ed.update((c) => { if (c.abilities.pointBuy) c.abilities.pointBuy.budget = Math.max(0, v); })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div aria-live="polite" className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">
+          Spent <span className="tnum text-foreground">{spent}</span> / {pb.budget}
+        </span>
+        <Badge variant={over ? "danger" : remaining === 0 ? "success" : "gold"}>{remaining} remaining</Badge>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+        {ABILITY_KEYS.map((key) => {
+          const base = pb.allocations[key] ?? 10;
+          const rac = pb.racial[key] ?? 0;
+          const cost = pointBuyCost(base);
+          return (
+            <div key={key} className="rounded-md border border-border/70 p-2">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">{ABILITY_NAMES[key]}</span>
+                <span className="text-[11px] text-muted-foreground">cost {cost ?? "—"}</span>
+              </div>
+              <NumberField
+                label="Pre-racial"
+                value={base}
+                min={pb.minScore}
+                max={pb.maxScore}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    if (c.abilities.pointBuy)
+                      c.abilities.pointBuy.allocations[key] = Math.min(pb.maxScore, Math.max(pb.minScore, v));
+                  })
+                }
+              />
+              {advanced && (
+                <div className="mt-1.5">
+                  <NumberField
+                    label="Racial / other"
+                    value={rac}
+                    onChange={(v) => ed.update((c) => { if (c.abilities.pointBuy) c.abilities.pointBuy.racial[key] = v; })}
+                  />
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                = <span className="tnum text-foreground">{composeAbilityScore(base, rac, 0)}</span> total
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {advanced ? (
+        <p className="text-[11px] text-muted-foreground">
+          Pre-racial values are seeded from your current scores. If a score already includes a racial
+          bonus, lower the pre-racial value before adding the racial here, or it will count twice.
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Switch to Advanced (top toggle) to enter racial modifiers per ability.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={apply} disabled={over}>
+          Apply
+        </Button>
+        <Button size="sm" variant="secondary" onClick={markDone} disabled={over}>
+          Mark as done
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            ed.update((c) => {
+              // Non-destructive: keep the saved block so it can be re-enabled later, but
+              // clear the now-stale point-buy provenance (the user edits score.score directly now).
+              if (c.abilities.pointBuy) c.abilities.pointBuy.enabled = false;
+              for (const key of ABILITY_KEYS) c.abilities.primary[key].pointBuyBase = undefined;
+            })
+          }
+        >
+          Switch to manual
+        </Button>
+      </div>
+      {over && (
+        <p className="text-xs text-danger">
+          {!allValid
+            ? "Some scores have no point-buy cost defined — adjust them before applying."
+            : "Over budget — reduce some scores before applying."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AbilitiesEditor({ ed, advanced }: { ed: EditorApi; advanced: boolean }) {
+  const pbEnabled = ed.draft.abilities.pointBuy?.enabled ?? false;
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Enter each ability score; modifiers update live and flow into AC, saves, attacks, and skills.
         {advanced && " Advanced: enhancement/inherent stack by type (highest wins); damage, penalty, and drain reduce the effective score."}
       </p>
+      <PointBuyPanel ed={ed} advanced={advanced} />
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {ABILITY_KEYS.map((key) => {
           const score = ed.draft.abilities.primary[key];
@@ -626,16 +854,28 @@ function AbilitiesEditor({ ed, advanced }: { ed: EditorApi; advanced: boolean })
                 <span className="text-sm font-semibold text-foreground">{ABILITY_NAMES[key]}</span>
                 <Badge variant="gold">{formatModifier(mod)}</Badge>
               </div>
-              <NumberField
-                label="Score"
-                value={score?.score ?? 10}
-                min={0}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    c.abilities.primary[key].score = v;
-                  })
-                }
-              />
+              {pbEnabled ? (
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground">Score</span>
+                  <div className="flex items-center gap-2">
+                    <span className="tnum text-lg font-semibold text-foreground">{score?.score ?? 10}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      point buy
+                    </Badge>
+                  </div>
+                </div>
+              ) : (
+                <NumberField
+                  label="Score"
+                  value={score?.score ?? 10}
+                  min={0}
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      c.abilities.primary[key].score = v;
+                    })
+                  }
+                />
+              )}
               {advanced && (
                 <>
                   <div className="mt-2 grid grid-cols-3 gap-1.5">

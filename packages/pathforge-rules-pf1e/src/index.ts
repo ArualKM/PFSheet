@@ -49,3 +49,14 @@ export type {
 // Buff Center helpers
 export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
 export type { StackingConflict, BuffDeltaRow } from "./buffs";
+
+// Point-buy calculator helpers
+export {
+  POINT_BUY_COST,
+  POINT_BUY_MIN,
+  POINT_BUY_MAX,
+  pointBuyCost,
+  pointBuySpent,
+  pointBuyRemaining,
+  composeAbilityScore,
+} from "./point-buy";
