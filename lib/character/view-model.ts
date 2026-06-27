@@ -139,6 +139,12 @@ export type CharacterViewModel = {
       negativeLevels: number;
       status: "ok" | "staggered" | "disabled" | "unconscious" | "dying" | "dead";
     };
+    /** Wounds & Vigor dual pool (present + replaces hp display when the variant is enabled). */
+    woundsVigor: {
+      vigor: { current: number; max: number; temp: number };
+      wound: { current: number; max: number; threshold: number };
+      status: "ok" | "wounded" | "dead";
+    } | null;
     ac: { total: number; touch: number; flatFooted: number };
     cmb: number;
     cmd: number;
@@ -380,6 +386,7 @@ export function buildCharacterViewModel(
     },
     vitals: {
       hp: computed.summary.hp,
+      woundsVigor: computed.summary.woundsVigor ?? null,
       ac: {
         total: computed.summary.ac,
         touch: computed.summary.touch,

@@ -38,22 +38,39 @@ export function CharacterDashboard({
 
       {/* Core vitals — bento stat tiles */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile
-          icon={Heart}
-          label="Hit Points"
-          accent="danger"
-          value={`${vm.vitals.hp.current}/${vm.vitals.hp.max}`}
-          sub={
-            [
-              vm.vitals.hp.status !== "ok" ? vm.vitals.hp.status.toUpperCase() : null,
-              vm.vitals.hp.temp ? `+${vm.vitals.hp.temp} temp` : null,
-              vm.vitals.hp.nonlethal ? `${vm.vitals.hp.nonlethal} nonlethal` : null,
-              vm.vitals.hp.negativeLevels ? `−${vm.vitals.hp.negativeLevels} lvl` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") || undefined
-          }
-        />
+        {vm.vitals.woundsVigor ? (
+          <StatTile
+            icon={Heart}
+            label="Vigor / Wounds"
+            accent="danger"
+            value={`${vm.vitals.woundsVigor.vigor.current}/${vm.vitals.woundsVigor.vigor.max}`}
+            sub={
+              [
+                `Wounds ${vm.vitals.woundsVigor.wound.current}/${vm.vitals.woundsVigor.wound.max}`,
+                vm.vitals.woundsVigor.status !== "ok" ? vm.vitals.woundsVigor.status.toUpperCase() : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            }
+          />
+        ) : (
+          <StatTile
+            icon={Heart}
+            label="Hit Points"
+            accent="danger"
+            value={`${vm.vitals.hp.current}/${vm.vitals.hp.max}`}
+            sub={
+              [
+                vm.vitals.hp.status !== "ok" ? vm.vitals.hp.status.toUpperCase() : null,
+                vm.vitals.hp.temp ? `+${vm.vitals.hp.temp} temp` : null,
+                vm.vitals.hp.nonlethal ? `${vm.vitals.hp.nonlethal} nonlethal` : null,
+                vm.vitals.hp.negativeLevels ? `−${vm.vitals.hp.negativeLevels} lvl` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || undefined
+            }
+          />
+        )}
         <StatTile icon={Shield} label="Armor Class" accent="gold" value={vm.vitals.ac.total} sub={`Touch ${vm.vitals.ac.touch} · FF ${vm.vitals.ac.flatFooted}`} />
         <StatTile icon={Zap} label="Initiative" accent="rune" value={formatModifier(vm.vitals.initiative)} />
         <StatTile icon={Footprints} label="Speed" value={vm.vitals.speed} />

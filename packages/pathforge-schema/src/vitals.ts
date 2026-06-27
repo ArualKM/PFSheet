@@ -11,11 +11,25 @@ export const hitDiceEntrySchema = z.object({
 });
 export type HitDiceEntry = z.infer<typeof hitDiceEntrySchema>;
 
+/** §18 Wounds & Vigor variant — replaces hp with a Vigor pool (stamina/luck) + a Wound pool (real
+ * harm). Kept as an optional sub-block so toggling the variant off is lossless. Unset maxes/threshold
+ * are derived (Vigor = HD without Con; Wounds = 2 × Con score; threshold = Con score). */
+export const woundsVigorBlockSchema = z.object({
+  maxVigor: z.number().int().optional(),
+  currentVigor: z.number().int().optional(),
+  tempVigor: z.number().int().default(0),
+  maxWounds: z.number().int().optional(),
+  currentWounds: z.number().int().optional(),
+  woundThreshold: z.number().int().optional(),
+});
+export type WoundsVigorBlock = z.infer<typeof woundsVigorBlockSchema>;
+
 export const healthBlockSchema = z.object({
   maxHp: numberOrFormulaSchema.default(0),
   currentHp: z.number().int().default(0),
   tempHp: z.number().int().default(0),
   nonlethalDamage: z.number().int().default(0),
+  woundsVigor: woundsVigorBlockSchema.optional(),
   /** Negative levels from energy drain: −1 per level to attacks/saves/checks and −5 hp each. */
   negativeLevels: z.number().int().default(0),
   /** Total HP gained from favored-class bonuses (count of levels you took the +1 hp option). */

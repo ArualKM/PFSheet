@@ -1624,6 +1624,23 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
     });
   const removeCondDef = (i: number) => ed.update((c) => c.defenses.conditionalDefenses.splice(i, 1));
 
+  const wv = ed.computed.summary.woundsVigor;
+  const ensureWv = (mut: (w: NonNullable<EditorApi["draft"]["health"]["woundsVigor"]>) => void) =>
+    ed.update((c) => {
+      if (!c.health.woundsVigor) c.health.woundsVigor = { tempVigor: 0 };
+      mut(c.health.woundsVigor);
+    });
+  const adjVigor = (delta: number) =>
+    wv &&
+    ensureWv((w) => {
+      w.currentVigor = Math.max(0, Math.min(wv.vigor.max, (w.currentVigor ?? wv.vigor.current) + delta));
+    });
+  const adjWound = (delta: number) =>
+    wv &&
+    ensureWv((w) => {
+      w.currentWounds = Math.max(0, Math.min(wv.wound.max, (w.currentWounds ?? wv.wound.current) + delta));
+    });
+
   const [hpDelta, setHpDelta] = useState(5);
   const [hpMethod, setHpMethod] = useState<"average" | "max">("average");
   const hpFromLevels = computeMaxHpFromLevels(ed.draft, hpMethod);
@@ -1712,6 +1729,58 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
           <p className="mt-1 text-xs text-muted-foreground">Add class levels on the Identity tab to compute HP.</p>
         )}
       </section>
+
+      {wv && (
+        <section>
+          <h3 className="mb-1 text-sm font-semibold text-foreground">Wounds &amp; Vigor</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Vigor (stamina/luck) absorbs damage first; wounds are real harm. At ≤ {wv.wound.threshold} wounds
+            you&apos;re staggered; 0 wounds is dead. Unset maxes derive from your Hit Dice (no Con) and Con score.
+          </p>
+          <div className="grid max-w-lg gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-sm font-medium text-rune">Vigor</span>
+                <span className="tnum text-sm text-foreground">
+                  {wv.vigor.current}/{wv.vigor.max}
+                </span>
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="outline" disabled={wv.vigor.current <= 0} onClick={() => adjVigor(-1)}>
+                  −
+                </Button>
+                <Button size="sm" variant="outline" disabled={wv.vigor.current >= wv.vigor.max} onClick={() => adjVigor(1)}>
+                  +
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => ensureWv((w) => (w.currentVigor = wv.vigor.max))}>
+                  Full
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="mb-1 flex items-center justify-between">
+                <span className={cn("text-sm font-medium", wv.status !== "ok" ? "text-danger" : "text-danger")}>
+                  Wounds {wv.status !== "ok" && <span className="uppercase">· {wv.status}</span>}
+                </span>
+                <span className="tnum text-sm text-foreground">
+                  {wv.wound.current}/{wv.wound.max}
+                </span>
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="outline" disabled={wv.wound.current <= 0} onClick={() => adjWound(-1)}>
+                  −
+                </Button>
+                <Button size="sm" variant="outline" disabled={wv.wound.current >= wv.wound.max} onClick={() => adjWound(1)}>
+                  +
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => ensureWv((w) => (w.currentWounds = wv.wound.max))}>
+                  Full
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section>
         <h3 className="mb-2 text-sm font-semibold text-foreground">Conditions</h3>

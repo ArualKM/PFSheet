@@ -12,6 +12,7 @@ import {
   maxHeroPoints,
   honorScore,
   honorTier,
+  computeMaxHpFromLevels,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -548,6 +549,12 @@ export type ComputedCharacter = {
     honor?: { score: number; tier: string; code: string; dishonored: boolean };
     /** Stamina pool (absent unless the module is enabled). */
     stamina?: { current: number; max: number };
+    /** Wounds & Vigor dual pool (absent unless the variant is enabled; replaces hp when present). */
+    woundsVigor?: {
+      vigor: { current: number; max: number; temp: number };
+      wound: { current: number; max: number; threshold: number };
+      status: "ok" | "wounded" | "dead";
+    };
   };
 };
 
@@ -859,6 +866,26 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     stamina = { current: Math.max(0, Math.min(max, character.stamina?.current ?? 0)), max };
   }
 
+  // Wounds & Vigor (variant): a dual pool replacing hp. Unset maxes derive from HD (no Con) and Con
+  // score; the wound threshold defaults to the Con score.
+  let woundsVigor: ComputedCharacter["summary"]["woundsVigor"];
+  if (isModuleKeyEnabled(character, "wounds_vigor")) {
+    const wv = character.health.woundsVigor;
+    const conScore = abilities.con?.effectiveScore ?? 10;
+    const hd = computeMaxHpFromLevels(character, "average");
+    const maxVigor = Math.max(0, wv?.maxVigor ?? hd.hd + hd.fcb);
+    const maxWounds = Math.max(0, wv?.maxWounds ?? 2 * conScore);
+    const threshold = wv?.woundThreshold ?? conScore;
+    const curVigor = wv?.currentVigor ?? maxVigor;
+    const curWounds = wv?.currentWounds ?? maxWounds;
+    const status = curWounds <= 0 ? "dead" : curWounds <= threshold ? "wounded" : "ok";
+    woundsVigor = {
+      vigor: { current: curVigor, max: maxVigor, temp: wv?.tempVigor ?? 0 },
+      wound: { current: curWounds, max: maxWounds, threshold },
+      status,
+    };
+  }
+
   return {
     abilities,
     armorClass,
@@ -910,6 +937,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       backgroundSkills,
       honor,
       stamina,
+      woundsVigor,
     },
   };
 }
