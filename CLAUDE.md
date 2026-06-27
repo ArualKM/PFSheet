@@ -184,16 +184,25 @@ review that found + fixed 11 issues). Two new packages/surfaces on top of the §
 
 Migrations now run through `0012` (`0011` api_rate_limits table+RPC, `0012` prune+index).
 
-Next per spec: PWA/offline (M10), polish/QA (M11). Deferred tails: M8 — Myth-Weavers HTML mapper,
-Hero Lab `.por`, statblock parser; M9 — printable-PDF export (§13.3), Foundry export round-trip
-fidelity, `campaigns:read`-scoped API endpoints (scope reserved).
+**M10 (PWA/offline) complete** — privacy-safe service worker (`public/sw.js`: network-first
+navigations never cached; cache-first only for `/_next/static/` + the icon; /api never
+intercepted), `/offline` fallback, `ServiceWorkerRegister` (prod-only) in the root layout,
+`proxy.ts` excludes sw.js/offline. Full offline EDIT/sync deferred to S5b. Migrations still `0013`.
 
-**Secondary milestones (post-M11)** are planned + designed in `docs/SECONDARY_MILESTONES.md` (S1
-point-buy calculator, S2 `/view` polish, S3 spells+classes deepening — simplified/detailed spell
-views + prepared casting + prebuilt PF1e classes with HP/skill calculators, S4 3pp/optional-rules
-content prep, S5 mobile overhaul + native Android/iPhone apps with real-time sync/conflict handling,
-S6 additional features, S7 final review). Each section is a grounded design starting point, not a
-final spec.
+**Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
+interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
+`class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
+detail rows, prepared/cast/rest), **S5a** (mobile overhaul — drawer nav, responsive editor,
+density). **Next: S2** `/view` polish (inside **M11** polish/QA/launch), then **S5b** (native
+Android/iPhone apps + real-time sync/conflict — XL), **S4** (3pp content), **S6** (more features),
+**S7** (final review). Deferred tails: M8 — Myth-Weavers HTML mapper, Hero Lab `.por`, statblock
+parser; M9 — printable-PDF export (§13.3), Foundry round-trip fidelity, `campaigns:read` endpoints;
+S5a — touch-height sweep of raw inputs; M10 — per-theme manifest color, custom install prompt.
+
+**Server/Client boundary gotcha:** never pass a function prop from a Server Component to a Client
+Component (build + jsdom tests don't catch it; it crashes at request time). Components used by
+Server Components take serializable props + `children` only. (Caused the 2026-06-27 character-view
+outage; `<ShowMore>` is now children-based.)
 
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 
