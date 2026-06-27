@@ -1227,10 +1227,16 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 aria-label="Remove class"
                 onClick={() =>
                   ed.update((c) => {
+                    const removed = c.identity.classes[i];
                     c.identity.classes.splice(i, 1);
                     c.identity.totalLevel = isGestalt(c)
                       ? gestaltLevel(c)
                       : c.identity.classes.reduce((s, x) => s + x.level, 0);
+                    // Re-derive BAB/saves so removing a class (esp. the dominant gestalt track) lowers
+                    // them — mirroring the level-edit/track handlers.
+                    if (removed?.presetKey || c.identity.classes.some((x) => x.presetKey)) {
+                      recomputeClassDerived(c, { hpMethod: "manual" });
+                    }
                   })
                 }
               >
@@ -1748,7 +1754,16 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
 
   const [hpDelta, setHpDelta] = useState(5);
   const [hpMethod, setHpMethod] = useState<"average" | "max">("average");
-  const hpFromLevels = computeMaxHpFromLevels(ed.draft, hpMethod);
+  // Gestalt HP uses the better track's pool, never both tracks summed (matches recomputeClassDerived).
+  const hpFromLevels = (() => {
+    if (isGestalt(ed.draft)) {
+      const all = ed.draft.identity.classes;
+      const a = computeMaxHpFromLevels(ed.draft, hpMethod, all.filter((c) => c.track !== "b"));
+      const b = computeMaxHpFromLevels(ed.draft, hpMethod, all.filter((c) => c.track === "b"));
+      return a.total >= b.total ? a : b;
+    }
+    return computeMaxHpFromLevels(ed.draft, hpMethod);
+  })();
   const applyComputedHp = () =>
     ed.update((c) => {
       c.health.maxHp = hpFromLevels.total;

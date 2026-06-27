@@ -15,6 +15,7 @@ import {
   computeMaxHpFromLevels,
   maxMythicPower,
   mythicSurgeDie,
+  isGestalt,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -895,7 +896,16 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   if (isModuleKeyEnabled(character, "wounds_vigor")) {
     const wv = character.health.woundsVigor;
     const conScore = abilities.con?.effectiveScore ?? 10;
-    const hd = computeMaxHpFromLevels(character, "average");
+    // Vigor mirrors hp-from-HD (no Con). Under gestalt take the better track, never both summed.
+    let hd: ReturnType<typeof computeMaxHpFromLevels>;
+    if (isGestalt(character)) {
+      const all = character.identity.classes;
+      const a = computeMaxHpFromLevels(character, "average", all.filter((c) => c.track !== "b"));
+      const b = computeMaxHpFromLevels(character, "average", all.filter((c) => c.track === "b"));
+      hd = a.total >= b.total ? a : b;
+    } else {
+      hd = computeMaxHpFromLevels(character, "average");
+    }
     const maxVigor = Math.max(0, wv?.maxVigor ?? hd.hd + hd.fcb);
     const maxWounds = Math.max(0, wv?.maxWounds ?? 2 * conScore);
     const threshold = wv?.woundThreshold ?? conScore;

@@ -35,4 +35,16 @@ describe("gestalt", () => {
     // Fighter track: 10 + 4×6 (avg d10) + Con 2×5 = 34 + 10 = 44; Wizard track smaller → 44
     expect(c.health.maxHp).toBe(44);
   });
+
+  it("removing the dominant track recomputes BAB/saves down (the remove-handler gap)", () => {
+    const c = gestaltChar();
+    recomputeClassDerived(c, { hpMethod: "manual" });
+    expect(c.combat.bab.total).toBe(5);
+    // Drop the Fighter track (the BAB/Fort dominant one), as the editor's Remove now does + recomputes.
+    c.identity.classes = c.identity.classes.filter((x) => x.id !== "f");
+    c.identity.totalLevel = gestaltLevel(c);
+    recomputeClassDerived(c, { hpMethod: "manual" });
+    expect(c.combat.bab.total).toBe(2); // Wizard 5 alone → ½ BAB
+    expect(c.defenses.savingThrows.fortitude.base).toBe(1); // Wizard poor Fort
+  });
 });
