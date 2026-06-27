@@ -102,6 +102,10 @@ export type SpellView = {
   spellResistance?: string;
   description?: string;
   notes?: string;
+  /** Applied metamagic feat names (prepared spells only). */
+  metamagic?: string[];
+  /** Slot level after metamagic, when it differs from the base level. */
+  effectiveLevel?: number;
 };
 
 export type CharacterViewModel = {
@@ -298,7 +302,21 @@ export function buildCharacterViewModel(
             })),
           })),
           prepared: sp.preparedSpells.length
-            ? sp.preparedSpells.map((p) => ({ ...toSpellView(p), used: p.used, prepared: p.prepared, casterId: p.casterId }))
+            ? sp.preparedSpells.map((p) => {
+                const ids = p.metamagicIds ?? [];
+                const names = ids
+                  .map((id) => sp.metamagic.find((m) => m.id === id)?.name)
+                  .filter((n): n is string => !!n);
+                const effLevel =
+                  p.level + ids.reduce((s, id) => s + (sp.metamagic.find((m) => m.id === id)?.levelAdjust ?? 0), 0);
+                return {
+                  ...toSpellView(p),
+                  used: p.used,
+                  prepared: p.prepared,
+                  casterId: p.casterId,
+                  ...(names.length ? { metamagic: names, effectiveLevel: effLevel } : {}),
+                };
+              })
             : null,
           known: sp.knownSpells.map((k) => ({ ...toSpellView(k), casterId: k.casterId })),
           spellbook: sp.spellbook.length ? sp.spellbook.map((b) => toSpellView(b)) : null,

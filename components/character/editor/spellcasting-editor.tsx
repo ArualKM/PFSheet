@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Plus, Trash2, Sparkles, BookOpen, Wand2, Search } from "lucide-react";
 import type { SpellcasterEntry } from "@pathforge/schema";
+import { METAMAGIC_CATALOG } from "@pathforge/schema";
 import type { ComputedSpellSlots } from "@pathforge/rules-pf1e";
 import { NumberField, TextField } from "./fields";
 import { SpellPicker } from "./spell-picker";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const CASTER_TYPES: SpellcasterEntry["casterType"][] = ["prepared", "spontaneous", "spellbook", "hybrid"];
 const CASTING_ABILITIES = ["str", "dex", "con", "int", "wis", "cha"] as const;
@@ -130,6 +132,26 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
       const idx = c.spellcasting.preparedSpells.findIndex((s) => s.id === id);
       if (idx >= 0) c.spellcasting.preparedSpells.splice(idx, 1);
     });
+
+  const toggleMetamagic = (spellId: string, metaId: string) =>
+    ed.update((c) => {
+      const sp = c.spellcasting.preparedSpells.find((s) => s.id === spellId);
+      if (!sp) return;
+      const ids = sp.metamagicIds ?? [];
+      sp.metamagicIds = ids.includes(metaId) ? ids.filter((x) => x !== metaId) : [...ids, metaId];
+    });
+
+  /** Add a standard metamagic feat from the catalog (no-op if already present by id). */
+  const addCatalogMetamagic = (catalogId: string) =>
+    ed.update((c) => {
+      const entry = METAMAGIC_CATALOG.find((m) => m.id === catalogId);
+      if (!entry || c.spellcasting.metamagic.some((m) => m.id === entry.id)) return;
+      c.spellcasting.metamagic.push({ id: entry.id, name: entry.name, levelAdjust: entry.levelAdjust });
+    });
+
+  const effLevelOf = (sp: { level: number; metamagicIds?: string[] }) =>
+    sp.level +
+    (sp.metamagicIds ?? []).reduce((s, id) => s + (sc.metamagic.find((m) => m.id === id)?.levelAdjust ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -318,6 +340,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                     )}
                     <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] text-muted-foreground">
                       L{sp.level}
+                      {effLevelOf(sp) !== sp.level ? ` → ${effLevelOf(sp)}` : ""}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Button
@@ -360,6 +383,28 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                     <Button variant="ghost" size="icon" aria-label={`Remove prepared ${sp.name}`} onClick={() => removePrepared(sp.id)}>
                       <Trash2 className="size-4" />
                     </Button>
+                    {sc.metamagic.length > 0 && (
+                      <div className="flex w-full flex-wrap items-center gap-1 pt-1">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Metamagic</span>
+                        {sc.metamagic.map((m) => {
+                          const on = (sp.metamagicIds ?? []).includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => toggleMetamagic(sp.id, m.id)}
+                              aria-pressed={on}
+                              className={cn(
+                                "rounded border px-1.5 py-0.5 text-[10px]",
+                                on ? "border-rune bg-rune/15 text-rune" : "border-border text-muted-foreground hover:border-rune/50",
+                              )}
+                            >
+                              {m.name} +{m.levelAdjust}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>
@@ -373,12 +418,28 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <Wand2 className="size-4" /> Spell-like abilities &amp; metamagic
           </h3>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button size="sm" variant="ghost" onClick={() => ed.update((c) => c.spellcasting.spellLikeAbilities.push({ id: newId("sla"), name: "New ability", used: 0 }))}>
               <Plus className="size-4" /> SLA
             </Button>
+            <select
+              aria-label="Add a standard metamagic feat"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) addCatalogMetamagic(e.target.value);
+                e.target.value = "";
+              }}
+              className="h-8 rounded border border-border bg-background px-1 text-xs text-foreground"
+            >
+              <option value="">+ Standard metamagic…</option>
+              {METAMAGIC_CATALOG.filter((m) => !sc.metamagic.some((k) => k.id === m.id)).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} (+{m.levelAdjust})
+                </option>
+              ))}
+            </select>
             <Button size="sm" variant="ghost" onClick={() => ed.update((c) => c.spellcasting.metamagic.push({ id: newId("meta"), name: "New metamagic", levelAdjust: 0 }))}>
-              <Plus className="size-4" /> Metamagic
+              <Plus className="size-4" /> Custom
             </Button>
           </div>
         </div>

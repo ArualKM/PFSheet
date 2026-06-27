@@ -52,7 +52,16 @@ export function SpellRow({ spell, right }: { spell: SpellView; right?: ReactNode
           <span className="truncate text-sm text-foreground">{spell.name}</span>
           <Badge variant="outline" className="shrink-0 text-[10px]">
             L{spell.level}
+            {spell.effectiveLevel != null && spell.effectiveLevel !== spell.level ? `→${spell.effectiveLevel}` : ""}
           </Badge>
+          {spell.metamagic?.length ? (
+            <span
+              className="shrink-0 truncate text-[11px] font-medium text-rune"
+              title={spell.metamagic.join(", ")}
+            >
+              {spell.metamagic.join(", ")}
+            </span>
+          ) : null}
           {spell.school && <span className="shrink-0 truncate text-xs text-muted-foreground">{spell.school}</span>}
         </button>
         {right}

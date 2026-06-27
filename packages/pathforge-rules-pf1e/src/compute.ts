@@ -273,6 +273,24 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
+/**
+ * The spell slot level a prepared spell occupies after metamagic. When the spell carries
+ * metamagicIds, the level is derived from the character's known metamagic feats (base level + sum of
+ * their levelAdjust) so it can't drift from a stale stored value; otherwise the stored effectiveLevel
+ * (e.g. from an import) is honored, falling back to the base level.
+ */
+function effectiveSpellLevel(
+  spell: { level: number; metamagicIds?: string[]; effectiveLevel?: number },
+  known: { id: string; levelAdjust: number }[],
+): number {
+  const ids = spell.metamagicIds ?? [];
+  if (ids.length > 0) {
+    const add = ids.reduce((sum, id) => sum + (known.find((k) => k.id === id)?.levelAdjust ?? 0), 0);
+    return spell.level + add;
+  }
+  return spell.effectiveLevel ?? spell.level;
+}
+
 /** Resolves `@{path}` references against a character + its modifier index. */
 export class CharacterResolver implements Resolver {
   private readonly abilities: Record<string, AbilityComputation>;
@@ -556,7 +574,7 @@ function computeSpellcasting(
             (s) =>
               (s.casterId === caster.id || (!s.casterId && caster.id === solePreparedId)) &&
               // Clamp into the visible 0-9 range so an out-of-range (metamagic) level still surfaces.
-              Math.min(9, Math.max(0, s.effectiveLevel ?? s.level)) === lvl,
+              Math.min(9, Math.max(0, effectiveSpellLevel(s, character.spellcasting.metamagic))) === lvl,
           )
         : [];
       const prepared = preparedAtLevel.reduce((a, s) => a + (s.prepared ?? 1), 0);
