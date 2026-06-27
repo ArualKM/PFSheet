@@ -153,6 +153,27 @@ export function CharacterDashboard({
 
         {/* Right / sidebar column */}
         <div className="min-w-0 space-y-3">
+          {vm.heroPoints && (
+            <SectionCard title="Hero Points" icon={Sparkles}>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1" aria-hidden="true">
+                  {Array.from({ length: vm.heroPoints.max }).map((_, i) => (
+                    <span
+                      key={i}
+                      className={
+                        i < vm.heroPoints!.current
+                          ? "size-3.5 rounded-full bg-gold"
+                          : "size-3.5 rounded-full border border-border"
+                      }
+                    />
+                  ))}
+                </div>
+                <span className="tnum text-sm text-foreground">
+                  {vm.heroPoints.current}/{vm.heroPoints.max}
+                </span>
+              </div>
+            </SectionCard>
+          )}
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (

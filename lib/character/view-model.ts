@@ -180,6 +180,8 @@ export type CharacterViewModel = {
     nonlethal: number;
     conditional: Array<{ label: string; condition: string }>;
   };
+  /** Hero Points pool (count only; null unless the module is enabled). */
+  heroPoints: { current: number; max: number } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -459,6 +461,7 @@ export function buildCharacterViewModel(
           return { label: `${cd.bonus >= 0 ? "+" : ""}${cd.bonus} ${tgt}`, condition: cd.condition };
         }),
     },
+    heroPoints: computed.summary.heroPoints ?? null,
     spellcasting,
     profile,
     inventory: gate("inventory", {

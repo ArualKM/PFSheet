@@ -32,6 +32,8 @@ import {
   ABILITY_KEYS,
   OPTIONAL_RULE_MODULES,
   isRuleEnabled,
+  isModuleKeyEnabled,
+  maxHeroPoints,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -40,6 +42,7 @@ import {
   type OptionalRuleModule,
   type RuleModuleGroup,
   type PointBuyState,
+  type HeroPointsBlock,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -143,6 +146,12 @@ export function CharacterEditor({
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
   // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
   // Psionics, Hero Points, 3pp, …) get their toggles under Settings in a later pass.
+  // Optional-rules systems (§18) reveal their editor here once their module is enabled in Settings.
+  const optionalSystemItems: SheetSection["items"] = [];
+  if (isModuleKeyEnabled(ed.draft, "hero_points")) {
+    optionalSystemItems.push({ key: "hero_points", label: "Hero Points", render: () => <HeroPointsEditor ed={ed} /> });
+  }
+
   const sections: SheetSection[] = [
     {
       key: "core",
@@ -206,6 +215,9 @@ export function CharacterEditor({
       icon: ScrollText,
       items: [{ key: "profile", label: "Profile & backstory", render: () => <ProfileEditor ed={ed} /> }],
     },
+    ...(optionalSystemItems.length > 0
+      ? [{ key: "optional", label: "Optional", icon: Sparkles, items: optionalSystemItems }]
+      : []),
     {
       key: "settings",
       label: "Settings",
@@ -509,6 +521,79 @@ const RULE_GROUPS: { key: RuleModuleGroup; label: string }[] = [
   { key: "subsystem", label: "Subsystems & tracking" },
   { key: "thirdparty", label: "Third-party content" },
 ];
+
+function HeroPointsEditor({ ed }: { ed: EditorApi }) {
+  const hp = ed.draft.heroPoints;
+  const max = maxHeroPoints(hp ?? {});
+  const current = Math.min(hp?.current ?? 1, max);
+
+  const ensure = (mut: (h: HeroPointsBlock) => void) =>
+    ed.update((c) => {
+      if (!c.heroPoints) c.heroPoints = { current: 1, bonusMax: 0, log: [] };
+      mut(c.heroPoints);
+    });
+  const adjust = (delta: number, kind: HeroPointsBlock["log"][number]["kind"], reason: string) =>
+    ensure((h) => {
+      const m = maxHeroPoints(h);
+      const next = Math.max(0, Math.min(m, h.current + delta));
+      if (next === h.current) return;
+      h.current = next;
+      h.log = [{ id: newId("hp"), delta, kind, reason }, ...(h.log ?? [])].slice(0, 20);
+    });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Hero points don&apos;t renew on rest — spend them for a +8 bonus, a reroll, an extra action, or to
+        cheat death. Max {max}.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => adjust(-1, "special", "Spent a hero point")}>
+          − Spend
+        </Button>
+        <span className="tnum text-2xl font-semibold text-gold">
+          {current}
+          <span className="text-base text-muted-foreground">/{max}</span>
+        </span>
+        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => adjust(1, "award", "Awarded a hero point")}>
+          + Award
+        </Button>
+      </div>
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="flex h-9 items-center gap-1.5 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={!!hp?.heroesFortune}
+            onChange={(e) => ensure((h) => (h.heroesFortune = e.target.checked || undefined))}
+          />
+          Hero&apos;s Fortune feat (+1 max)
+        </label>
+        <NumberField
+          label="Other bonus to max"
+          value={hp?.bonusMax ?? 0}
+          min={0}
+          onChange={(v) => ensure((h) => (h.bonusMax = v))}
+          className="w-32"
+        />
+      </div>
+      {hp?.log && hp.log.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent</h4>
+          <ul className="space-y-0.5 text-sm">
+            {hp.log.slice(0, 6).map((e) => (
+              <li key={e.id} className="flex items-baseline gap-2">
+                <span className={e.delta >= 0 ? "tnum text-gold" : "tnum text-danger"}>
+                  {e.delta >= 0 ? `+${e.delta}` : e.delta}
+                </span>
+                <span className="text-muted-foreground">{e.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SettingsEditor({ ed }: { ed: EditorApi }) {
   const toggleRule = (mod: OptionalRuleModule, on: boolean) =>

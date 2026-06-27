@@ -5,7 +5,7 @@ import type {
   ModifierEntry,
   PathForgeCharacterV1,
 } from "@pathforge/schema";
-import { ABILITY_KEYS, bonusSpellsForLevel } from "@pathforge/schema";
+import { ABILITY_KEYS, bonusSpellsForLevel, isModuleKeyEnabled, maxHeroPoints } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
@@ -526,6 +526,8 @@ export type ComputedCharacter = {
     };
     /** Compact spellcasting roll-up (absent for non-casters). */
     spells?: { casterCount: number; highestSpellLevel: number; totalSlots: number; usedSlots: number };
+    /** Hero Points pool (absent unless the module is enabled). */
+    heroPoints?: { current: number; max: number };
   };
 };
 
@@ -801,6 +803,13 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
 
   const negLevels = Math.max(0, character.health.negativeLevels ?? 0);
 
+  // Hero Points (optional): clamp the stored current into [0, max] where max = 3 + Hero's Fortune + bonus.
+  let heroPoints: { current: number; max: number } | undefined;
+  if (isModuleKeyEnabled(character, "hero_points") && character.heroPoints) {
+    const max = maxHeroPoints(character.heroPoints);
+    heroPoints = { current: Math.max(0, Math.min(max, character.heroPoints.current)), max };
+  }
+
   return {
     abilities,
     armorClass,
@@ -848,6 +857,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
             usedSlots: spellcasting.reduce((a, sc) => a + sc.slots.reduce((b, s) => b + s.used, 0), 0),
           }
         : undefined,
+      heroPoints,
     },
   };
 }
