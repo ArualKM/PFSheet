@@ -41,7 +41,7 @@ import {
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
-import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
+import { useCharacterEditor, type SaveStatus, type ConflictState } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField } from "./fields";
 import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
@@ -91,11 +91,13 @@ type SheetSection = {
 export function CharacterEditor({
   characterId,
   initial,
+  initialVersion,
 }: {
   characterId: string;
   initial: PathForgeCharacterV1;
+  initialVersion: number;
 }) {
-  const ed = useCharacterEditor(characterId, initial);
+  const ed = useCharacterEditor(characterId, initial, initialVersion);
   const [advanced, setAdvanced] = useState(false);
   const [activeSection, setActiveSection] = useState("core");
   const [activeSub, setActiveSub] = useState("details");
@@ -344,12 +346,24 @@ export function CharacterEditor({
             >
               <Sigma className="size-3.5" /> {advanced ? "Advanced" : "Simple"}
             </button>
-            <Button variant="ghost" size="sm" onClick={ed.undo} disabled={!ed.canUndo} title="Undo last change">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={ed.undo}
+              disabled={!ed.canUndo || ed.status === "conflict"}
+              title="Undo last change"
+            >
               <Undo2 className="size-4" /> Undo
             </Button>
             <SaveStatusBadge status={ed.status} error={ed.error} />
           </div>
         </div>
+
+        {ed.conflict && (
+          <div className="mb-3">
+            <ConflictBanner conflict={ed.conflict} onResolve={ed.resolveConflict} />
+          </div>
+        )}
 
         <Card>
           <CardContent
@@ -359,7 +373,14 @@ export function CharacterEditor({
             aria-labelledby={panelLabelId}
             className="p-5"
           >
-            {sub.render()}
+            {/* While a conflict is open, lock the fields so an edit can't race the resolution
+                (which is keyed to the snapshot shown in the banner). Resolve first, then edit. */}
+            <fieldset
+              disabled={ed.status === "conflict"}
+              className={cn("m-0 min-w-0 border-0 p-0", ed.status === "conflict" && "opacity-60")}
+            >
+              {sub.render()}
+            </fieldset>
           </CardContent>
         </Card>
       </div>
@@ -1706,7 +1727,48 @@ const STATUS_META: Record<SaveStatus, { label: string; icon: typeof Check; class
   unsaved: { label: "Unsaved", icon: Cloud, className: "text-muted-foreground" },
   saving: { label: "Saving…", icon: Loader2, className: "text-rune" },
   error: { label: "Save failed", icon: CircleAlert, className: "text-danger" },
+  conflict: { label: "Edit conflict", icon: CircleAlert, className: "text-gold" },
 };
+
+function ConflictBanner({
+  conflict,
+  onResolve,
+}: {
+  conflict: ConflictState;
+  onResolve: (choice: "mine" | "theirs" | "merge") => void;
+}) {
+  const fields = conflict.conflicts.map((c) => c.path);
+  return (
+    <div role="alert" className="rounded-lg border border-gold/40 bg-gold/10 p-4 text-sm">
+      <p className="flex items-center gap-1.5 font-semibold text-gold">
+        <CircleAlert className="size-4" /> This character was also edited on another device
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        Your edits were kept and the other device&rsquo;s changes were merged in. {conflict.conflicts.length}{" "}
+        field{conflict.conflicts.length === 1 ? "" : "s"} changed in both places — pick which wins:
+      </p>
+      <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+        {fields.slice(0, 8).map((f, i) => (
+          <li key={i}>
+            <code className="text-foreground">{f}</code>
+          </li>
+        ))}
+        {fields.length > 8 && <li>…and {fields.length - 8} more</li>}
+      </ul>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => onResolve("merge")}>
+          Keep mine on conflicts
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => onResolve("mine")}>
+          Keep all my changes
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => onResolve("theirs")}>
+          Take the other device&rsquo;s
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string | null }) {
   const meta = STATUS_META[status];

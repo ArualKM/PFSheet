@@ -23,7 +23,7 @@ export default async function EditCharacterPage({
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("characters")
-    .select("id, name, sheet_data")
+    .select("id, name, sheet_data, sheet_version")
     .eq("id", characterId)
     .single();
   if (error || !data) notFound();
@@ -43,7 +43,11 @@ export default async function EditCharacterPage({
       />
 
       {result.ok ? (
-        <CharacterEditor characterId={characterId} initial={result.character} />
+        <CharacterEditor
+          characterId={characterId}
+          initial={result.character}
+          initialVersion={data.sheet_version}
+        />
       ) : (
         <Card className="border-dashed">
           <CardContent className="px-6 py-12 text-center text-sm text-muted-foreground">

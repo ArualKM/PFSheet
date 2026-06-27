@@ -453,6 +453,7 @@ export type Database = {
           public_slug: string | null
           schema_version: string
           sheet_data: Json
+          sheet_version: number
           system_key: string
           updated_at: string | null
           visibility: string
@@ -472,6 +473,7 @@ export type Database = {
           public_slug?: string | null
           schema_version?: string
           sheet_data: Json
+          sheet_version?: number
           system_key?: string
           updated_at?: string | null
           visibility?: string
@@ -491,6 +493,7 @@ export type Database = {
           public_slug?: string | null
           schema_version?: string
           sheet_data?: Json
+          sheet_version?: number
           system_key?: string
           updated_at?: string | null
           visibility?: string

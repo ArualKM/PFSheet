@@ -119,16 +119,34 @@ export async function setCharacterVisibilityAction(
   return { slug, visibility };
 }
 
-export type SaveSheetState = { ok: boolean; error?: string; savedAt?: string };
+export type SaveSheetState = {
+  ok: boolean;
+  error?: string;
+  savedAt?: string;
+  /** The new sheet_version after a successful save (for optimistic-concurrency tracking). */
+  version?: number;
+  /**
+   * Set when an optimistic-concurrency save was rejected because the row advanced
+   * underneath us (another device saved). The client 3-way-merges against this and retries.
+   */
+  conflict?: { serverSheet: unknown; serverVersion: number };
+};
 
 /**
  * Persist an edited sheet. Validates against the canonical schema, recomputes the
  * dashboard summary, and updates the row. RLS guarantees only an owner/editor can
  * write; the owner_id column is locked at the DB layer.
+ *
+ * Optimistic concurrency (S5b): when `expectedVersion` is supplied, the UPDATE is a
+ * compare-and-swap on `sheet_version`. If another device saved in the meantime the CAS
+ * matches 0 rows; we re-read the current row to distinguish a real conflict (returned for
+ * the client to merge) from a permission failure. Omitting `expectedVersion` keeps the old
+ * unconditional behavior for any legacy caller.
  */
 export async function saveCharacterSheetAction(
   characterId: string,
   sheet: unknown,
+  expectedVersion?: number,
 ): Promise<SaveSheetState> {
   const parsed = safeParseCharacter(sheet);
   if (!parsed.ok) {
@@ -137,7 +155,7 @@ export async function saveCharacterSheetAction(
 
   const computed = computeCharacter(parsed.character);
   const { supabase } = await authedClient();
-  const { error } = await supabase
+  let updateQuery = supabase
     .from("characters")
     .update({
       name: parsed.character.identity.name,
@@ -146,8 +164,29 @@ export async function saveCharacterSheetAction(
       last_calculated_at: new Date().toISOString(),
     })
     .eq("id", characterId);
+  if (typeof expectedVersion === "number") {
+    updateQuery = updateQuery.eq("sheet_version", expectedVersion);
+  }
+  const { data: updated, error } = await updateQuery.select("sheet_version").maybeSingle();
 
   if (error) return { ok: false, error: error.message };
+
+  if (!updated) {
+    // CAS matched 0 rows: either the version advanced (conflict) or RLS blocked the write.
+    // A plain RLS-gated read tells us which.
+    const { data: current } = await supabase
+      .from("characters")
+      .select("sheet_data, sheet_version")
+      .eq("id", characterId)
+      .maybeSingle();
+    if (!current) {
+      return { ok: false, error: "You don't have access to this character." };
+    }
+    if (typeof expectedVersion === "number" && current.sheet_version !== expectedVersion) {
+      return { ok: false, conflict: { serverSheet: current.sheet_data, serverVersion: current.sheet_version } };
+    }
+    return { ok: false, error: "The sheet could not be saved — you may not have edit access." };
+  }
 
   // §16.3 stale detection: editing an approved sheet marks it "changed since
   // approval" in every campaign that approved it. The RLS sheet update above
@@ -167,5 +206,5 @@ export async function saveCharacterSheetAction(
     // here is non-fatal.
   }
 
-  return { ok: true, savedAt: new Date().toISOString() };
+  return { ok: true, savedAt: new Date().toISOString(), version: updated.sheet_version };
 }
