@@ -61,7 +61,7 @@ export function CharacterDashboard({
 
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Left / main column */}
-        <div className="space-y-3 lg:col-span-2">
+        <div className="min-w-0 space-y-3 lg:col-span-2">
           <SectionCard title="Saving Throws" icon={Shield}>
             <div className="grid grid-cols-3 gap-2">
               <MiniStat label="Fortitude" value={formatModifier(vm.vitals.saves.fortitude)} />
@@ -152,7 +152,7 @@ export function CharacterDashboard({
         </div>
 
         {/* Right / sidebar column */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (
