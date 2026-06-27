@@ -11,7 +11,8 @@ import {
   EyeOff,
   Wand2,
 } from "lucide-react";
-import type { CharacterViewModel } from "@/lib/character/view-model";
+import type { CharacterViewModel, SpellView } from "@/lib/character/view-model";
+import { SpellRow } from "./spell-row";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
@@ -162,6 +163,24 @@ export function CharacterDashboard({
                     ? ` · ${vm.spellcasting.counts.spellbook} in spellbook`
                     : ""}
                 </p>
+
+                {vm.spellcasting.prepared && vm.spellcasting.prepared.length > 0 && (
+                  <SpellList
+                    title="Prepared"
+                    spells={vm.spellcasting.prepared}
+                    trailing={(sp) => (
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {sp.used}/{sp.prepared}
+                      </span>
+                    )}
+                  />
+                )}
+                {vm.spellcasting.known.length > 0 && (
+                  <SpellList title={vm.spellcasting.prepared ? "Known" : "Spells"} spells={vm.spellcasting.known} />
+                )}
+                {vm.spellcasting.spellbook && vm.spellcasting.spellbook.length > 0 && (
+                  <SpellList title="Spellbook" spells={vm.spellcasting.spellbook} />
+                )}
               </div>
             </SectionCard>
           )}
@@ -297,6 +316,28 @@ function SectionCard({
         {children}
       </CardContent>
     </Card>
+  );
+}
+
+function SpellList<T extends SpellView>({
+  title,
+  spells,
+  trailing,
+}: {
+  title: string;
+  spells: T[];
+  trailing?: (sp: T) => ReactNode;
+}) {
+  const sorted = [...spells].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  return (
+    <div>
+      <div className="mb-1 text-xs font-medium text-muted-foreground">{title}</div>
+      <div className="space-y-1">
+        {sorted.map((sp, i) => (
+          <SpellRow key={`${sp.name}-${sp.level}-${i}`} spell={sp} right={trailing?.(sp)} />
+        ))}
+      </div>
+    </div>
   );
 }
 
