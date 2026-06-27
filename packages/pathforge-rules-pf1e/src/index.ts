@@ -29,6 +29,10 @@ export type { FormulaNode, DependencyGraph, TopoResult } from "./graph";
 export { getSizeModifiers } from "./sizes";
 export type { SizeModifiers } from "./sizes";
 
+// Conditions
+export { CONDITION_EFFECTS, STANDARD_CONDITIONS, conditionEffects } from "./conditions";
+export type { ConditionEffect } from "./conditions";
+
 // Character computation
 export {
   abilityModifier,

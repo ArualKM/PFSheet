@@ -40,7 +40,7 @@ import {
   type RuleModuleGroup,
   type PointBuyState,
 } from "@pathforge/schema";
-import { composeAbilityScore, pointBuyCost, pointBuySpent } from "@pathforge/rules-pf1e";
+import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
@@ -1325,7 +1325,7 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
     const v = cond.trim();
     if (!v) return;
     ed.update((c) => {
-      if (!c.health.conditions.includes(v)) c.health.conditions.push(v);
+      if (!c.health.conditions.some((x) => x.toLowerCase() === v.toLowerCase())) c.health.conditions.push(v);
     });
     setCond("");
   };
@@ -1382,6 +1382,21 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
           <Button size="sm" variant="secondary" onClick={addCondition}>
             Add
           </Button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {STANDARD_CONDITIONS.filter(
+            (s) => !h.conditions.some((x) => x.toLowerCase() === s.toLowerCase()),
+          ).map((s) => (
+            <button
+              key={s}
+              type="button"
+              title="Applies its standard PF1e effect to your stats"
+              onClick={() => ed.update((c) => c.health.conditions.push(s))}
+              className="tap-target rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-rune hover:text-foreground"
+            >
+              + {s}
+            </button>
+          ))}
         </div>
       </section>
 

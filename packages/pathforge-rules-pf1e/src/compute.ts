@@ -9,6 +9,7 @@ import { ABILITY_KEYS, bonusSpellsForLevel } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
+import { conditionEffects } from "./conditions";
 
 /* -------------------------------------------------------------------------- */
 /* Ability modifiers                                                          */
@@ -89,12 +90,14 @@ function classifyTarget(target: string): string | null {
   if (t.includes("fortitude")) return "save.fortitude";
   if (t.includes("reflex")) return "save.reflex";
   if (t.includes("will")) return "save.will";
+  if (t === "saves" || t === "save.all" || t === "saves.all" || t === "all_saves") return "save.all";
   if (t.includes("initiative") || t === "init") return "init";
   if (t.includes("speed")) return "speed";
   if (t.includes("melee")) return "attack.melee";
   if (t.includes("ranged")) return "attack.ranged";
   if (t.includes("cmb")) return "attack.cmb";
   if (t.includes("attack")) return "attack.all";
+  if (t === "skills" || t === "skill.all" || t === "skills.all" || t === "all_skills") return "skill.all";
   const skill = t.match(/^skills?\.([a-z0-9_]+)/);
   if (skill?.[1]) return `skill.${skill[1]}`;
   const ability = t.match(/^abilities?\.([a-z]{3})/);
@@ -106,7 +109,7 @@ function effectToMod(
   id: string,
   label: string,
   source: string,
-  e: Pick<AutomationEffect, "target" | "operation" | "value" | "bonusType" | "condition">,
+  e: Pick<AutomationEffect, "target" | "operation" | "value" | "bonusType" | "condition" | "stackingGroup">,
   resolver?: Resolver,
 ): IndexedMod | null {
   if (e.condition) return null; // conditional modifiers excluded from base totals
@@ -121,7 +124,7 @@ function effectToMod(
   }
   if (Number.isNaN(raw)) return null;
   const value = e.operation === "subtract" ? -raw : raw;
-  return { id, label, source, value, bonusType: e.bonusType ?? "untyped" };
+  return { id, label, source, value, bonusType: e.bonusType ?? "untyped", stackingGroup: e.stackingGroup };
 }
 
 function modifierEntryToMod(source: string, m: ModifierEntry): IndexedMod | null {
@@ -176,6 +179,27 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
   const passives = [...character.features.list, ...character.traits.list, ...character.feats.list];
   for (const f of passives) {
     for (const e of f.automation) push(classifyTarget(e.target), effectToMod(e.id, f.name, f.name, e, resolver));
+  }
+
+  // Active conditions apply their standard PF1e mechanical effects (Shaken −2 attacks/saves/
+  // skills, Fatigued −2 Str/Dex, etc.). Free-typed / non-numeric conditions are ignored here.
+  // De-dup by normalized name so the same condition listed twice (or in a different case) can't
+  // double-apply; track groups (fear/fatigue) collapse to the most-severe via the stacking engine.
+  const seenConditions = new Set<string>();
+  for (const cond of character.health.conditions) {
+    const key = cond.trim().toLowerCase();
+    if (!key || seenConditions.has(key)) continue;
+    seenConditions.add(key);
+    for (const e of conditionEffects(cond)) {
+      const mod = modifierEntryToMod(e.label, {
+        id: `cond-${key}-${e.target}`,
+        label: e.label,
+        value: e.value,
+        enabled: true,
+        stackingGroup: e.group,
+      });
+      if (mod) push(classifyTarget(e.target), mod);
+    }
   }
 
   // Always-on modifiers entered directly on a stat (entries with no condition).
@@ -278,11 +302,11 @@ export class CharacterResolver implements Resolver {
       case "saves.will.base":
         return num(this.character.defenses.savingThrows.will.base);
       case "saves.fortitude.misc":
-        return stackTotal(this.bucket("save.fortitude"));
+        return stackTotal([...this.bucket("save.fortitude"), ...this.bucket("save.all")]);
       case "saves.reflex.misc":
-        return stackTotal(this.bucket("save.reflex"));
+        return stackTotal([...this.bucket("save.reflex"), ...this.bucket("save.all")]);
       case "saves.will.misc":
-        return stackTotal(this.bucket("save.will"));
+        return stackTotal([...this.bucket("save.will"), ...this.bucket("save.all")]);
       case "combat.initiative.misc":
         return stackTotal(this.bucket("init"));
       case "cmd.misc":
@@ -570,6 +594,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         .map((m) => modifierEntryToMod(skill.label, m))
         .filter((m): m is IndexedMod => m !== null),
       ...(index.get(`skill.${skill.key}`) ?? []),
+      ...(index.get("skill.all") ?? []),
     ];
     const miscTotal = applyStacking(miscMods).total;
     resolver.local = {

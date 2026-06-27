@@ -8,7 +8,13 @@ import type { BuffCategory, BuffTemplate } from "./buffs";
  * `@pathforge/rules-pf1e`). Conditional riders (e.g. "vs fear") live in the
  * description; only always-on effects are encoded so they flow into totals.
  */
-type Fx = [target: string, op: "add" | "subtract", value: number | string, bonusType: BonusType];
+type Fx = [
+  target: string,
+  op: "add" | "subtract",
+  value: number | string,
+  bonusType: BonusType,
+  stackingGroup?: string,
+];
 
 function tpl(
   id: string,
@@ -25,12 +31,13 @@ function tpl(
     category,
     description,
     defaultDuration: duration,
-    effects: fx.map(([target, operation, value, bonusType], i) => ({
+    effects: fx.map(([target, operation, value, bonusType, stackingGroup], i) => ({
       id: `${id}#${i}`,
       target,
       operation,
       value,
       bonusType,
+      ...(stackingGroup ? { stackingGroup } : {}),
     })),
     tags,
   };
@@ -222,8 +229,8 @@ export const BUFF_LIBRARY: BuffTemplate[] = [
     "Cannot run or charge; −2 penalty to Strength and Dexterity.",
     { unit: "rest", note: "until rested" },
     [
-      ["abilities.str", "subtract", 2, "penalty"],
-      ["abilities.dex", "subtract", 2, "penalty"],
+      ["abilities.str", "subtract", 2, "penalty", "fatigue"],
+      ["abilities.dex", "subtract", 2, "penalty", "fatigue"],
     ],
     ["condition", "debuff"],
   ),
@@ -234,10 +241,10 @@ export const BUFF_LIBRARY: BuffTemplate[] = [
     "−2 penalty on attack rolls, saving throws, skill checks, and ability checks.",
     { unit: "rounds" },
     [
-      ["attack", "subtract", 2, "penalty"],
-      ["saves.fortitude", "subtract", 2, "penalty"],
-      ["saves.reflex", "subtract", 2, "penalty"],
-      ["saves.will", "subtract", 2, "penalty"],
+      ["attack", "subtract", 2, "penalty", "fear"],
+      ["saves.fortitude", "subtract", 2, "penalty", "fear"],
+      ["saves.reflex", "subtract", 2, "penalty", "fear"],
+      ["saves.will", "subtract", 2, "penalty", "fear"],
     ],
     ["condition", "fear", "debuff"],
   ),
@@ -248,10 +255,10 @@ export const BUFF_LIBRARY: BuffTemplate[] = [
     "−2 penalty on attack rolls, weapon damage, saving throws, skill checks, and ability checks.",
     { unit: "minutes" },
     [
-      ["attack", "subtract", 2, "penalty"],
-      ["saves.fortitude", "subtract", 2, "penalty"],
-      ["saves.reflex", "subtract", 2, "penalty"],
-      ["saves.will", "subtract", 2, "penalty"],
+      ["attack", "subtract", 2, "penalty", "cond:sickened"],
+      ["saves.fortitude", "subtract", 2, "penalty", "cond:sickened"],
+      ["saves.reflex", "subtract", 2, "penalty", "cond:sickened"],
+      ["saves.will", "subtract", 2, "penalty", "cond:sickened"],
     ],
     ["condition", "debuff"],
   ),
