@@ -44,6 +44,8 @@ export type {
   ComputedTerm,
   ComputedCharacter,
   ComputedAttack,
+  ComputedSpellcasting,
+  ComputedSpellSlots,
 } from "./compute";
 
 // Buff Center helpers

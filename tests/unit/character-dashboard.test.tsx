@@ -40,6 +40,7 @@ function richCharacter() {
       spellsPerDay: {},
       bonusSpells: {},
       saveDcFormula: "",
+      autoSlots: false,
     },
   ];
   const perception = c.skills.list.find((s) => s.key === "perception");

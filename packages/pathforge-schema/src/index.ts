@@ -22,6 +22,7 @@ export * from "./formulas";
 export * from "./rules";
 export * from "./optional-rules";
 export * from "./class-catalog";
+export * from "./spell-tables";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";

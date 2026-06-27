@@ -33,6 +33,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
         spellsPerDay: {},
         bonusSpells: {},
         saveDcFormula: "",
+        autoSlots: false,
       }),
     );
   const updateCaster = (i: number, patch: Partial<SpellcasterEntry>) =>

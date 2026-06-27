@@ -1,6 +1,7 @@
 import type { AbilityKey } from "./common";
 import type { PathForgeCharacterV1 } from "./character";
 import { DEFAULT_SKILLS } from "./skills";
+import { spellsPerDayTableFor } from "./spell-tables";
 
 /**
  * §6.1 Prebuilt PF1e class presets (mechanics only — no rules text, like
@@ -405,10 +406,17 @@ export function applyClassPreset(
   //    just bump the existing caster's level (never clobber a customized formula).
   if (preset.caster) {
     const cl = preset.caster.clProgression === "minus_three" ? Math.max(0, level - 3) : level;
+    const table = spellsPerDayTableFor(preset.key);
     const existing = findPresetCaster(character, preset);
     if (existing) {
       existing.casterLevel = cl;
       existing.presetKey = preset.key; // backfill the link so future matches survive a rename
+      // Backfill auto-slots for a caster created before its table existed — but never
+      // re-enable it if the user deliberately turned it off (no table override present).
+      if (table && !existing.spellsPerDayTable) {
+        existing.spellsPerDayTable = table;
+        existing.autoSlots = true;
+      }
       skipped.push(`Kept your ${preset.name} spellcasting (set caster level ${cl})`);
     } else {
       character.spellcasting.casters.push({
@@ -422,7 +430,10 @@ export function applyClassPreset(
         conditionalModifiers: [],
         spellsPerDay: {},
         bonusSpells: {},
-        saveDcFormula: `10 + @{abilities.${preset.caster.castingAbility}.mod}`,
+        saveDcFormula: `10 + @{spellLevel} + @{abilities.${preset.caster.castingAbility}.mod}`,
+        // Recognized classes get auto slots seeded from the per-day table; the rest stay manual.
+        autoSlots: !!table,
+        spellsPerDayTable: table,
       });
       wrote.push(`Added ${preset.name} spellcasting (CL ${cl}, ${preset.caster.casterType})`);
     }

@@ -164,4 +164,32 @@ describe("applyClassPreset", () => {
     expect(c.spellcasting.casters.filter((x) => x.presetKey === "cleric")).toHaveLength(1);
     expect(c.spellcasting.casters.find((x) => x.presetKey === "cleric")?.casterLevel).toBe(3);
   });
+
+  it("seeds auto-slots from the spells-per-day table for a recognized caster", () => {
+    const c = createDefaultCharacter();
+    applyClassPreset(c, { preset: wizard, level: 5 });
+    const caster = c.spellcasting.casters.find((x) => x.presetKey === "wizard")!;
+    expect(caster.autoSlots).toBe(true);
+    expect(caster.spellsPerDayTable?.["5"]?.["1"]).toBe(3); // FULL_PREPARED[5][1]
+  });
+
+  it("leaves bard on manual slots (no verified table yet)", () => {
+    const bard = getClassPreset("bard")!;
+    const c = createDefaultCharacter();
+    applyClassPreset(c, { preset: bard, level: 3 });
+    const caster = c.spellcasting.casters.find((x) => x.presetKey === "bard")!;
+    expect(caster.autoSlots).toBe(false);
+    expect(caster.spellsPerDayTable).toBeUndefined();
+  });
+
+  it("backfills auto-slots on re-apply if the caster lacks a table", () => {
+    const c = createDefaultCharacter();
+    applyClassPreset(c, { preset: wizard, level: 5 });
+    const caster = c.spellcasting.casters.find((x) => x.presetKey === "wizard")!;
+    caster.autoSlots = false;
+    caster.spellsPerDayTable = undefined;
+    applyClassPreset(c, { preset: wizard, level: 6 });
+    expect(caster.autoSlots).toBe(true);
+    expect(caster.spellsPerDayTable).toBeDefined();
+  });
 });

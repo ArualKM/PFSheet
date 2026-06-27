@@ -276,6 +276,7 @@ function normalizeFoundry(actor: Json): NormalizedCharacterDraft {
         spellsPerDay: {},
         bonusSpells: {},
         saveDcFormula: "",
+        autoSlots: false,
       };
       character.spellcasting.casters.push(caster);
     }

@@ -5,7 +5,7 @@ import type {
   ModifierEntry,
   PathForgeCharacterV1,
 } from "@pathforge/schema";
-import { ABILITY_KEYS } from "@pathforge/schema";
+import { ABILITY_KEYS, bonusSpellsForLevel } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
@@ -351,6 +351,29 @@ export type ComputedAttack = {
   warnings: string[];
 };
 
+export type ComputedSpellSlots = {
+  level: number;
+  base: number;
+  bonus: number;
+  total: number;
+  used: number;
+  remaining: number;
+  /** Slots currently filled (prepared casters), summed from preparedSpells. */
+  prepared: number;
+  /** Save DC for a spell of this level. */
+  dc: number;
+};
+
+export type ComputedSpellcasting = {
+  casterId: string;
+  className: string;
+  casterType: string;
+  castingAbility: string;
+  casterLevel: number;
+  concentration: ComputedValue;
+  slots: ComputedSpellSlots[];
+};
+
 export type ComputedCharacter = {
   abilities: Record<string, AbilityComputation>;
   armorClass: { total: ComputedValue; touch: ComputedValue; flatFooted: ComputedValue; cmd: ComputedValue };
@@ -359,6 +382,7 @@ export type ComputedCharacter = {
   attackBonuses: { melee: ComputedValue; ranged: ComputedValue; cmb: ComputedValue };
   attacks: ComputedAttack[];
   skills: Record<string, ComputedValue>;
+  spellcasting: ComputedSpellcasting[];
   /** Compact summary for dashboard cards / API. */
   summary: {
     totalLevel: number;
@@ -374,6 +398,8 @@ export type ComputedCharacter = {
     /** Effective land speed: parsed base + stacked speed modifiers (buffs). */
     speed: { base: number; bonus: number; total: number };
     hp: { current: number; max: number; temp: number };
+    /** Compact spellcasting roll-up (absent for non-casters). */
+    spells?: { casterCount: number; highestSpellLevel: number; totalSlots: number; usedSlots: number };
   };
 };
 
@@ -396,6 +422,79 @@ function evalWith(formula: string, resolver: CharacterResolver, overrideFormula?
 function overrideFor(character: PathForgeCharacterV1, path: string): string | undefined {
   const o = character.formulas.overrides[path];
   return o && o.enabled !== false ? o.formula : undefined;
+}
+
+function resolveNumberOrFormula(v: number | { formula: string }, resolver: CharacterResolver): number {
+  if (typeof v === "number") return v;
+  if (v && typeof v === "object" && typeof v.formula === "string") return evaluate(v.formula, resolver).value;
+  return 0;
+}
+
+/**
+ * §6.10 Per-caster spellcasting: caster level, concentration, and per-spell-level slots
+ * (base + ability bonus spells, used/remaining/prepared) and save DCs. `@{casterLevel}`
+ * and `@{spellLevel}` resolve via the resolver.local overlay (same machinery as skills).
+ */
+function computeSpellcasting(
+  character: PathForgeCharacterV1,
+  abilities: Record<string, AbilityComputation>,
+  resolver: CharacterResolver,
+): ComputedSpellcasting[] {
+  const out: ComputedSpellcasting[] = [];
+  for (const caster of character.spellcasting.casters) {
+    const cl = resolveNumberOrFormula(caster.casterLevel, resolver);
+    const ability = caster.castingAbility || "int";
+    const abilityMod = abilities[ability]?.modifier ?? 0;
+
+    resolver.local = { casterLevel: cl };
+    const concFormula = caster.concentrationFormula?.trim()
+      ? caster.concentrationFormula
+      : `@{casterLevel} + @{abilities.${ability}.mod}`;
+    const concentration = evalWith(concFormula, resolver);
+
+    const tableRow = caster.autoSlots ? caster.spellsPerDayTable?.[String(cl)] : undefined;
+
+    const slots: ComputedSpellSlots[] = [];
+    for (let lvl = 0; lvl <= 9; lvl++) {
+      const key = String(lvl);
+      const manual = caster.spellsPerDay[key];
+      const base = caster.autoSlots ? tableRow?.[key] ?? 0 : manual?.total ?? 0;
+      // Bonus spells apply only to a level the caster can actually cast (base > 0).
+      const bonus = caster.autoSlots
+        ? base > 0
+          ? bonusSpellsForLevel(abilityMod, lvl)
+          : 0
+        : manual?.bonus ?? 0;
+      const total = base + bonus;
+      const used = manual?.used ?? 0;
+      const prepared = character.spellcasting.preparedSpells
+        .filter((s) => s.casterId === caster.id && (s.effectiveLevel ?? s.level) === lvl)
+        .reduce((a, s) => a + (s.prepared ?? 1), 0);
+      if (total <= 0 && used <= 0 && prepared <= 0) continue;
+
+      // @{spellLevel} is injected per level; a custom saveDcFormula should reference it
+      // (e.g. "10 + @{spellLevel} + @{abilities.cha.mod}") or the DC won't scale by level.
+      resolver.local = { casterLevel: cl, spellLevel: lvl };
+      const dcFormula = caster.saveDcFormula?.trim()
+        ? caster.saveDcFormula
+        : `10 + @{spellLevel} + @{abilities.${ability}.mod}`;
+      const dc = evalWith(dcFormula, resolver).value;
+
+      slots.push({ level: lvl, base, bonus, total, used, remaining: Math.max(0, total - used), prepared, dc });
+    }
+    resolver.local = {};
+
+    out.push({
+      casterId: caster.id,
+      className: caster.className,
+      casterType: caster.casterType,
+      castingAbility: ability,
+      casterLevel: cl,
+      concentration,
+      slots,
+    });
+  }
+  return out;
 }
 
 export function computeCharacter(character: PathForgeCharacterV1): ComputedCharacter {
@@ -480,6 +579,9 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       };
     });
 
+  const spellcasting = computeSpellcasting(character, abilities, resolver);
+  resolver.local = {};
+
   return {
     abilities,
     armorClass,
@@ -488,6 +590,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     attackBonuses,
     attacks,
     skills,
+    spellcasting,
     summary: {
       totalLevel: character.identity.totalLevel,
       abilityMods: Object.fromEntries(
@@ -507,6 +610,17 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
         max: num(character.health.maxHp),
         temp: character.health.tempHp,
       },
+      spells: spellcasting.length
+        ? {
+            casterCount: spellcasting.length,
+            highestSpellLevel: Math.max(
+              0,
+              ...spellcasting.flatMap((sc) => sc.slots.filter((s) => s.total > 0).map((s) => s.level)),
+            ),
+            totalSlots: spellcasting.reduce((a, sc) => a + sc.slots.reduce((b, s) => b + s.total, 0), 0),
+            usedSlots: spellcasting.reduce((a, sc) => a + sc.slots.reduce((b, s) => b + s.used, 0), 0),
+          }
+        : undefined,
     },
   };
 }
