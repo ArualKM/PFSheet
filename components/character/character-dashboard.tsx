@@ -128,16 +128,39 @@ export function CharacterDashboard({
 
           {vm.spellcasting && (
             <SectionCard title="Spellcasting" icon={Wand2}>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {vm.spellcasting.casters.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">{c.className}</span>
-                    <span className="text-muted-foreground">CL {c.casterLevel}</span>
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-foreground">{c.className}</span>
+                      <span className="text-muted-foreground">
+                        CL {c.casterLevel} · Conc {c.concentration >= 0 ? "+" : ""}
+                        {c.concentration}
+                      </span>
+                    </div>
+                    {c.slots.filter((s) => s.total > 0).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {c.slots
+                          .filter((s) => s.total > 0)
+                          .map((s) => (
+                            <span
+                              key={s.level}
+                              className="rounded bg-surface-sunken px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                              title={`Save DC ${s.dc}`}
+                            >
+                              L{s.level}: {s.remaining}/{s.total}
+                            </span>
+                          ))}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground">
-                  {vm.spellcasting.knownCount} spell{vm.spellcasting.knownCount === 1 ? "" : "s"}
-                  {vm.spellcasting.preparedCount > 0 ? ` · ${vm.spellcasting.preparedCount} prepared` : ""}
+                  {vm.spellcasting.counts.known} known
+                  {vm.spellcasting.counts.prepared > 0 ? ` · ${vm.spellcasting.counts.prepared} prepared` : ""}
+                  {vm.spellcasting.counts.spellbook > 0
+                    ? ` · ${vm.spellcasting.counts.spellbook} in spellbook`
+                    : ""}
                 </p>
               </div>
             </SectionCard>

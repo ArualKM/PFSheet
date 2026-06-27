@@ -13,7 +13,18 @@ type SpellResult = {
   id: string;
   name: string;
   school: string | null;
+  subschool: string | null;
   descriptor: string | null;
+  casting_time: string | null;
+  components: string | null;
+  range: string | null;
+  area: string | null;
+  effect: string | null;
+  targets: string | null;
+  duration: string | null;
+  saving_throw: string | null;
+  spell_resistance: string | null;
+  description: string | null;
   class_level: number | null;
   class_levels: Record<string, number> | null;
 };
@@ -140,6 +151,19 @@ export function SpellPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: 
         name: r.name,
         level: spellLevel(r),
         school: r.school ?? undefined,
+        // Cache the full detail so the detail view + public sheet + API render with no DB round-trip.
+        subschool: r.subschool ?? undefined,
+        descriptor: r.descriptor ?? undefined,
+        castingTime: r.casting_time ?? undefined,
+        components: r.components ?? undefined,
+        range: r.range ?? undefined,
+        area: r.area ?? undefined,
+        effect: r.effect ?? undefined,
+        targets: r.targets ?? undefined,
+        duration: r.duration ?? undefined,
+        savingThrow: r.saving_throw ?? undefined,
+        spellResistance: r.spell_resistance ?? undefined,
+        description: r.description ?? undefined,
       });
     });
 

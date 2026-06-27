@@ -18,6 +18,20 @@ export function characterSummary(vm: CharacterViewModel) {
     saves: vm.vitals.saves,
     initiative: vm.vitals.initiative,
     speed: vm.vitals.speed,
+    // Lightweight spell roll-up (null if the spells section is gated for this viewer).
+    spellcasting: vm.spellcasting
+      ? {
+          casterCount: vm.spellcasting.casters.length,
+          highestLevel: Math.max(
+            0,
+            ...vm.spellcasting.casters.flatMap((c) => c.slots.filter((s) => s.total > 0).map((s) => s.level)),
+          ),
+          slotsRemaining: vm.spellcasting.casters.reduce(
+            (a, c) => a + c.slots.reduce((b, s) => b + s.remaining, 0),
+            0,
+          ),
+        }
+      : null,
   };
 }
 
@@ -27,6 +41,7 @@ export function characterStats(vm: CharacterViewModel) {
     abilities: vm.abilities,
     skills: vm.skills, // null if the viewer can't see the skills section
     attacks: vm.attacks,
+    spellcasting: vm.spellcasting, // full gated spellcasting (null if not visible)
   };
 }
 
@@ -52,6 +67,10 @@ export function discordCard(vm: CharacterViewModel, shareUrl?: string) {
     speed: vm.vitals.speed,
     topSkills,
     activeBuffs: (vm.buffs ?? []).filter((b) => b.enabled).map((b) => b.name),
+    preparedHighlights: (vm.spellcasting?.prepared ?? [])
+      .filter((p) => p.used < p.prepared)
+      .slice(0, 4)
+      .map((p) => ({ name: p.name, level: p.level })),
     shareUrl: shareUrl ?? null,
   };
 }

@@ -1,4 +1,4 @@
-import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel } from "@pathforge/schema";
+import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef } from "@pathforge/schema";
 import { ABILITY_KEYS } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 
@@ -82,6 +82,26 @@ const SECTION_LABELS: Record<string, string> = {
   gmSecrets: "GM secrets",
 };
 
+/** A spell as shown on the sheet — detail cached from the compendium; `notes` is owner-only. */
+export type SpellView = {
+  name: string;
+  level: number;
+  school?: string;
+  subschool?: string;
+  descriptor?: string;
+  castingTime?: string;
+  components?: string;
+  range?: string;
+  area?: string;
+  effect?: string;
+  targets?: string;
+  duration?: string;
+  savingThrow?: string;
+  spellResistance?: string;
+  description?: string;
+  notes?: string;
+};
+
 export type CharacterViewModel = {
   viewer: ViewerContext;
   isOwnerView: boolean;
@@ -112,9 +132,19 @@ export type CharacterViewModel = {
   feats: Array<{ name: string; type?: string }> | null;
   features: Array<{ name: string; category: string }> | null;
   spellcasting: {
-    casters: Array<{ className: string; casterLevel: number; castingAbility: string }>;
-    knownCount: number;
-    preparedCount: number;
+    casters: Array<{
+      casterId: string;
+      className: string;
+      casterLevel: number;
+      casterType: string;
+      castingAbility: string;
+      concentration: number;
+      slots: Array<{ level: number; total: number; used: number; remaining: number; prepared: number; dc: number }>;
+    }>;
+    prepared: Array<SpellView & { used: number; prepared: number; casterId?: string }> | null;
+    known: Array<SpellView & { casterId?: string }>;
+    spellbook: SpellView[] | null;
+    counts: { known: number; prepared: number; spellbook: number };
   } | null;
   profile: {
     backstory?: string;
@@ -126,10 +156,6 @@ export type CharacterViewModel = {
   /** Human-readable labels of sections hidden from this viewer. */
   hiddenSections: string[];
 };
-
-function num(v: unknown, fallback = 0): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
-}
 
 export function buildCharacterViewModel(
   character: PathForgeCharacterV1,
@@ -182,21 +208,56 @@ export function buildCharacterViewModel(
     })),
   );
 
+  const toSpellView = (ref: SpellRef): SpellView => ({
+    name: ref.name,
+    level: ref.level,
+    school: ref.school,
+    subschool: ref.subschool,
+    descriptor: ref.descriptor,
+    castingTime: ref.castingTime,
+    components: ref.components,
+    range: ref.range,
+    area: ref.area,
+    effect: ref.effect,
+    targets: ref.targets,
+    duration: ref.duration,
+    savingThrow: ref.savingThrow,
+    spellResistance: ref.spellResistance,
+    description: ref.description,
+    // Per-spell tactical notes are owner-only (mirrors how buffs hide owner-only detail).
+    notes: isOwnerView ? ref.notes : undefined,
+  });
+
+  const sp = character.spellcasting;
   const spellcasting =
-    character.spellcasting.casters.length > 0
+    sp.casters.length > 0
       ? gate("spells", {
-          casters: character.spellcasting.casters.map((c) => ({
-            className: c.className,
-            casterLevel: num(c.casterLevel),
-            castingAbility: c.castingAbility,
+          casters: computed.spellcasting.map((sc) => ({
+            casterId: sc.casterId,
+            className: sc.className,
+            casterLevel: sc.casterLevel,
+            casterType: sc.casterType,
+            castingAbility: sc.castingAbility,
+            concentration: sc.concentration.value,
+            slots: sc.slots.map((s) => ({
+              level: s.level,
+              total: s.total,
+              used: s.used,
+              remaining: s.remaining,
+              prepared: s.prepared,
+              dc: s.dc,
+            })),
           })),
-          // The editor unifies spells into knownSpells; count all collections so a
-          // prepared caster's spells aren't reported as "0".
-          knownCount:
-            character.spellcasting.knownSpells.length +
-            character.spellcasting.preparedSpells.length +
-            character.spellcasting.spellbook.length,
-          preparedCount: character.spellcasting.preparedSpells.length,
+          prepared: sp.preparedSpells.length
+            ? sp.preparedSpells.map((p) => ({ ...toSpellView(p), used: p.used, prepared: p.prepared, casterId: p.casterId }))
+            : null,
+          known: sp.knownSpells.map((k) => ({ ...toSpellView(k), casterId: k.casterId })),
+          spellbook: sp.spellbook.length ? sp.spellbook.map((b) => toSpellView(b)) : null,
+          counts: {
+            known: sp.knownSpells.length,
+            prepared: sp.preparedSpells.length,
+            spellbook: sp.spellbook.length,
+          },
         })
       : null;
 

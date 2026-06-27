@@ -1039,6 +1039,7 @@ export type Database = {
           p_query?: string
         }
         Returns: {
+          area: string
           casting_time: string
           class_level: number
           class_levels: Json
@@ -1046,6 +1047,7 @@ export type Database = {
           description: string
           descriptor: string
           duration: string
+          effect: string
           id: string
           name: string
           range: string
@@ -1054,6 +1056,7 @@ export type Database = {
           source: string
           spell_resistance: string
           subschool: string
+          targets: string
         }[]
       }
     }

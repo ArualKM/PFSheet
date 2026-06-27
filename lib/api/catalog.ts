@@ -43,15 +43,16 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     group: "Public",
     auth: "none",
     summary: "Public character summary (public-safe values only).",
-    returns: "Summary: name, classLine, level, race, alignment, hp, ac, cmd, saves, initiative, speed.",
+    returns:
+      "Summary: name, classLine, level, race, alignment, hp, ac, cmd, saves, initiative, speed, spellcasting (roll-up: casterCount/highestLevel/slotsRemaining).",
   },
   {
     method: "GET",
     path: "/public/characters/{publicSlug}/stats",
     group: "Public",
     auth: "none",
-    summary: "Public stats — summary plus abilities, and skills/attacks if the share settings allow.",
-    returns: "Summary + abilities[] + skills[]|null + attacks[]|null.",
+    summary: "Public stats — summary plus abilities, and skills/attacks/spellcasting if the share settings allow.",
+    returns: "Summary + abilities[] + skills[]|null + attacks[]|null + spellcasting|null (casters/slots/prepared/known/spellbook/counts).",
   },
   {
     method: "GET",
@@ -84,8 +85,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     group: "Authenticated",
     auth: "key",
     scope: "characters:read",
-    summary: "Full stats for your character — abilities, skills, attacks.",
-    returns: "Summary + abilities[] + skills[] + attacks[].",
+    summary: "Full stats for your character — abilities, skills, attacks, spellcasting.",
+    returns: "Summary + abilities[] + skills[] + attacks[] + spellcasting (casters/slots/prepared/known/spellbook/counts).",
   },
   {
     method: "GET",
@@ -117,7 +118,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       { name: "slug", required: false, description: "Public slug — returns the public-safe card, no auth." },
       { name: "characterId", required: false, description: "Your character's id — requires a key with discord:embed." },
     ],
-    returns: "Card: name, subtitle, portraitUrl, level, hp, ac, saves, initiative, speed, topSkills[], activeBuffs[], shareUrl.",
+    returns: "Card: name, subtitle, portraitUrl, level, hp, ac, saves, initiative, speed, topSkills[], activeBuffs[], preparedHighlights[], shareUrl.",
   },
 ];
 

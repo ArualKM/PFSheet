@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
+import {
+  createDefaultCharacter,
+  applyClassPreset,
+  getClassPreset,
+  type PathForgeCharacterV1,
+} from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { characterSummary, characterStats, discordCard } from "@/lib/character/api-shapes";
@@ -35,6 +40,23 @@ describe("public API privacy", () => {
     expect(characterStats(vm).attacks).toBeNull();
     // The Discord card derives top skills from the (now gated) skills — must be empty.
     expect(discordCard(vm).topSkills).toEqual([]);
+  });
+
+  it("exposes spellcasting when public and gates it when private", () => {
+    const visible = createDefaultCharacter();
+    applyClassPreset(visible, { preset: getClassPreset("wizard")!, level: 5 });
+    const okVm = anonView(visible);
+    expect(characterStats(okVm).spellcasting).not.toBeNull();
+    expect(characterStats(okVm).spellcasting!.casters[0]?.className).toBe("Wizard");
+    expect(characterSummary(okVm).spellcasting?.casterCount).toBe(1);
+
+    const hidden = createDefaultCharacter();
+    applyClassPreset(hidden, { preset: getClassPreset("wizard")!, level: 5 });
+    hidden.privacy.sections.spells = "private";
+    const hiddenVm = anonView(hidden);
+    expect(characterStats(hiddenVm).spellcasting).toBeNull();
+    expect(characterSummary(hiddenVm).spellcasting).toBeNull();
+    expect(discordCard(hiddenVm).preparedHighlights).toEqual([]);
   });
 });
 
