@@ -39,6 +39,8 @@ import {
   HONOR_EVENTS,
   honorBaseline,
   COMBAT_TRICKS,
+  isGestalt,
+  gestaltLevel,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -783,6 +785,11 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
       } else if (idx >= 0) {
         arr.splice(idx, 1);
       }
+      // Gestalt changes BAB/saves/HP and the character level — recompute so the toggle takes effect.
+      if (mod.key === "gestalt") {
+        c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
+        recomputeClassDerived(c, { hpMethod: "manual" });
+      }
     });
 
   const enabledCount = OPTIONAL_RULE_MODULES.filter((m) => isRuleEnabled(ed.draft, m)).length;
@@ -1036,7 +1043,9 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
               onClick={() =>
                 ed.update((c) => {
                   c.identity.classes.push({ id: newId("class"), name: "Class", level: 1 });
-                  c.identity.totalLevel = c.identity.classes.reduce((s, cl) => s + cl.level, 0);
+                  c.identity.totalLevel = isGestalt(c)
+                    ? gestaltLevel(c)
+                    : c.identity.classes.reduce((s, cl) => s + cl.level, 0);
                 })
               }
             >
@@ -1111,13 +1120,34 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                   ed.update((c) => {
                     const target = c.identity.classes[i];
                     if (target) target.level = v;
-                    c.identity.totalLevel = c.identity.classes.reduce((s, x) => s + x.level, 0);
+                    c.identity.totalLevel = isGestalt(c)
+                      ? gestaltLevel(c)
+                      : c.identity.classes.reduce((s, x) => s + x.level, 0);
                     // Keep preset-derived BAB/saves/caster level in sync when leveling.
                     if (target?.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
                   })
                 }
                 className="w-20"
               />
+              {isGestalt(ed.draft) && (
+                <SelectField
+                  label="Track"
+                  value={cl.track ?? "a"}
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      const target = c.identity.classes[i];
+                      if (target) target.track = v as "a" | "b";
+                      c.identity.totalLevel = gestaltLevel(c);
+                      if (target?.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
+                    })
+                  }
+                  options={[
+                    { value: "a", label: "A" },
+                    { value: "b", label: "B" },
+                  ]}
+                  className="w-16"
+                />
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -1125,7 +1155,9 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 onClick={() =>
                   ed.update((c) => {
                     c.identity.classes.splice(i, 1);
-                    c.identity.totalLevel = c.identity.classes.reduce((s, x) => s + x.level, 0);
+                    c.identity.totalLevel = isGestalt(c)
+                      ? gestaltLevel(c)
+                      : c.identity.classes.reduce((s, x) => s + x.level, 0);
                   })
                 }
               >

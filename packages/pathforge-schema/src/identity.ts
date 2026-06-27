@@ -9,6 +9,8 @@ export const characterClassSchema = z.object({
   level: z.number().int().min(0),
   hitDie: z.string().optional(),
   favoredClass: z.boolean().optional(),
+  /** Gestalt variant: which of the two parallel class tracks this class advances ("a" default / "b"). */
+  track: z.enum(["a", "b"]).optional(),
   /** Links a row to its CLASS_CATALOG preset so BAB/saves/HP can recompute from classes. */
   presetKey: z.string().optional(),
   source: sourceRefSchema.optional(),

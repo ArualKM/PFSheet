@@ -66,6 +66,13 @@ export const OPTIONAL_RULE_MODULES: OptionalRuleModule[] = [
     group: "paizo",
     description: "Alternative spellcasting that assembles spells from word effects and target words.",
   },
+  {
+    key: "gestalt",
+    name: "Gestalt",
+    group: "paizo",
+    description:
+      "Advance in two class tracks at once and take the best of each (BAB, saves, Hit Die, features); the character level is the higher track, not the sum.",
+  },
   // ── Subsystems & tracking ───────────────────────────────────────────────
   {
     key: "hero_points",

@@ -2,6 +2,7 @@ import type { AbilityKey } from "./common";
 import type { PathForgeCharacterV1 } from "./character";
 import { DEFAULT_SKILLS } from "./skills";
 import { spellsPerDayTableFor } from "./spell-tables";
+import { isGestalt, gestaltLevel } from "./gestalt";
 
 /**
  * §6.1 Prebuilt PF1e class presets (mechanics only — no rules text, like
@@ -236,6 +237,29 @@ function fractionalSave(linked: LinkedClass[], save: "fortitude" | "reflex" | "w
   return Math.floor((anyGood ? 2 : 0) + frac);
 }
 
+/** BAB + base saves for a set of (track of) classes, fractional or standard. */
+function trackBaseBonuses(linked: LinkedClass[], fractional: boolean) {
+  if (fractional) {
+    return {
+      bab: fractionalBab(linked),
+      fort: fractionalSave(linked, "fortitude"),
+      ref: fractionalSave(linked, "reflex"),
+      will: fractionalSave(linked, "will"),
+    };
+  }
+  let bab = 0;
+  let fort = 0;
+  let ref = 0;
+  let will = 0;
+  for (const { row, preset } of linked) {
+    bab += babForLevel(preset.bab, (row as { level: number }).level);
+    fort += saveBaseForLevel(preset.saves.fortitude, (row as { level: number }).level);
+    ref += saveBaseForLevel(preset.saves.reflex, (row as { level: number }).level);
+    will += saveBaseForLevel(preset.saves.will, (row as { level: number }).level);
+  }
+  return { bab, fort, ref, will };
+}
+
 function hitDieNumber(die: string | number | undefined): number {
   if (typeof die === "number") return die;
   if (!die) return 0;
@@ -257,6 +281,7 @@ function avgPerHitDie(hitDie: number): number {
 export function computeMaxHpFromLevels(
   character: PathForgeCharacterV1,
   method: "average" | "max",
+  classes: PathForgeCharacterV1["identity"]["classes"] = character.identity.classes,
 ): { total: number; hd: number; con: number; fcb: number; levels: number } {
   const conMod = Math.floor(((character.abilities.primary.con.score ?? 10) - 10) / 2);
   const fcb = Math.max(0, character.health.favoredClassHpBonus ?? 0);
@@ -264,7 +289,7 @@ export function computeMaxHpFromLevels(
   let levels = 0;
   let rolled = 0;
   let first = true;
-  for (const row of character.identity.classes) {
+  for (const row of classes) {
     const die = hitDieNumber(row.hitDie) || 8;
     for (let l = 0; l < row.level; l++) {
       const base = first ? die : method === "max" ? die : avgPerHitDie(die);
@@ -331,24 +356,27 @@ export function recomputeClassDerived(
 
   if (linked.length === 0) return { wrote, warnings };
 
-  let bab = 0;
-  let fort = 0;
-  let ref = 0;
-  let will = 0;
-  if (character.rules.variants.fractionalBabSaves) {
-    // Fractional Base Bonuses (Unchained): sum each class's per-level fraction, then round down once
-    // (BAB full=1 / ¾=0.75 / ½=0.5; good save +0.5/level + a single +2, poor save +⅓/level).
-    bab = fractionalBab(linked);
-    fort = fractionalSave(linked, "fortitude");
-    ref = fractionalSave(linked, "reflex");
-    will = fractionalSave(linked, "will");
+  // Fractional sums per-class fractions then rounds once; gestalt takes the BEST of two class tracks
+  // (per save independently) and makes itself the sole writer of BAB/saves/HP.
+  const fractional = !!character.rules.variants.fractionalBabSaves;
+  const gestalt = isGestalt(character);
+  let bab: number;
+  let fort: number;
+  let ref: number;
+  let will: number;
+  if (gestalt) {
+    const trackA = linked.filter(({ row }) => (row as { track?: string }).track !== "b");
+    const trackB = linked.filter(({ row }) => (row as { track?: string }).track === "b");
+    const A = trackBaseBonuses(trackA, fractional);
+    const B = trackBaseBonuses(trackB, fractional);
+    bab = Math.max(A.bab, B.bab);
+    fort = Math.max(A.fort, B.fort);
+    ref = Math.max(A.ref, B.ref);
+    will = Math.max(A.will, B.will);
+    // Gestalt character level = the higher track total, not the sum of every class level.
+    character.identity.totalLevel = gestaltLevel(character);
   } else {
-    for (const { row, preset } of linked) {
-      bab += babForLevel(preset.bab, row.level);
-      fort += saveBaseForLevel(preset.saves.fortitude, row.level);
-      ref += saveBaseForLevel(preset.saves.reflex, row.level);
-      will += saveBaseForLevel(preset.saves.will, row.level);
-    }
+    ({ bab, fort, ref, will } = trackBaseBonuses(linked, fractional));
   }
   character.combat.bab.total = bab;
   character.defenses.savingThrows.fortitude.base = fort;
@@ -367,8 +395,19 @@ export function recomputeClassDerived(
 
   const hpMethod = opts.hpMethod ?? "manual";
   if (hpMethod !== "manual") {
-    // HD (across all classes, not just preset-linked) + Con + favored-class hp.
-    const hp = computeMaxHpFromLevels(character, hpMethod).total;
+    // HD (across all classes) + Con + FCB. Gestalt uses the better track's HP, not both summed.
+    let hp: number;
+    if (gestalt) {
+      const all = character.identity.classes;
+      const a = all.filter((c) => c.track !== "b");
+      const b = all.filter((c) => c.track === "b");
+      hp = Math.max(
+        computeMaxHpFromLevels(character, hpMethod, a).total,
+        computeMaxHpFromLevels(character, hpMethod, b).total,
+      );
+    } else {
+      hp = computeMaxHpFromLevels(character, hpMethod).total;
+    }
     character.health.maxHp = hp;
     if (character.health.currentHp === 0) character.health.currentHp = hp;
     wrote.push(`Set max HP to ${hp} (${hpMethod} + Con + FCB)`);

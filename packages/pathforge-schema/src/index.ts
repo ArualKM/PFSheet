@@ -27,6 +27,7 @@ export * from "./metamagic-catalog";
 export * from "./hero-points";
 export * from "./honor";
 export * from "./stamina";
+export * from "./gestalt";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";
