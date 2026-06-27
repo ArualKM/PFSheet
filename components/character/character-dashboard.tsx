@@ -157,7 +157,7 @@ export function CharacterDashboard({
             <SectionCard title="Hero Points" icon={Sparkles}>
               <div className="flex items-center gap-2">
                 <div className="flex gap-1" aria-hidden="true">
-                  {Array.from({ length: vm.heroPoints.max }).map((_, i) => (
+                  {Array.from({ length: Math.max(0, vm.heroPoints.max) }).map((_, i) => (
                     <span
                       key={i}
                       className={

@@ -9,10 +9,12 @@ function enabled() {
 }
 
 describe("hero points", () => {
-  it("maxHeroPoints = 3 base, +1 Hero's Fortune, + bonus", () => {
+  it("maxHeroPoints = 3 base, +1 Hero's Fortune, + bonus, floored at 0", () => {
     expect(maxHeroPoints({})).toBe(3);
     expect(maxHeroPoints({ heroesFortune: true })).toBe(4);
     expect(maxHeroPoints({ heroesFortune: true, bonusMax: 2 })).toBe(6);
+    // a negative bonus can't drive the max below 0 (would crash the pip render otherwise)
+    expect(maxHeroPoints({ bonusMax: -10 })).toBe(0);
   });
 
   it("is absent in the computed summary unless the module is enabled", () => {

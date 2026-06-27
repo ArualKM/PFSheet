@@ -35,7 +35,8 @@ export const heroPointsBlockSchema = z.object({
 });
 export type HeroPointsBlock = z.infer<typeof heroPointsBlockSchema>;
 
-/** The standard hero-point maximum is 3, +1 from Hero's Fortune, plus any other bonus. */
+/** The standard hero-point maximum is 3, +1 from Hero's Fortune, plus any other bonus. Floored at 0
+ * so a negative bonus (via import or a soft-min UI field) can't produce a negative max. */
 export function maxHeroPoints(block: { heroesFortune?: boolean; bonusMax?: number }): number {
-  return 3 + (block.heroesFortune ? 1 : 0) + (block.bonusMax ?? 0);
+  return Math.max(0, 3 + (block.heroesFortune ? 1 : 0) + (block.bonusMax ?? 0));
 }
