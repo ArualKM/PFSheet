@@ -156,7 +156,37 @@ HL Online has no PF1e; HL Classic is paywalled legacy. See [[pathforge-import-sa
 M8's "deliver first" set is done (PathForge / Foundry / Myth-Weavers / PDF + wizard). Deferred/"then add":
 Myth-Weavers HTML mapper, Hero Lab `.por`, statblock parser (post-MVP per spec).
 
-Next per spec: exports + API (M9), PWA/offline (M10), polish/QA (M11).
+Milestone 9 (exports + API) — complete (4 passes; the API pass shipped after an adversarial Workflow
+review that found + fixed 11 issues). Two new packages/surfaces on top of the §15 privacy view-model.
+- **Pass A** exporters (`packages/pathforge-exporters`): `ExportAdapter`/`runExport` + `pathforge-json`
+  (lossless canonical envelope — uses `characterSchemaVersion`, NOT `schemaVersion`, so the importer's
+  detector extracts `.character` not the wrapper) + `foundry-pf1-actor-json` (best-effort modern Actor;
+  reverse 35-skill map; warnings list round-trip limits). Proven by export→import round-trip tests.
+- **Pass B** export UI: `lib/actions/exports.ts` (`exportCharacterAction`) + `/characters/[id]/exports`.
+  FULL exports (PathForge/Foundry JSON) require owner/editor; PUBLIC JSON is filtered through the
+  `anonymous` view-model. Each export logged to `export_jobs`.
+- **Pass C** the API (`/api/v1`): public endpoints by share slug (anonymous view-model → public-safe
+  only) `/public/characters/{slug}/{summary,stats,portrait,opengraph}`; authenticated (key or session,
+  owner's own characters) `/characters/{id}/{summary,stats,portrait,share}`; `/discord/character-card`
+  (public `?slug=` or keyed `?characterId=`). API keys `pf_live_…` (SHA-256-hashed, shown once, scoped,
+  revocable, optional per-character allow-list) at `/settings/api`. Fixed-window rate limiting
+  (migrations `0011` table+RPC / `0012` index+opportunistic prune; service-role-only `check_rate_limit`).
+  `lib/api/*` = response envelope / auth (key+session resolve, `recordKeyUsage` runs only after
+  rate-limit) / guard / load / catalog / openapi. Shapes in `lib/character/api-shapes.ts`.
+- **Pass D** developer docs: `/developers` (public reference) + `/api/v1` discovery + `/api/v1/openapi.json`
+  (OpenAPI 3.1) — all driven by `lib/api/catalog.ts` (single source of truth so docs can't drift).
+- Review fixes (all 11): abilities now gated in the view-model (was leaking ability scores when the
+  abilities section was marked private); allow-list empty-array-means-all trap closed (reject
+  restricted-but-empty + UUID-filter + ownership-intersect); `clientIp` prefers `x-real-ip` over
+  spoofable XFF; rate-limit table prunes; key usage/audit moved past the rate limiter; OpenAPI models
+  the Discord endpoint as mixed-auth; dead `characters:public` scope removed; `/health` catalogued;
+  key-manager reuses the catalog scope list.
+
+Migrations now run through `0012` (`0011` api_rate_limits table+RPC, `0012` prune+index).
+
+Next per spec: PWA/offline (M10), polish/QA (M11). Deferred tails: M8 — Myth-Weavers HTML mapper,
+Hero Lab `.por`, statblock parser; M9 — printable-PDF export (§13.3), Foundry export round-trip
+fidelity, `campaigns:read`-scoped API endpoints (scope reserved).
 
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 
