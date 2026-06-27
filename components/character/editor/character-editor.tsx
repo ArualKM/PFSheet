@@ -46,6 +46,7 @@ import {
   mythicSurgeDie,
   PSIONIC_DISCIPLINES,
   bonusPowerPoints,
+  parsePsionicPowers,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -849,12 +850,26 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
   const summary = ed.computed.summary.psionics;
   const max = summary?.powerPoints.max ?? 0;
   const current = Math.min(ps?.powerPointsCurrent ?? max, max);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteMsg, setPasteMsg] = useState("");
 
   const ensure = (mut: (p: PsionicsBlock) => void) =>
     ed.update((c) => {
       if (!c.psionics) c.psionics = { classes: [], powersKnown: [] };
       mut(c.psionics);
     });
+  const importPowers = () => {
+    const { powers, warnings } = parsePsionicPowers(pasteText);
+    if (powers.length === 0) {
+      setPasteMsg(warnings[0] ?? "Nothing parsed.");
+      return;
+    }
+    ensure((p) => {
+      for (const pw of powers) p.powersKnown.push({ ...pw, id: newId("pow") });
+    });
+    setPasteText("");
+    setPasteMsg(`Added ${powers.length} power${powers.length === 1 ? "" : "s"}.${warnings.length ? ` (${warnings.length} note${warnings.length === 1 ? "" : "s"})` : ""}`);
+  };
   const spendPP = (delta: number) => ensure((p) => (p.powerPointsCurrent = Math.max(0, Math.min(max, current + delta))));
 
   return (
@@ -1007,7 +1022,27 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
               </div>
             ))}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">A searchable power compendium + paste-import lands in the next pass.</p>
+        <div className="mt-3 rounded-lg border border-border/60 p-2">
+          <p className="mb-1 text-xs font-medium text-foreground">Paste powers to import</p>
+          <p className="mb-1.5 text-[11px] text-muted-foreground">
+            Paste one or more power statblocks (blank line between them). Name, level, discipline, PP, and
+            augment are read automatically; the full text is kept so nothing is lost. A searchable
+            compendium lands in a later pass.
+          </p>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={"Energy Ray\nDiscipline psychokinesis; Level psion/wilder 1\nPower Points 1\nYou project a ray…"}
+            rows={4}
+            className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground"
+          />
+          <div className="mt-1.5 flex items-center gap-2">
+            <Button size="sm" variant="secondary" disabled={!pasteText.trim()} onClick={importPowers}>
+              Parse &amp; add
+            </Button>
+            {pasteMsg && <span className="text-xs text-muted-foreground">{pasteMsg}</span>}
+          </div>
+        </div>
       </section>
     </div>
   );

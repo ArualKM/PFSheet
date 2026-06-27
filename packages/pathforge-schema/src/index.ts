@@ -30,6 +30,7 @@ export * from "./stamina";
 export * from "./gestalt";
 export * from "./mythic";
 export * from "./psionics";
+export * from "./psionics-parser";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";
