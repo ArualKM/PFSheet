@@ -2,9 +2,27 @@
 
 import { Plus, Trash2, Coins, Backpack } from "lucide-react";
 import type { EquipmentItem } from "@pathforge/schema";
+import { BONUS_TYPES } from "@pathforge/schema";
 import { NumberField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
+
+/** Common single-stat targets a magic-item bonus can hit (each routes in the rules engine). */
+const ITEM_TARGETS = [
+  { value: "ac", label: "AC" },
+  { value: "fortitude", label: "Fort save" },
+  { value: "reflex", label: "Ref save" },
+  { value: "will", label: "Will save" },
+  { value: "initiative", label: "Initiative" },
+  { value: "attack.melee", label: "Melee atk" },
+  { value: "attack.ranged", label: "Ranged atk" },
+  { value: "abilities.str", label: "STR" },
+  { value: "abilities.dex", label: "DEX" },
+  { value: "abilities.con", label: "CON" },
+  { value: "abilities.int", label: "INT" },
+  { value: "abilities.wis", label: "WIS" },
+  { value: "abilities.cha", label: "CHA" },
+];
 
 type ItemArrayKey = "weapons" | "armorAndShields" | "potionsScrollsMagicItems" | "gear" | "otherItems";
 
@@ -88,6 +106,21 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
         return;
       }
     });
+
+  const setModifiers = (item: EquipmentItem, modifiers: EquipmentItem["modifiers"]) =>
+    updateItem(item.id, { modifiers });
+  const addModifier = (item: EquipmentItem) =>
+    setModifiers(item, [
+      ...item.modifiers,
+      { id: newId("mod"), label: item.name, value: 0, target: "ac", bonusType: "enhancement", enabled: true },
+    ]);
+  const updateModifier = (
+    item: EquipmentItem,
+    mi: number,
+    patch: Partial<EquipmentItem["modifiers"][number]>,
+  ) => setModifiers(item, item.modifiers.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)));
+  const removeModifier = (item: EquipmentItem, mi: number) =>
+    setModifiers(item, item.modifiers.filter((_, idx) => idx !== mi));
 
   const removeItem = (id: string) =>
     ed.update((c) => {
@@ -215,6 +248,77 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                 placeholder="Properties, attunement, location…"
                 className="mt-2"
               />
+
+              <div className="mt-3 rounded-md border border-border/60 p-2">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Bonuses (apply when equipped)
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => addModifier(item)}>
+                    <Plus className="size-3.5" /> Add
+                  </Button>
+                </div>
+                {item.modifiers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    None. Add e.g. +2 resistance to Fort, or +1 deflection to AC.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {item.modifiers.map((m, mi) => (
+                      <div key={m.id} className="flex flex-wrap items-center gap-1.5">
+                        <input
+                          type="number"
+                          value={typeof m.value === "number" ? m.value : 0}
+                          aria-label={`${item.name} bonus value`}
+                          onChange={(e) =>
+                            updateModifier(item, mi, {
+                              value: e.target.value === "" ? 0 : Math.trunc(Number(e.target.value)),
+                            })
+                          }
+                          className="tnum h-8 w-14 rounded border border-border bg-background px-2 text-sm"
+                        />
+                        <select
+                          value={m.bonusType ?? "enhancement"}
+                          aria-label={`${item.name} bonus type`}
+                          onChange={(e) =>
+                            updateModifier(item, mi, {
+                              bonusType: e.target.value as (typeof BONUS_TYPES)[number],
+                            })
+                          }
+                          className="h-8 rounded border border-border bg-background px-1 text-xs"
+                        >
+                          {BONUS_TYPES.map((b) => (
+                            <option key={b} value={b}>
+                              {b.replace(/_/g, " ")}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-muted-foreground">to</span>
+                        <select
+                          value={m.target ?? "ac"}
+                          aria-label={`${item.name} bonus target`}
+                          onChange={(e) => updateModifier(item, mi, { target: e.target.value })}
+                          className="h-8 rounded border border-border bg-background px-1 text-xs"
+                        >
+                          {ITEM_TARGETS.map((t) => (
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          aria-label="Remove bonus"
+                          onClick={() => removeModifier(item, mi)}
+                          className="tap-target text-muted-foreground hover:text-danger"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
