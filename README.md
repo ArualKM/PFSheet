@@ -13,6 +13,38 @@ GM-verifiable, import/export-capable Pathfinder 1e character platform.
 
 ---
 
+## Status
+
+**Live in production** at [pfsheet.org](https://pfsheet.org) (auto-deploys from `main` via Vercel).
+Milestones **M0–M11** are complete; secondary milestones (S1–S7) are being built interleaved.
+
+What's shipped:
+
+- **Character sheet** — dashboard-first read view, full edit workspace (Identity, Abilities, Health,
+  Saves, AC, Combat, Skills, Feats, Buffs, Spells, Inventory, Profile) with live recompute, debounced
+  autosave, undo, and a "Show Math" formula inspector.
+- **Point-buy calculator**, **prebuilt PF1e class catalog** (tap-to-apply class skills / BAB / saves /
+  HD / caster entry), and **deep spellcasting** (slots-per-day, bonus spells, save DCs, concentration,
+  prepared/cast/rest workflow, compendium-backed spell detail).
+- **Buff Center** — toggleable effects with live affected-value deltas, stacking-conflict detection,
+  duration tracking, and a PF1e buff library.
+- **Privacy & sharing** — a per-section privacy view-model; public share pages at `/c/{slug}` with
+  OpenGraph/Twitter cards; visibility controls.
+- **GM audit + campaigns** — read-only GM audit view, approval workflow, snapshots + privacy-aware
+  diffs, change requests, roster management/archiving — GM can never edit a player's canonical sheet.
+- **Imports** — PathForge JSON, FoundryVTT PF1e, Myth-Weavers JSON, and fillable PDF, via a wizard
+  (import-as-new or merge-with-snapshot). Imports never silently discard data.
+- **Exports + REST API** — PathForge/Foundry JSON exports; a versioned read-only `/api/v1` (public by
+  share slug, key- or session-authed for owners, Discord card), API-key management, rate limiting, and
+  developer docs at `/developers` (+ OpenAPI 3.1).
+- **PWA** — installable, offline fallback, privacy-safe service worker.
+- **Mobile** — responsive overhaul (drawer nav, responsive editor, touch targets).
+
+See [`CLAUDE.md`](CLAUDE.md) for the detailed milestone log and `docs/SECONDARY_MILESTONES.md` for
+the S1–S7 roadmap.
+
+---
+
 ## Tech stack
 
 | Layer            | Choice                                              |
@@ -43,8 +75,8 @@ pathforge/
   packages/
     pathforge-schema/      Canonical PF1e character schema (Zod) + factory + validation
     pathforge-rules-pf1e/  Safe formula engine, bonus stacking, character computation
-    pathforge-importers/   Import adapter contracts (Foundry/Hero Lab/Myth-Weavers/PDF)
-    pathforge-exporters/   Export adapter contracts (Foundry/Discord/PDF/JSON)
+    pathforge-importers/   Import adapters (PathForge/Foundry/Myth-Weavers/fillable-PDF)
+    pathforge-exporters/   Export adapters (PathForge JSON, Foundry Actor JSON, Discord)
   supabase/migrations/     SQL migrations (schema + RLS)
   docs/                    Build spec + design mockups
   tests/                   unit / e2e
@@ -90,10 +122,18 @@ preserved as-is; new tables are additive and never touch it.
 
 ```bash
 pnpm test          # Vitest unit tests (schema + formula engine)
-pnpm test:e2e      # Playwright end-to-end
+pnpm test:e2e      # Playwright end-to-end (real browser)
 pnpm typecheck     # tsc across app + packages
 pnpm lint          # ESLint
 ```
+
+**E2E (`tests/e2e/`).** `public.spec.ts` smoke-tests every public route + the API in a real browser
+(no auth/data needed) — it catches render-time crashes that `next build` and jsdom unit tests miss
+(notably function props passed across the React Server→Client boundary). `sheet.spec.ts` logs in and
+opens a character as a regression guard for that boundary; it's skipped unless `E2E_EMAIL` +
+`E2E_PASSWORD` (a confirmed account owning ≥1 character) are set. CI (`.github/workflows/ci.yml`) runs
+lint/typecheck/unit on every push; the e2e job is opt-in via repo var `RUN_E2E` + the Supabase secrets,
+and runs the **production** build (where the RSC boundary is actually exercised).
 
 ## Deployment
 
@@ -111,8 +151,11 @@ environment variables above in the Vercel project before the first deploy. The c
 - **Character schema** — one versioned JSONB document (`pathforge-character-v1`) defined in
   `@pathforge/schema`.
 - **Formula engine** — see below.
-- **Import/export** — adapter pipelines (contracts defined; adapters land in later milestones).
-- **API** — versioned under `/api/v1`, typed `ApiResponse<T>`.
+- **Import/export** — adapter pipelines (PathForge / Foundry / Myth-Weavers / PDF in, PathForge /
+  Foundry / Discord out), each preserving unmapped data.
+- **API** — versioned read-only REST under `/api/v1`, typed `ApiResponse<T>`, key- or session-authed,
+  rate-limited; public reference at `/developers` + OpenAPI 3.1.
+- **PWA** — installable with an offline fallback via a privacy-safe service worker (`public/sw.js`).
 
 ## Formula engine overview
 
@@ -133,18 +176,25 @@ environment variables above in the Vercel project before the first deploy. The c
 ## Import/export overview
 
 Adapters implement a shared contract (`detect → parse → normalize → validate`). Imports never
-silently discard data — unmapped source fields are preserved under `metadata.unmapped`. Planned
-sources: PathForge JSON, FoundryVTT PF1e, Hero Lab (Classic/Online), Myth-Weavers (best-effort),
-fillable PDF. Exports: PathForge JSON (canonical/public), Foundry Actor JSON, Discord card,
-printable PDF.
+silently discard data — unmapped source fields are preserved under `metadata.unmapped`.
+
+- **Import (shipped):** PathForge JSON, FoundryVTT PF1e Actor JSON, Myth-Weavers JSON, fillable PDF
+  (AcroForm). Run through a server-side wizard (`/characters/import`) that sanitizes + size-caps input
+  and supports import-as-new or merge (snapshots the target first). _Deferred:_ Myth-Weavers HTML,
+  Hero Lab `.por` (shelved — HL Online has no PF1e), statblock parser.
+- **Export (shipped):** PathForge JSON (lossless canonical + privacy-filtered public), Foundry Actor
+  JSON, Discord card, plus the REST API shapes. _Deferred:_ printable PDF (§13.3).
 
 ## Security / RLS notes
 
 - RLS is enabled on every public table; the service/secret key is used only in trusted server code.
+  Policies wrap `auth.uid()`/`auth.role()` in a scalar subselect (per-statement, not per-row).
+- Leaked-password protection (HaveIBeenPwned) is enabled in Supabase Auth.
 - Formulas are never executed as JavaScript.
 - Imports validate MIME/extension/size and are parsed server-side; imported HTML is sanitized,
-  never rendered directly.
-- API keys are stored as salted hashes and shown only once.
+  never rendered directly. The fillable-PDF parser is bounded by a byte cap + wall-clock timeout.
+- API keys are stored as salted (peppered) SHA-256 hashes and shown only once; the API is rate-limited.
+- The service worker never caches navigations or `/api` — authenticated HTML can't leak via the cache.
 
 ## Legal
 
