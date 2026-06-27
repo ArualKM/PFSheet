@@ -103,7 +103,7 @@ export function CampaignMembers({
                     value={ASSIGNABLE_ROLES.includes(m.role as (typeof ASSIGNABLE_ROLES)[number]) ? m.role : "player"}
                     disabled={pending}
                     onChange={(e) => changeRole(m.userId, e.target.value)}
-                    className="h-8 rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60"
+                    className="h-11 rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60 md:h-10"
                   >
                     {ASSIGNABLE_ROLES.map((r) => (
                       <option key={r} value={r}>
@@ -115,7 +115,6 @@ export function CampaignMembers({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-8"
                     disabled={pending}
                     onClick={() => remove(m.userId)}
                     aria-label={`Remove ${m.name}`}

@@ -32,14 +32,14 @@ export function CampaignFeedback({
           !it.reviewSummary;
         return (
           <Card key={it.campaignId}>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="size-4 text-gold" />
-                <Link href={`/campaigns/${it.campaignId}`} className="hover:underline">
+            <CardHeader className="flex-row items-center justify-between gap-2">
+              <CardTitle className="flex min-w-0 items-center gap-2">
+                <ShieldCheck className="size-4 shrink-0 text-gold" />
+                <Link href={`/campaigns/${it.campaignId}`} className="min-w-0 truncate hover:underline">
                   {it.campaignName}
                 </Link>
               </CardTitle>
-              <Badge variant={meta.variant} title={meta.hint}>
+              <Badge variant={meta.variant} title={meta.hint} className="shrink-0">
                 {meta.label}
               </Badge>
             </CardHeader>

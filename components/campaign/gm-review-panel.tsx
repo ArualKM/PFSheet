@@ -172,7 +172,7 @@ export function GmReviewPanel({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Input value={reqPath} onChange={(e) => setReqPath(e.target.value)} placeholder="Field (optional), e.g. abilities.str" className="h-9" />
+          <Input value={reqPath} onChange={(e) => setReqPath(e.target.value)} placeholder="Field (optional), e.g. abilities.str" />
           <textarea
             rows={2}
             value={reqBody}
@@ -210,7 +210,7 @@ export function GmReviewPanel({
               id="note-visibility"
               value={noteVisibility}
               onChange={(e) => setNoteVisibility(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground md:h-10"
             >
               <option value="gm_only">GM only</option>
               <option value="player_visible">Player visible</option>

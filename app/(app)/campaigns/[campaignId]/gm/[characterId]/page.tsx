@@ -29,6 +29,13 @@ const NOTE_VISIBILITY_LABEL: Record<string, string> = {
   party_visible: "Party visible",
 };
 
+const COMMENT_STATUS_LABEL: Record<string, string> = {
+  open: "Open",
+  resolved: "Resolved",
+  dismissed: "Dismissed",
+  archived: "Archived",
+};
+
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -152,7 +159,7 @@ export default async function GmCharacterReviewPage({
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             {charRow.name}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -252,7 +259,7 @@ export default async function GmCharacterReviewPage({
                 {resolvedComments.map((c) => (
                   <div key={c.id} className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span className="truncate line-through">{c.body}</span>
-                    <Badge variant="default">{c.status}</Badge>
+                    <Badge variant="default">{COMMENT_STATUS_LABEL[c.status] ?? c.status}</Badge>
                   </div>
                 ))}
               </CardContent>

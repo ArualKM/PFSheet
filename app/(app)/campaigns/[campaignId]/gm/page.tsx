@@ -84,10 +84,16 @@ export default async function GmQueuePage({ params }: { params: Promise<{ campai
             </p>
           ) : (
             <>
-              <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                <ShieldCheck className="size-4 text-gold" />
-                {pendingCount} of {roster.length} awaiting review
-              </div>
+              {pendingCount === 0 ? (
+                <div className="mb-3 flex items-center gap-2 text-sm text-success">
+                  <ShieldCheck className="size-4" /> All {roster.length} characters reviewed
+                </div>
+              ) : (
+                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <ShieldCheck className="size-4 text-gold" />
+                  {pendingCount} of {roster.length} awaiting review
+                </div>
+              )}
               <ul className="space-y-2">
                 {sorted.map((r) => {
                   const char = charById.get(r.character_id);

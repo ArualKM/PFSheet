@@ -34,7 +34,6 @@ export function RemoveFromRoster({
       type="button"
       variant="ghost"
       size="icon"
-      className="size-8"
       disabled={pending}
       onClick={remove}
       aria-label={`Remove ${characterName} from campaign`}

@@ -38,7 +38,6 @@ export function ArchiveButton({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-8"
         onClick={() => setOpen(true)}
         aria-label="Archive character"
         title="Archive (dead, on break, retired…)"
@@ -49,7 +48,7 @@ export function ArchiveButton({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <label className="sr-only" htmlFor={`archive-reason-${characterId}`}>
         Archive reason
       </label>
@@ -58,7 +57,7 @@ export function ArchiveButton({
         value={reason}
         disabled={pending}
         onChange={(e) => setReason(e.target.value)}
-        className="h-8 rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60"
+        className="h-8 min-w-0 max-w-[8rem] rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60"
       >
         {ARCHIVE_REASONS.map((r) => (
           <option key={r.key} value={r.key}>

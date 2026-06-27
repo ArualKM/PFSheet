@@ -108,8 +108,12 @@ export function CharacterDashboard({
             </div>
           </SectionCard>
 
-          {vm.attacks && vm.attacks.length > 0 && (
+          {vm.attacks && (vm.attacks.length > 0 || editable) && (
             <SectionCard title="Attacks" icon={Swords}>
+              {vm.attacks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No attacks yet.</p>
+              ) : (
+                <>
               {(vm.fullAttack.melee.length > 1 || vm.fullAttack.ranged.length > 1) && (
                 <p className="mb-2 text-xs text-muted-foreground">
                   Full attack:{" "}
@@ -152,19 +156,25 @@ export function CharacterDashboard({
                   );
                 })}
               </ShowMore>
+                </>
+              )}
             </SectionCard>
           )}
 
-          {rankedSkills.length > 0 && (
+          {(rankedSkills.length > 0 || editable) && (
             <SectionCard title="Skills" icon={ScrollText}>
-              <ShowMore cap={8} noun="skills" className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
-                {rankedSkills.map((s) => (
-                  <div key={s.key} className="flex items-center justify-between border-b border-border/40 py-1">
-                    <span className="truncate text-sm text-foreground">{s.label}</span>
-                    <span className="tnum text-sm font-semibold text-rune">{formatModifier(s.total)}</span>
-                  </div>
-                ))}
-              </ShowMore>
+              {rankedSkills.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No skill ranks yet.</p>
+              ) : (
+                <ShowMore cap={8} noun="skills" className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
+                  {rankedSkills.map((s) => (
+                    <div key={s.key} className="flex items-center justify-between border-b border-border/40 py-1">
+                      <span className="truncate text-sm text-foreground">{s.label}</span>
+                      <span className="tnum text-sm font-semibold text-rune">{formatModifier(s.total)}</span>
+                    </div>
+                  ))}
+                </ShowMore>
+              )}
             </SectionCard>
           )}
         </div>
@@ -174,7 +184,7 @@ export function CharacterDashboard({
           {vm.heroPoints && (
             <SectionCard title="Hero Points" icon={Sparkles}>
               <div className="flex items-center gap-2">
-                <div className="flex gap-1" aria-hidden="true">
+                <div className="flex flex-wrap gap-1" aria-hidden="true">
                   {Array.from({ length: Math.max(0, vm.heroPoints.max) }).map((_, i) => (
                     <span
                       key={i}
@@ -311,9 +321,9 @@ export function CharacterDashboard({
               <div className="space-y-3">
                 {vm.spellcasting.casters.map((c, i) => (
                   <div key={i} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-foreground">{c.className}</span>
-                      <span className="text-muted-foreground">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate text-foreground">{c.className}</span>
+                      <span className="shrink-0 text-muted-foreground">
                         CL {c.casterLevel} · Conc {c.concentration >= 0 ? "+" : ""}
                         {c.concentration}
                       </span>
@@ -414,8 +424,11 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
-          {vm.inventory && vm.inventory.items.length > 0 && (
+          {vm.inventory && (vm.inventory.items.length > 0 || editable) && (
             <SectionCard title="Inventory" icon={Backpack}>
+              {vm.inventory.items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No items yet.</p>
+              ) : (
               <ShowMore cap={10} noun="items" className="space-y-1">
                 {vm.inventory.items.map((it, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 text-sm">
@@ -435,16 +448,27 @@ export function CharacterDashboard({
                   </div>
                 ))}
               </ShowMore>
+              )}
             </SectionCard>
           )}
 
           {vm.wealth && (vm.wealth.pp > 0 || vm.wealth.gp > 0 || vm.wealth.sp > 0 || vm.wealth.cp > 0) && (
             <SectionCard title="Wealth" icon={Coins}>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground">
-                <span className="tnum">{vm.wealth.pp} pp</span>
-                <span className="tnum">{vm.wealth.gp} gp</span>
-                <span className="tnum">{vm.wealth.sp} sp</span>
-                <span className="tnum">{vm.wealth.cp} cp</span>
+                {(
+                  [
+                    ["pp", vm.wealth.pp],
+                    ["gp", vm.wealth.gp],
+                    ["sp", vm.wealth.sp],
+                    ["cp", vm.wealth.cp],
+                  ] as const
+                )
+                  .filter(([, n]) => n > 0)
+                  .map(([u, n]) => (
+                    <span key={u} className="tnum">
+                      {n} {u}
+                    </span>
+                  ))}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">≈ {vm.wealth.totalGp} gp total</p>
             </SectionCard>

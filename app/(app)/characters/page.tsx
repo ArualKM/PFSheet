@@ -89,7 +89,7 @@ export default async function CharactersPage() {
                         AC
                       </div>
                     </div>
-                    <Badge variant={c.visibility === "public" ? "rune" : "default"}>
+                    <Badge variant={c.visibility === "public" ? "rune" : "default"} className="capitalize">
                       {c.visibility}
                     </Badge>
                   </div>

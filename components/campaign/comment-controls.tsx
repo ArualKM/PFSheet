@@ -26,12 +26,12 @@ export function CommentControls({
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-2">
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="size-7"
+        size="icon-touch"
+        className="sm:size-8"
         disabled={pending}
         onClick={() => setStatus("resolved")}
         aria-label="Mark resolved"
@@ -42,8 +42,8 @@ export function CommentControls({
       <Button
         type="button"
         variant="ghost"
-        size="icon"
-        className="size-7"
+        size="icon-touch"
+        className="sm:size-8"
         disabled={pending}
         onClick={() => setStatus("dismissed")}
         aria-label="Dismiss"

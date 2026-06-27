@@ -52,7 +52,7 @@ export function AddCharacter({
           value={selected}
           disabled={pending}
           onChange={(e) => setSelected(e.target.value)}
-          className="h-9 min-w-48 flex-1 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground disabled:opacity-60"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground disabled:opacity-60"
         >
           {candidates.map((c) => (
             <option key={c.id} value={c.id}>

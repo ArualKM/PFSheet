@@ -6,6 +6,7 @@ import { computeCharacter } from "@pathforge/rules-pf1e";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -104,12 +105,9 @@ export default async function PublicSharePage({
         <p className="text-sm text-muted-foreground">
           Build, compute, and share your own Pathfinder 1e characters — free.
         </p>
-        <Link
-          href="/signup"
-          className="mt-3 inline-flex h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
-        >
-          Create your character
-        </Link>
+        <Button asChild size="lg" className="mt-3">
+          <Link href="/signup">Create your character</Link>
+        </Button>
       </footer>
     </div>
   );

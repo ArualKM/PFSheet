@@ -81,9 +81,11 @@ export function AuditReport({ audit }: { audit: CharacterAudit }) {
               {audit.formulaOverrides.map((o) => (
                 <li key={o.targetPath} className="rounded-lg border border-border bg-surface-raised/40 px-3 py-2 text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <code className="text-xs text-rune">{o.targetPath}</code>
-                    {o.gmRecommended && <Badge variant="warning">Review</Badge>}
-                    {!o.enabled && <Badge variant="default">Disabled</Badge>}
+                    <code className="min-w-0 truncate text-xs text-rune" title={o.targetPath}>
+                      {o.targetPath}
+                    </code>
+                    {o.gmRecommended && <Badge variant="warning" className="shrink-0">Review</Badge>}
+                    {!o.enabled && <Badge variant="default" className="shrink-0">Disabled</Badge>}
                   </div>
                   <code className="mt-1 block break-all text-xs text-muted-foreground">{o.formula}</code>
                   {o.note && <p className="mt-1 text-xs text-muted-foreground">{o.note}</p>}

@@ -185,7 +185,7 @@ export default async function CampaignDashboardPage({
                             {masked ? "Hidden by the player" : `Level ${level} · ${mine ? "Yours" : ownerName}`}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                           <Badge variant={meta.variant} title={meta.hint}>
                             {meta.short}
                           </Badge>
@@ -250,8 +250,13 @@ export default async function CampaignDashboardPage({
                             {masked ? "Hidden by the player" : mine ? "Yours" : ownerName}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                           <Badge variant="warning">{archiveReasonLabel(r.archive_reason)}</Badge>
+                          {mine && !isGm && (
+                            <Button asChild variant="ghost" size="sm">
+                              <Link href={`/characters/${r.character_id}`}>Open</Link>
+                            </Button>
+                          )}
                           {(isGm || mine) && (
                             <RestoreButton campaignId={campaignId} characterId={r.character_id} />
                           )}

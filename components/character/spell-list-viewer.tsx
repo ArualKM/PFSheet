@@ -61,14 +61,14 @@ export function SpellListViewer({ title, spells }: { title: string; spells: Spel
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               aria-label={`Search ${title}`}
-              className="h-7 w-24 rounded border border-border bg-background pl-7 pr-2 text-xs text-foreground sm:w-32"
+              className="h-9 w-28 rounded border border-border bg-background pl-7 pr-2 text-xs text-foreground sm:w-36"
             />
           </div>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortMode)}
             aria-label={`Sort ${title}`}
-            className="h-7 rounded border border-border bg-background px-1 text-xs text-foreground"
+            className="h-9 rounded border border-border bg-background px-2 text-xs text-foreground"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -101,7 +101,7 @@ export function SpellListViewer({ title, spells }: { title: string; spells: Spel
           type="button"
           onClick={() => setShowAll((v) => !v)}
           aria-expanded={showAll}
-          className="mt-1.5 text-xs font-medium text-rune hover:underline"
+          className="mt-1.5 rounded text-xs font-medium text-rune underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {showAll ? "Show less" : `Show all ${filtered.length}`}
         </button>

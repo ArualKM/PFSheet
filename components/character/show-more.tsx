@@ -30,7 +30,7 @@ export function ShowMore({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="mt-2 text-xs font-medium text-rune hover:underline"
+          className="mt-2 rounded text-xs font-medium text-rune underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded ? "Show less" : `Show all ${items.length}${noun ? ` ${noun}` : ""}`}
         </button>
