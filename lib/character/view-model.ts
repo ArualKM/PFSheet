@@ -162,7 +162,11 @@ export type CharacterViewModel = {
   fullAttack: { bab: number; melee: number[]; ranged: number[] };
   skills: Array<{ key: string; label: string; total: number; ranks: number }> | null;
   feats: Array<{ name: string; type?: string }> | null;
-  features: Array<{ name: string; category: string }> | null;
+  features: Array<{
+    name: string;
+    category: string;
+    uses?: { max: number; remaining: number; per: string };
+  }> | null;
   traits: Array<{ name: string; type?: string }> | null;
   /** Known languages + the PF1e bonus-language budget. Always visible (not a private section). */
   languages: { known: string[]; budget: LanguageBudget };
@@ -414,7 +418,16 @@ export function buildCharacterViewModel(
     ),
     features: gate(
       "features",
-      character.features.list.map((f) => ({ name: f.name, category: f.category })),
+      character.features.list.map((f) => {
+        const max = typeof f.uses?.max === "number" ? f.uses.max : undefined;
+        return {
+          name: f.name,
+          category: f.category,
+          ...(max && max > 0
+            ? { uses: { max, remaining: f.uses?.current ?? max, per: f.uses?.per ?? "day" } }
+            : {}),
+        };
+      }),
     ),
     traits: gate(
       "features",

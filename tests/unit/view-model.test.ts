@@ -52,6 +52,25 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(vm.defenses.conditional).toHaveLength(0);
   });
 
+  it("surfaces a feature's daily-use tracker (domain/bloodline powers)", () => {
+    const vm = build("owner", (c) => {
+      c.features.list.push({
+        id: "f1",
+        name: "Touch of Law",
+        category: "class_feature",
+        automation: [],
+        uses: { id: "u1", max: 7, current: 5, per: "day" },
+      });
+      c.features.list.push({ id: "f2", name: "Aura of Law", category: "class_feature", automation: [] });
+    });
+    expect(vm.features?.find((f) => f.name === "Touch of Law")?.uses).toEqual({
+      max: 7,
+      remaining: 5,
+      per: "day",
+    });
+    expect(vm.features?.find((f) => f.name === "Aura of Law")?.uses).toBeUndefined();
+  });
+
   it("hides backstory from anonymous when the owner marks it private", () => {
     const vm = build("anonymous", (c) => {
       c.privacy.sections.backstory = "private";

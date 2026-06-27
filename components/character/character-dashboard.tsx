@@ -242,8 +242,14 @@ export function CharacterDashboard({
             <SectionCard title="Features" icon={ScrollText}>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {vm.features.map((f, i) => (
-                  <li key={i} className="truncate text-foreground">
-                    {f.name}
+                  <li key={i} className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-foreground">{f.name}</span>
+                    {f.uses && (
+                      <span className="tnum shrink-0 text-xs text-gold">
+                        {f.uses.remaining}/{f.uses.max}
+                        <span className="text-muted-foreground">/{f.uses.per === "day" ? "day" : f.uses.per}</span>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

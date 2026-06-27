@@ -2002,6 +2002,47 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
 function FeatsEditor({ ed }: { ed: EditorApi }) {
   const feats = ed.draft.feats.list;
   const features = ed.draft.features.list;
+
+  const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
+  const featureRemaining = (f: (typeof features)[number]) => f.uses?.current ?? featureMax(f);
+  const setFeatureMax = (i: number, max: number) =>
+    ed.update((c) => {
+      const t = c.features.list[i];
+      if (!t) return;
+      if (max <= 0) {
+        t.uses = undefined;
+        return;
+      }
+      const prevMax = typeof t.uses?.max === "number" ? t.uses.max : 0;
+      t.uses = {
+        id: t.uses?.id ?? newId("use"),
+        label: t.uses?.label,
+        per: t.uses?.per ?? "day",
+        notes: t.uses?.notes,
+        max,
+        // Keep remaining sensible: clamp to the new max, and top up when the cap grows.
+        current: t.uses?.current == null ? max : Math.min(max, t.uses.current + Math.max(0, max - prevMax)),
+      };
+    });
+  const setFeaturePer = (i: number, per: string) =>
+    ed.update((c) => {
+      const u = c.features.list[i]?.uses;
+      if (u) u.per = per as NonNullable<typeof u.per>;
+    });
+  const spendFeatureUse = (i: number, delta: number) =>
+    ed.update((c) => {
+      const t = c.features.list[i];
+      if (!t?.uses) return;
+      const max = typeof t.uses.max === "number" ? t.uses.max : 0;
+      const cur = t.uses.current ?? max;
+      t.uses.current = Math.max(0, Math.min(max, cur - delta));
+    });
+  const resetFeature = (i: number) =>
+    ed.update((c) => {
+      const u = c.features.list[i]?.uses;
+      if (u) u.current = typeof u.max === "number" ? u.max : 0;
+    });
+
   return (
     <div className="space-y-6">
       <section>
@@ -2089,46 +2130,95 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
         )}
         <div className="space-y-2">
           {features.map((f, i) => (
-            <div key={f.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
-              <TextField
-                label="Name"
-                value={f.name}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const t = c.features.list[i];
-                    if (t) t.name = v;
-                  })
-                }
-                className="flex-1"
-              />
-              <div className="w-44 space-y-1">
-                <span className="block text-sm font-medium leading-none text-foreground">Category</span>
-                <select
-                  value={f.category}
-                  aria-label="Feature category"
-                  onChange={(e) =>
+            <div key={f.id} className="space-y-2 rounded-lg border border-border p-2">
+              <div className="flex items-end gap-2">
+                <TextField
+                  label="Name"
+                  value={f.name}
+                  onChange={(v) =>
                     ed.update((c) => {
                       const t = c.features.list[i];
-                      if (t) t.category = e.target.value as (typeof FEATURE_CATEGORIES)[number];
+                      if (t) t.name = v;
                     })
                   }
-                  className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+                  className="flex-1"
+                />
+                <div className="w-44 space-y-1">
+                  <span className="block text-sm font-medium leading-none text-foreground">Category</span>
+                  <select
+                    value={f.category}
+                    aria-label="Feature category"
+                    onChange={(e) =>
+                      ed.update((c) => {
+                        const t = c.features.list[i];
+                        if (t) t.category = e.target.value as (typeof FEATURE_CATEGORIES)[number];
+                      })
+                    }
+                    className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+                  >
+                    {FEATURE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove feature"
+                  onClick={() => ed.update((c) => c.features.list.splice(i, 1))}
                 >
-                  {FEATURE_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
+                  <Trash2 className="size-4" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove feature"
-                onClick={() => ed.update((c) => c.features.list.splice(i, 1))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
+
+              {/* Daily-use tracker — for domain/bloodline/revelation powers (e.g. "Touch of Law 7/day"). */}
+              <div className="flex flex-wrap items-end gap-2 border-t border-border/40 pt-2">
+                <NumberField
+                  label="Uses"
+                  value={featureMax(f)}
+                  min={0}
+                  onChange={(v) => setFeatureMax(i, v)}
+                  className="w-20"
+                />
+                <SelectField
+                  label="Per"
+                  value={f.uses?.per ?? "day"}
+                  onChange={(v) => setFeaturePer(i, v)}
+                  options={[
+                    { value: "day", label: "/ day" },
+                    { value: "encounter", label: "/ encounter" },
+                    { value: "hour", label: "/ hour" },
+                    { value: "minute", label: "/ minute" },
+                    { value: "round", label: "/ round" },
+                    { value: "rest", label: "/ rest" },
+                  ]}
+                  className="w-32"
+                />
+                {featureMax(f) > 0 && (
+                  <div className="flex items-center gap-1.5 pb-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={featureRemaining(f) <= 0}
+                      aria-label={`Use ${f.name}`}
+                      onClick={() => spendFeatureUse(i, 1)}
+                    >
+                      Use
+                    </Button>
+                    <span className="tnum text-sm text-muted-foreground">
+                      {featureRemaining(f)}/{featureMax(f)} left
+                    </span>
+                    <Button size="sm" variant="ghost" aria-label={`Restore ${f.name}`} onClick={() => spendFeatureUse(i, -1)}>
+                      +
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => resetFeature(i)}>
+                      Reset
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
