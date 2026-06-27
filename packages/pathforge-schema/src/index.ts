@@ -21,6 +21,7 @@ export * from "./buff-templates";
 export * from "./formulas";
 export * from "./rules";
 export * from "./optional-rules";
+export * from "./class-catalog";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";

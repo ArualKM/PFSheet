@@ -9,6 +9,8 @@ export const characterClassSchema = z.object({
   level: z.number().int().min(0),
   hitDie: z.string().optional(),
   favoredClass: z.boolean().optional(),
+  /** Links a row to its CLASS_CATALOG preset so BAB/saves/HP can recompute from classes. */
+  presetKey: z.string().optional(),
   source: sourceRefSchema.optional(),
 });
 export type CharacterClass = z.infer<typeof characterClassSchema>;

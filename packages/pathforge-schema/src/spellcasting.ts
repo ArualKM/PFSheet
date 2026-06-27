@@ -13,6 +13,8 @@ export const spellcasterEntrySchema = z.object({
   id: z.string(),
   className: z.string(),
   archetype: z.string().optional(),
+  /** Links a caster to its CLASS_CATALOG preset (rename-proof add-vs-update matching). */
+  presetKey: z.string().optional(),
   casterType: z.enum(["prepared", "spontaneous", "spellbook", "hybrid"]).default("prepared"),
   casterLevel: numberOrFormulaSchema.default(0),
   concentrationFormula: z.string().default(""),

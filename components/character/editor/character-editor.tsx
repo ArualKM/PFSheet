@@ -28,6 +28,7 @@ import {
   ABILITY_KEYS,
   OPTIONAL_RULE_MODULES,
   isRuleEnabled,
+  recomputeClassDerived,
   type PathForgeCharacterV1,
   type AbilityKey,
   type ModifierEntry,
@@ -43,6 +44,7 @@ import { BuffCenter } from "./buff-center";
 import { CombatEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
+import { ClassPresetPicker } from "./class-preset-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -406,6 +408,9 @@ type EditorApi = ReturnType<typeof useCharacterEditor>;
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [applyMsg, setApplyMsg] = useState<string | null>(null);
+  const hasPresetClass = id.classes.some((c) => c.presetKey);
   const [fav, setFav] = useState("");
 
   const addFavored = () => {
@@ -437,23 +442,45 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Classes</h3>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              ed.update((c) => {
-                c.identity.classes.push({
-                  id: newId("class"),
-                  name: "Class",
-                  level: 1,
-                });
-                c.identity.totalLevel = c.identity.classes.reduce((s, cl) => s + cl.level, 0);
-              })
-            }
-          >
-            <Plus className="size-4" /> Add class
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {hasPresetClass && (
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Re-sum BAB and saves from your classes"
+                onClick={() => ed.update((c) => { recomputeClassDerived(c, { hpMethod: "manual" }); })}
+              >
+                Recompute
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setShowCatalog((v) => !v)}>
+              <Sparkles className="size-4" /> From catalog
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                ed.update((c) => {
+                  c.identity.classes.push({ id: newId("class"), name: "Class", level: 1 });
+                  c.identity.totalLevel = c.identity.classes.reduce((s, cl) => s + cl.level, 0);
+                })
+              }
+            >
+              <Plus className="size-4" /> Custom
+            </Button>
+          </div>
         </div>
+        {showCatalog && (
+          <div className="mb-3">
+            <ClassPresetPicker
+              ed={ed}
+              onApplied={(r) => {
+                setShowCatalog(false);
+                setApplyMsg(r.wrote.join("; "));
+              }}
+            />
+          </div>
+        )}
         <div className="space-y-2">
           {id.classes.length === 0 && (
             <p className="text-sm text-muted-foreground">
@@ -493,6 +520,8 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                     const target = c.identity.classes[i];
                     if (target) target.level = v;
                     c.identity.totalLevel = c.identity.classes.reduce((s, x) => s + x.level, 0);
+                    // Keep preset-derived BAB/saves/caster level in sync when leveling.
+                    if (target?.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
                   })
                 }
                 className="w-20"
@@ -516,6 +545,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Total level: <span className="font-semibold text-foreground">{id.totalLevel}</span>
         </p>
+        {applyMsg && <p className="mt-1 text-[11px] text-success">Applied — {applyMsg}.</p>}
       </div>
 
       <NumberField
