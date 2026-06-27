@@ -210,6 +210,22 @@ PostgREST RPC — branch-test proved revoking EXECUTE breaks RLS, so the only sa
 schema-move of all helpers + re-point every policy; low severity, deferred as its own careful task;
 (3) `multiple_permissive_policies` on `rule_modules`/`spell_compendium` (low value; spell_compendium
 is guardrailed); (4) the one remaining initplan WARN is spell_compendium's policy, left by design.
+Leaked-password protection is now **enabled** (owner toggled it).
+
+**S5b (native apps + real-time sync + concurrent-edit conflicts — in progress).** Design in
+`docs/S5b_NATIVE_APP_PLAN.md` (start there; `docs/NEXT_SESSION.md` is the quick resume). Decisions:
+version-guarded save + 3-way merge for v1 (not live multi-cursor); web stays at repo root.
+- **Phase 0** — `lib/character/merge.ts` `threeWayMerge(base, mine, theirs)`: pure, structural,
+  id-aware merge (entity arrays merge by stable `id`; value arrays set-merge; conflicts default to
+  mine). 11 tests. Proved field-level merge is viable on the real schema.
+- **Phase 1** — silent last-write-wins is fixed on web. Migration `0016` (`sheet_version` column +
+  `bump_sheet_version` trigger — bumps only on real `sheet_data` change). `saveCharacterSheetAction`
+  is a compare-and-swap returning the server sheet on a version conflict; `useCharacterEditor` runs a
+  single serialized save-loop (draftRef synced in handlers, not a lagging effect) that auto-merges
+  disjoint concurrent edits + surfaces a `ConflictBanner` for true collisions (editing locked while
+  open). Two adversarial review cycles. Tests: `tests/unit/use-character-editor.test.tsx`. **Migrations
+  now run through `0016`.** Phase 2 (deferred): per-field conflict UI + offline outbox + the
+  offline→reconnect→merge integration test.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
