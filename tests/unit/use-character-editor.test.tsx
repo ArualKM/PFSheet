@@ -89,6 +89,46 @@ describe("useCharacterEditor — version-guarded save + conflict handling", () =
     expect(result.current.draft.identity.name).toBe("C");
   });
 
+  it("coalesces a re-save after an edit during an in-flight save (no back-to-back hammering)", async () => {
+    const base = createDefaultCharacter({ name: "A" });
+    let release: (v: unknown) => void = () => {};
+    saveMock
+      .mockImplementationOnce(() => new Promise((r) => (release = r))) // first save hangs
+      .mockResolvedValue({ ok: true, version: 3 });
+
+    const { result } = renderHook(() => useCharacterEditor("c1", base, 1));
+    act(() => result.current.update((d) => void (d.identity.name = "B")));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950); // first save fires + hangs
+      await Promise.resolve();
+    });
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe("saving");
+
+    // Edit during the in-flight save, then let the first save resolve.
+    act(() => result.current.update((d) => void (d.identity.name = "C")));
+    await act(async () => {
+      release({ ok: true, version: 2 });
+      await Promise.resolve();
+    });
+
+    // The fix: it must NOT immediately fire a second save — it returns to "unsaved" so the debounce
+    // coalesces. (Back-to-back re-saves under fast typing were churning the CAS into a livelock.)
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe("unsaved");
+
+    // The debounce then saves the latest draft at the advanced version (2).
+    await settle();
+    expect(saveMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(saveMock).toHaveBeenLastCalledWith(
+      "c1",
+      expect.objectContaining({ identity: expect.objectContaining({ name: "C" }) }),
+      2,
+    );
+    expect(result.current.status).toBe("saved");
+    expect(result.current.draft.identity.name).toBe("C");
+  });
+
   it("auto-merges a disjoint concurrent change with no conflict banner", async () => {
     const base = createDefaultCharacter({ name: "A" });
     const serverSheet = structuredClone(base);
