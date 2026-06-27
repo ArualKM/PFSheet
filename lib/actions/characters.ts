@@ -153,7 +153,15 @@ export async function saveCharacterSheetAction(
     return { ok: false, error: "The sheet has validation errors and was not saved." };
   }
 
-  const computed = computeCharacter(parsed.character);
+  // A compute error must not throw out of the action (an opaque server-action rejection the client
+  // can only treat as a transient/offline failure + retry forever). Surface it as a clean error.
+  let computed;
+  try {
+    computed = computeCharacter(parsed.character);
+  } catch (e) {
+    console.error("saveCharacterSheetAction: computeCharacter failed", e);
+    return { ok: false, error: "The sheet has an invalid value (likely a formula) and was not saved." };
+  }
   const { supabase } = await authedClient();
   let updateQuery = supabase
     .from("characters")

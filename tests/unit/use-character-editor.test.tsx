@@ -129,6 +129,32 @@ describe("useCharacterEditor — version-guarded save + conflict handling", () =
     expect(result.current.draft.identity.name).toBe("ServerName");
   });
 
+  it("recovers from a hung save instead of sticking forever on 'unsaved'", async () => {
+    // The save never settles (a stalled connection / wedged server action). Before the timeout fix
+    // this left savingRef stuck true → the editor was permanently stuck on "unsaved" with no retry.
+    saveMock.mockImplementation(() => new Promise(() => {}));
+    const base = createDefaultCharacter({ name: "A" });
+    const { result } = renderHook(() => useCharacterEditor("c-hang", base, 1));
+
+    act(() => result.current.update((d) => void (d.identity.name = "B")));
+    // Debounce fires the save (hangs); the 20s save-timeout then trips and we fall through to the
+    // durable offline queue — releasing the loop rather than wedging it.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900 + 20000 + 1000);
+      for (let j = 0; j < 20; j++) await Promise.resolve();
+    });
+
+    expect(saveMock).toHaveBeenCalled();
+    expect(result.current.status).toBe("offline"); // recovered to a retryable state, not stuck
+    expect(readOutbox("c-hang")?.sheet.identity.name).toBe("B"); // draft preserved, no data loss
+
+    // The loop is NOT permanently held: a later successful save goes through on reconnect.
+    saveMock.mockResolvedValue({ ok: true, version: 2 });
+    await act(async () => void window.dispatchEvent(new Event("online")));
+    await settle();
+    expect(result.current.status).toBe("saved");
+  });
+
   it("queues an edit offline and flushes it on reconnect", async () => {
     setOnline(false);
     saveMock.mockResolvedValue({ ok: true, version: 2 });
