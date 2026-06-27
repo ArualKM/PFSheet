@@ -990,6 +990,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
+      }
       can_edit_character: {
         Args: { p_character_id: string; p_user_id: string }
         Returns: boolean

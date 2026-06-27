@@ -241,7 +241,9 @@ export function buildCharacterViewModel(
         will: computed.summary.will,
       },
     },
-    abilities,
+    // Gate abilities like every other content section — owners marking the abilities
+    // section private must not have ability scores leak through the public API.
+    abilities: gate("abilities", abilities) ?? [],
     buffs,
     attacks: gate(
       "attacks",
