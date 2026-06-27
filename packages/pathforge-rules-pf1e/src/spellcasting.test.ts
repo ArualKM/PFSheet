@@ -145,6 +145,42 @@ describe("computeSpellcasting", () => {
     expect(sc.slots.find((s) => s.level === 1)).toBeUndefined(); // total 0 → not castable
   });
 
+  it("derives a prepared caster's per-level used from its prepared spells", () => {
+    const c = createDefaultCharacter();
+    applyClassPreset(c, { preset: getClassPreset("cleric")!, level: 5 });
+    const caster = c.spellcasting.casters[0]!;
+    c.spellcasting.preparedSpells.push(
+      { id: "p1", name: "Bless", level: 1, casterId: caster.id, prepared: 1, used: 1, metamagicIds: [] },
+      { id: "p2", name: "Shield of Faith", level: 1, casterId: caster.id, prepared: 1, used: 0, metamagicIds: [] },
+    );
+    const l1 = computeCharacter(c).spellcasting[0]!.slots.find((s) => s.level === 1)!;
+    expect(l1.prepared).toBe(2);
+    expect(l1.used).toBe(1); // sum of prepared.used, not the per-level slot
+  });
+
+  it("ignores leftover prepared spells on a spontaneous caster (no phantom prepared/used)", () => {
+    const c = createDefaultCharacter();
+    const caster: SpellcasterEntry = {
+      id: "sorc1",
+      className: "Sorcerer",
+      casterType: "spontaneous",
+      casterLevel: 5,
+      concentrationFormula: "",
+      castingAbility: "cha",
+      conditionalModifiers: [],
+      spellsPerDay: { "1": { total: 6, used: 2 } },
+      bonusSpells: {},
+      saveDcFormula: "",
+      autoSlots: false,
+    };
+    c.spellcasting.casters.push(caster);
+    // A prepared spell lingering from a prior prepared configuration, same casterId.
+    c.spellcasting.preparedSpells.push({ id: "p1", name: "Bless", level: 1, casterId: "sorc1", prepared: 3, used: 2, metamagicIds: [] });
+    const l1 = computeCharacter(c).spellcasting[0]!.slots.find((s) => s.level === 1)!;
+    expect(l1.prepared).toBe(0); // spontaneous casters ignore the prepared loadout
+    expect(l1.used).toBe(2); // from the level slot, not the leftover prepared spell
+  });
+
   it("leaves non-casters without a spells summary", () => {
     expect(computeCharacter(createDefaultCharacter()).summary.spells).toBeUndefined();
   });

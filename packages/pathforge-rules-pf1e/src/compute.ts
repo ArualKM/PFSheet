@@ -441,10 +441,15 @@ function computeSpellcasting(
   resolver: CharacterResolver,
 ): ComputedSpellcasting[] {
   const out: ComputedSpellcasting[] = [];
+  const isPreparedType = (t: string) => t === "prepared" || t === "spellbook";
+  const preparedCasterIds = character.spellcasting.casters.filter((c) => isPreparedType(c.casterType));
+  // A prepared spell with no casterId is attributable only when there's exactly one prepared caster.
+  const solePreparedId = preparedCasterIds.length === 1 ? preparedCasterIds[0]!.id : null;
   for (const caster of character.spellcasting.casters) {
     const cl = resolveNumberOrFormula(caster.casterLevel, resolver);
     const ability = caster.castingAbility || "int";
     const abilityMod = abilities[ability]?.modifier ?? 0;
+    const isPrepared = isPreparedType(caster.casterType);
 
     resolver.local = { casterLevel: cl };
     const concFormula = caster.concentrationFormula?.trim()
@@ -471,10 +476,21 @@ function computeSpellcasting(
           : 0
         : manual?.bonus ?? 0;
       const total = base + bonus;
-      const used = manual?.used ?? 0;
-      const prepared = character.spellcasting.preparedSpells
-        .filter((s) => s.casterId === caster.id && (s.effectiveLevel ?? s.level) === lvl)
-        .reduce((a, s) => a + (s.prepared ?? 1), 0);
+      // Only prepared/spellbook casters have a prepared loadout; spontaneous casters
+      // ignore preparedSpells entirely (so leftover entries after a type switch don't
+      // surface phantom slots) and track usage per level slot instead.
+      const preparedAtLevel = isPrepared
+        ? character.spellcasting.preparedSpells.filter(
+            (s) =>
+              (s.casterId === caster.id || (!s.casterId && caster.id === solePreparedId)) &&
+              // Clamp into the visible 0-9 range so an out-of-range (metamagic) level still surfaces.
+              Math.min(9, Math.max(0, s.effectiveLevel ?? s.level)) === lvl,
+          )
+        : [];
+      const prepared = preparedAtLevel.reduce((a, s) => a + (s.prepared ?? 1), 0);
+      const used = isPrepared
+        ? preparedAtLevel.reduce((a, s) => a + (s.used ?? 0), 0)
+        : manual?.used ?? 0;
       if (total <= 0 && used <= 0 && prepared <= 0) continue;
 
       // @{spellLevel} is injected per level; a custom saveDcFormula should reference it
