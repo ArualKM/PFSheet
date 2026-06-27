@@ -188,6 +188,13 @@ Next per spec: PWA/offline (M10), polish/QA (M11). Deferred tails: M8 — Myth-W
 Hero Lab `.por`, statblock parser; M9 — printable-PDF export (§13.3), Foundry export round-trip
 fidelity, `campaigns:read`-scoped API endpoints (scope reserved).
 
+**Secondary milestones (post-M11)** are planned + designed in `docs/SECONDARY_MILESTONES.md` (S1
+point-buy calculator, S2 `/view` polish, S3 spells+classes deepening — simplified/detailed spell
+views + prepared casting + prebuilt PF1e classes with HP/skill calculators, S4 3pp/optional-rules
+content prep, S5 mobile overhaul + native Android/iPhone apps with real-time sync/conflict handling,
+S6 additional features, S7 final review). Each section is a grounded design starting point, not a
+final spec.
+
 ### Infra note — character-create RLS fix + project migration (2026-06-25)
 
 Symptom: every character create failed with "new row violates row-level security policy for
