@@ -1260,6 +1260,116 @@ const PF_SIZES = [
   "Colossal",
 ];
 
+type ClassEntry = PathForgeCharacterV1["identity"]["classes"][number];
+
+/** One class row, collapsed to Class · Level · HD · (Track) with the rest (archetype, future per-class
+ * fields) behind a chevron — keeps the row compact + reasonable on mobile. */
+function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
+  const [open, setOpen] = useState(false);
+  const gestalt = isGestalt(ed.draft);
+  const set = (mut: (t: ClassEntry, c: PathForgeCharacterV1) => void) =>
+    ed.update((c) => {
+      const t = c.identity.classes[i];
+      if (t) mut(t, c);
+    });
+  const syncLevel = (c: PathForgeCharacterV1) => {
+    c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
+  };
+
+  return (
+    <div className="rounded-lg border border-border">
+      <div className="flex flex-wrap items-end gap-2 p-2">
+        <TextField
+          label="Class"
+          value={cl.name}
+          onChange={(v) => set((t) => (t.name = v))}
+          className="min-w-[7rem] flex-1"
+        />
+        <NumberField
+          label="Level"
+          value={cl.level}
+          min={0}
+          onChange={(v) =>
+            set((t, c) => {
+              t.level = v;
+              syncLevel(c);
+              if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
+            })
+          }
+          className="w-16"
+        />
+        <SelectField
+          label="Hit Die"
+          value={cl.hitDie ?? ""}
+          onChange={(v) => set((t) => (t.hitDie = v || undefined))}
+          options={[
+            { value: "", label: "—" },
+            { value: "d6", label: "d6" },
+            { value: "d8", label: "d8" },
+            { value: "d10", label: "d10" },
+            { value: "d12", label: "d12" },
+          ]}
+          className="w-20"
+        />
+        {gestalt && (
+          <SelectField
+            label="Track"
+            value={cl.track ?? "a"}
+            onChange={(v) =>
+              set((t, c) => {
+                t.track = v as "a" | "b";
+                c.identity.totalLevel = gestaltLevel(c);
+                if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
+              })
+            }
+            options={[
+              { value: "a", label: "A" },
+              { value: "b", label: "B" },
+            ]}
+            className="w-16"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} more details for ${cl.name}`}
+          className="flex h-10 items-center rounded-md px-1.5 text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Remove ${cl.name}`}
+          onClick={() =>
+            ed.update((c) => {
+              const removed = c.identity.classes[i];
+              c.identity.classes.splice(i, 1);
+              syncLevel(c);
+              if (removed?.presetKey || c.identity.classes.some((x) => x.presetKey)) {
+                recomputeClassDerived(c, { hpMethod: "manual" });
+              }
+            })
+          }
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+      {open && (
+        <div className="border-t border-border/50 p-2">
+          <TextField
+            label="Archetype"
+            value={cl.archetype ?? ""}
+            onChange={(v) => set((t) => (t.archetype = v || undefined))}
+            className="w-full max-w-sm"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
@@ -1354,105 +1464,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             </p>
           )}
           {id.classes.map((cl, i) => (
-            <div key={cl.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
-              <TextField
-                label="Class"
-                value={cl.name}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const target = c.identity.classes[i];
-                    if (target) target.name = v;
-                  })
-                }
-                className="flex-1"
-              />
-              <TextField
-                label="Archetype"
-                value={cl.archetype ?? ""}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const target = c.identity.classes[i];
-                    if (target) target.archetype = v || undefined;
-                  })
-                }
-                className="w-32"
-              />
-              <SelectField
-                label="Hit Die"
-                value={cl.hitDie ?? ""}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const target = c.identity.classes[i];
-                    if (target) target.hitDie = v || undefined;
-                  })
-                }
-                options={[
-                  { value: "", label: "—" },
-                  { value: "d6", label: "d6" },
-                  { value: "d8", label: "d8" },
-                  { value: "d10", label: "d10" },
-                  { value: "d12", label: "d12" },
-                ]}
-                className="w-20"
-              />
-              <NumberField
-                label="Level"
-                value={cl.level}
-                min={0}
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const target = c.identity.classes[i];
-                    if (target) target.level = v;
-                    c.identity.totalLevel = isGestalt(c)
-                      ? gestaltLevel(c)
-                      : c.identity.classes.reduce((s, x) => s + x.level, 0);
-                    // Keep preset-derived BAB/saves/caster level in sync when leveling.
-                    if (target?.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
-                  })
-                }
-                className="w-20"
-              />
-              {isGestalt(ed.draft) && (
-                <SelectField
-                  label="Track"
-                  value={cl.track ?? "a"}
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const target = c.identity.classes[i];
-                      if (target) target.track = v as "a" | "b";
-                      c.identity.totalLevel = gestaltLevel(c);
-                      if (target?.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
-                    })
-                  }
-                  options={[
-                    { value: "a", label: "A" },
-                    { value: "b", label: "B" },
-                  ]}
-                  className="w-16"
-                />
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove class"
-                onClick={() =>
-                  ed.update((c) => {
-                    const removed = c.identity.classes[i];
-                    c.identity.classes.splice(i, 1);
-                    c.identity.totalLevel = isGestalt(c)
-                      ? gestaltLevel(c)
-                      : c.identity.classes.reduce((s, x) => s + x.level, 0);
-                    // Re-derive BAB/saves so removing a class (esp. the dominant gestalt track) lowers
-                    // them — mirroring the level-edit/track handlers.
-                    if (removed?.presetKey || c.identity.classes.some((x) => x.presetKey)) {
-                      recomputeClassDerived(c, { hpMethod: "manual" });
-                    }
-                  })
-                }
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
+            <ClassRow key={cl.id} ed={ed} cl={cl} i={i} />
           ))}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
