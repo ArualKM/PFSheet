@@ -18,6 +18,7 @@ import { heroPointsBlockSchema } from "./hero-points";
 import { honorBlockSchema } from "./honor";
 import { staminaBlockSchema } from "./stamina";
 import { mythicBlockSchema } from "./mythic";
+import { psionicsBlockSchema } from "./psionics";
 import {
   characterMetadataSchema,
   languageBlockSchema,
@@ -60,6 +61,7 @@ export const pathForgeCharacterV1Schema = z.object({
   honor: honorBlockSchema.optional(),
   stamina: staminaBlockSchema.optional(),
   mythic: mythicBlockSchema.optional(),
+  psionics: psionicsBlockSchema.optional(),
   privacy: privacyBlockSchema,
   notes: notesBlockSchema,
   metadata: characterMetadataSchema,

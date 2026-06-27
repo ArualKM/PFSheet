@@ -16,6 +16,7 @@ import {
   maxMythicPower,
   mythicSurgeDie,
   isGestalt,
+  bonusPowerPoints,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -579,6 +580,15 @@ export type ComputedCharacter = {
       /** +½ tier to effective level — display/CR only; never fed to level-derived formulas. */
       effectiveLevelBonus: number;
     };
+    /** Psionics roll-up (absent unless the module is enabled). */
+    psionics?: {
+      powerPoints: { current: number; max: number };
+      manifesterLevel: number;
+      /** Hard cap on power points spent on one manifestation (= ML). */
+      maxPowerCost: number;
+      powersKnown: number;
+      focused: boolean;
+    };
   };
 };
 
@@ -919,6 +929,25 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let psionics: ComputedCharacter["summary"]["psionics"];
+  if (isModuleKeyEnabled(character, "psionics") && character.psionics) {
+    const ps = character.psionics;
+    let max = 0;
+    let ml = 0;
+    for (const cl of ps.classes) {
+      const keyMod = abilities[cl.keyAbility]?.modifier ?? 0;
+      max += cl.basePowerPoints + bonusPowerPoints(keyMod, cl.manifesterLevel);
+      ml = Math.max(ml, cl.manifesterLevel);
+    }
+    psionics = {
+      powerPoints: { current: Math.max(0, Math.min(max, ps.powerPointsCurrent ?? max)), max },
+      manifesterLevel: ml,
+      maxPowerCost: ml,
+      powersKnown: ps.powersKnown.length,
+      focused: !!ps.psionicFocus,
+    };
+  }
+
   let mythic: ComputedCharacter["summary"]["mythic"];
   if (isModuleKeyEnabled(character, "mythic")) {
     const tier = character.mythic?.tier ?? 0;
@@ -985,6 +1014,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       stamina,
       woundsVigor,
       mythic,
+      psionics,
     },
   };
 }

@@ -230,6 +230,23 @@ export function CharacterDashboard({
               </div>
             </SectionCard>
           )}
+          {vm.psionics && (
+            <SectionCard title="Psionics" icon={Sparkles}>
+              <div className="space-y-1 text-sm">
+                <div className="text-muted-foreground">
+                  Power points{" "}
+                  <span className="tnum font-semibold text-rune">
+                    {vm.psionics.powerPoints.current}/{vm.psionics.powerPoints.max}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                  <span>ML {vm.psionics.manifesterLevel}</span>
+                  <span>{vm.psionics.powersKnown} powers</span>
+                  {vm.psionics.focused && <span className="text-gold">Focused</span>}
+                </div>
+              </div>
+            </SectionCard>
+          )}
           {vm.buffs && (vm.buffs.length > 0 || editable) && (
             <SectionCard title="Active Buffs" icon={Zap}>
               {vm.buffs.length === 0 ? (

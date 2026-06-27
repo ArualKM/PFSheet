@@ -44,6 +44,8 @@ import {
   MYTHIC_PATHS,
   maxMythicPower,
   mythicSurgeDie,
+  PSIONIC_DISCIPLINES,
+  bonusPowerPoints,
   recomputeClassDerived,
   computeMaxHpFromLevels,
   type PathForgeCharacterV1,
@@ -56,6 +58,7 @@ import {
   type HonorBlock,
   type StaminaBlock,
   type MythicBlock,
+  type PsionicsBlock,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -172,6 +175,9 @@ export function CharacterEditor({
   }
   if (isModuleKeyEnabled(ed.draft, "mythic")) {
     optionalSystemItems.push({ key: "mythic", label: "Mythic", render: () => <MythicEditor ed={ed} /> });
+  }
+  if (isModuleKeyEnabled(ed.draft, "psionics")) {
+    optionalSystemItems.push({ key: "psionics", label: "Psionics", render: () => <PsionicsEditor ed={ed} /> });
   }
 
   const sections: SheetSection[] = [
@@ -834,6 +840,175 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
         Path abilities, mythic feats, and tier ability-score boosts get their own editor + a searchable
         compendium in a later pass.
       </p>
+    </div>
+  );
+}
+
+function PsionicsEditor({ ed }: { ed: EditorApi }) {
+  const ps = ed.draft.psionics;
+  const summary = ed.computed.summary.psionics;
+  const max = summary?.powerPoints.max ?? 0;
+  const current = Math.min(ps?.powerPointsCurrent ?? max, max);
+
+  const ensure = (mut: (p: PsionicsBlock) => void) =>
+    ed.update((c) => {
+      if (!c.psionics) c.psionics = { classes: [], powersKnown: [] };
+      mut(c.psionics);
+    });
+  const spendPP = (delta: number) => ensure((p) => (p.powerPointsCurrent = Math.max(0, Math.min(max, current + delta))));
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        A power-point pool spent on powers known. You can never spend more PP on one manifestation than
+        your manifester level ({summary?.maxPowerCost ?? 0}).
+      </p>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+        <span className="text-sm font-medium text-foreground">Power points</span>
+        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendPP(-1)}>
+          − Spend
+        </Button>
+        <span className="tnum text-xl font-semibold text-rune">
+          {current}
+          <span className="text-base text-muted-foreground">/{max}</span>
+        </span>
+        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendPP(1)}>
+          +
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ensure((p) => (p.powerPointsCurrent = max))}>
+          Rest
+        </Button>
+        <label className="ml-auto flex items-center gap-1.5 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={!!ps?.psionicFocus}
+            onChange={(e) => ensure((p) => (p.psionicFocus = e.target.checked || undefined))}
+          />
+          Psionically focused
+        </label>
+      </div>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Psionic classes</h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              ensure((p) =>
+                p.classes.push({
+                  id: newId("psi"),
+                  className: "Psion",
+                  manifesterLevel: 1,
+                  keyAbility: "int",
+                  basePowerPoints: 0,
+                  discipline: "generalist",
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Class
+          </Button>
+        </div>
+        {(ps?.classes.length ?? 0) === 0 && <p className="text-sm text-muted-foreground">No psionic classes yet.</p>}
+        <div className="space-y-2">
+          {ps?.classes.map((cl, i) => {
+            const keyMod = ed.computed.abilities[cl.keyAbility]?.modifier ?? 0;
+            return (
+              <div key={cl.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
+                <TextField
+                  label="Class"
+                  value={cl.className}
+                  onChange={(v) => ensure((p) => { const t = p.classes[i]; if (t) t.className = v; })}
+                  className="min-w-[8rem] flex-1"
+                />
+                <NumberField
+                  label="ML"
+                  value={cl.manifesterLevel}
+                  min={0}
+                  onChange={(v) => ensure((p) => { const t = p.classes[i]; if (t) t.manifesterLevel = v; })}
+                  className="w-16"
+                />
+                <SelectField
+                  label="Key"
+                  value={cl.keyAbility}
+                  onChange={(v) => ensure((p) => { const t = p.classes[i]; if (t) t.keyAbility = v; })}
+                  options={[
+                    { value: "int", label: "INT" },
+                    { value: "wis", label: "WIS" },
+                    { value: "cha", label: "CHA" },
+                  ]}
+                  className="w-20"
+                />
+                <NumberField
+                  label="Base PP"
+                  value={cl.basePowerPoints}
+                  min={0}
+                  onChange={(v) => ensure((p) => { const t = p.classes[i]; if (t) t.basePowerPoints = v; })}
+                  className="w-20"
+                />
+                <SelectField
+                  label="Discipline"
+                  value={cl.discipline}
+                  onChange={(v) => ensure((p) => { const t = p.classes[i]; if (t) t.discipline = v as PsionicsBlock["classes"][number]["discipline"]; })}
+                  options={PSIONIC_DISCIPLINES.map((d) => ({ value: d, label: d[0]!.toUpperCase() + d.slice(1) }))}
+                  className="w-36"
+                />
+                <span className="pb-2 text-xs text-muted-foreground">+{bonusPowerPoints(keyMod, cl.manifesterLevel)} PP</span>
+                <Button variant="ghost" size="icon" aria-label="Remove class" onClick={() => ensure((p) => p.classes.splice(i, 1))}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Powers known ({ps?.powersKnown.length ?? 0})</h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => ensure((p) => p.powersKnown.push({ id: newId("pow"), name: "New power", level: 1 }))}
+          >
+            <Plus className="size-4" /> Power
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {ps?.powersKnown
+            .slice()
+            .map((pw, i) => (
+              <div key={pw.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
+                <TextField
+                  label="Power"
+                  value={pw.name}
+                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.name = v; })}
+                  className="min-w-[10rem] flex-1"
+                />
+                <NumberField
+                  label="Lvl"
+                  value={pw.level}
+                  min={0}
+                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.level = v; })}
+                  className="w-14"
+                />
+                <NumberField
+                  label="PP"
+                  value={pw.ppCost ?? 0}
+                  min={0}
+                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.ppCost = v || undefined; })}
+                  className="w-14"
+                />
+                <Button variant="ghost" size="icon" aria-label="Remove power" onClick={() => ensure((p) => p.powersKnown.splice(i, 1))}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">A searchable power compendium + paste-import lands in the next pass.</p>
+      </section>
     </div>
   );
 }

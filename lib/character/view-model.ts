@@ -194,6 +194,13 @@ export type CharacterViewModel = {
   stamina: { current: number; max: number } | null;
   /** Mythic roll-up (null unless the variant is enabled). */
   mythic: { tier: number; path: string; surgeDie: string; power: { current: number; max: number } } | null;
+  /** Psionics roll-up (null unless the module is enabled). */
+  psionics: {
+    powerPoints: { current: number; max: number };
+    manifesterLevel: number;
+    powersKnown: number;
+    focused: boolean;
+  } | null;
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -489,6 +496,14 @@ export function buildCharacterViewModel(
           path: computed.summary.mythic.path,
           surgeDie: computed.summary.mythic.surgeDie,
           power: computed.summary.mythic.power,
+        }
+      : null,
+    psionics: computed.summary.psionics
+      ? {
+          powerPoints: computed.summary.psionics.powerPoints,
+          manifesterLevel: computed.summary.psionics.manifesterLevel,
+          powersKnown: computed.summary.psionics.powersKnown,
+          focused: computed.summary.psionics.focused,
         }
       : null,
     spellcasting,
