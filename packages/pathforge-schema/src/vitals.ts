@@ -19,6 +19,7 @@ export const healthBlockSchema = z.object({
   hitDice: z.array(hitDiceEntrySchema).default([]),
   damageReduction: z.array(modifierEntrySchema).default([]),
   energyResistance: z.array(modifierEntrySchema).default([]),
+  immunities: z.array(z.string()).default([]),
   conditions: z.array(z.string()).default([]),
 });
 export type HealthBlock = z.infer<typeof healthBlockSchema>;

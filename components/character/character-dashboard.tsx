@@ -57,6 +57,8 @@ export function CharacterDashboard({
             </div>
           </SectionCard>
 
+          <DefensesCard defenses={vm.defenses} />
+
           <SectionCard title="Ability Scores" icon={Sparkles}>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               {vm.abilities.map((a) => (
@@ -340,6 +342,48 @@ function StatTile({
         {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>
+  );
+}
+
+function DefensesCard({ defenses }: { defenses: CharacterViewModel["defenses"] }) {
+  const { damageReduction, energyResistance, immunities, spellResistance, conditions, nonlethal } = defenses;
+  const hasAny =
+    damageReduction.length > 0 ||
+    energyResistance.length > 0 ||
+    immunities.length > 0 ||
+    spellResistance != null ||
+    conditions.length > 0 ||
+    nonlethal > 0;
+  if (!hasAny) return null;
+
+  return (
+    <SectionCard title="Defenses" icon={Shield}>
+      <div className="space-y-1.5">
+        {conditions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {conditions.map((c, i) => (
+              <Badge key={i} variant="danger">
+                {c}
+              </Badge>
+            ))}
+          </div>
+        )}
+        {damageReduction.length > 0 && <DefenseRow label="DR" value={damageReduction.join(", ")} />}
+        {energyResistance.length > 0 && <DefenseRow label="Resist" value={energyResistance.join(", ")} />}
+        {immunities.length > 0 && <DefenseRow label="Immune" value={immunities.join(", ")} />}
+        {spellResistance != null && <DefenseRow label="SR" value={String(spellResistance)} />}
+        {nonlethal > 0 && <DefenseRow label="Nonlethal" value={String(nonlethal)} />}
+      </div>
+    </SectionCard>
+  );
+}
+
+function DefenseRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-sm text-foreground">{value}</span>
+    </div>
   );
 }
 

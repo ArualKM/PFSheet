@@ -147,6 +147,15 @@ export type CharacterViewModel = {
   features: Array<{ name: string; category: string }> | null;
   /** Known languages + the PF1e bonus-language budget. Always visible (not a private section). */
   languages: { known: string[]; budget: LanguageBudget };
+  /** Defensive abilities — DR, energy resistance, immunities, SR, conditions, nonlethal. */
+  defenses: {
+    damageReduction: string[];
+    energyResistance: string[];
+    immunities: string[];
+    spellResistance: number | null;
+    conditions: string[];
+    nonlethal: number;
+  };
   spellcasting: {
     casters: Array<{
       casterId: string;
@@ -358,6 +367,19 @@ export function buildCharacterViewModel(
     languages: {
       known: character.languages.known,
       budget: languageBudget(character, computed),
+    },
+    defenses: {
+      damageReduction: character.health.damageReduction
+        .filter((m) => m.enabled !== false)
+        .map((m) => `${m.value}${m.label ? `/${m.label}` : ""}`),
+      energyResistance: character.health.energyResistance
+        .filter((m) => m.enabled !== false)
+        .map((m) => `${m.label || "Energy"} ${m.value}`),
+      immunities: character.health.immunities,
+      spellResistance:
+        typeof character.defenses.spellResistance === "number" ? character.defenses.spellResistance : null,
+      conditions: character.health.conditions,
+      nonlethal: character.health.nonlethalDamage,
     },
     spellcasting,
     profile,

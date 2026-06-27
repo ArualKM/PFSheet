@@ -44,6 +44,7 @@ export function characterStats(vm: CharacterViewModel) {
     attacks: vm.attacks,
     fullAttack: vm.fullAttack,
     languages: vm.languages,
+    defenses: vm.defenses,
     spellcasting: vm.spellcasting, // full gated spellcasting (null if not visible)
   };
 }

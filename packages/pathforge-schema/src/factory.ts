@@ -89,6 +89,7 @@ export function createDefaultCharacter(options: CreateCharacterOptions = {}): Pa
       hitDice: [],
       damageReduction: [],
       energyResistance: [],
+      immunities: [],
       conditions: [],
     },
     defenses: {

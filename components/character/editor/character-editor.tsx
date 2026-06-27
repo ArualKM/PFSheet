@@ -1296,7 +1296,9 @@ function ModifierRows({
 function HealthEditor({ ed }: { ed: EditorApi }) {
   const h = ed.draft.health;
   const maxHp = typeof h.maxHp === "number" ? h.maxHp : 0;
+  const sr = typeof ed.draft.defenses.spellResistance === "number" ? ed.draft.defenses.spellResistance : 0;
   const [cond, setCond] = useState("");
+  const [imm, setImm] = useState("");
 
   const addCondition = () => {
     const v = cond.trim();
@@ -1305,6 +1307,14 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
       if (!c.health.conditions.includes(v)) c.health.conditions.push(v);
     });
     setCond("");
+  };
+  const addImmunity = () => {
+    const v = imm.trim();
+    if (!v) return;
+    ed.update((c) => {
+      if (!c.health.immunities.includes(v)) c.health.immunities.push(v);
+    });
+    setImm("");
   };
 
   return (
@@ -1382,6 +1392,55 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
         }
         onRemove={(i) => ed.update((c) => c.health.energyResistance.splice(i, 1))}
       />
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Spell resistance &amp; immunities</h3>
+        <div className="mb-3 max-w-[12rem]">
+          <NumberField
+            label="Spell resistance (SR)"
+            value={sr}
+            min={0}
+            onChange={(v) => ed.update((c) => (c.defenses.spellResistance = v || undefined))}
+          />
+        </div>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {h.immunities.length === 0 && <span className="text-sm text-muted-foreground">No immunities.</span>}
+          {h.immunities.map((label, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-xs text-foreground"
+            >
+              {label}
+              <button
+                type="button"
+                aria-label={`Remove ${label}`}
+                onClick={() => ed.update((c) => c.health.immunities.splice(i, 1))}
+                className="text-muted-foreground hover:text-danger"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex max-w-sm gap-2">
+          <input
+            value={imm}
+            placeholder="poison, fear, disease, mind-affecting…"
+            aria-label="Add immunity"
+            onChange={(e) => setImm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addImmunity();
+              }
+            }}
+            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+          />
+          <Button size="sm" variant="secondary" onClick={addImmunity}>
+            Add
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }
