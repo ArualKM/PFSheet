@@ -30,7 +30,7 @@ export function MobileBottomNav() {
                 )}
               >
                 <Icon className="size-5" />
-                <span className="truncate">{item.label.split(" ")[0]}</span>
+                <span className="truncate">{item.shortLabel ?? item.label.split(" ")[0]}</span>
               </Link>
             </li>
           );

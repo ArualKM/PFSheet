@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
-import { LogOut } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { SidebarNav } from "./sidebar-nav";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/lib/actions/auth";
 
 export function AppShell({
   user,
@@ -38,19 +36,13 @@ export function AppShell({
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur md:px-6">
-          <div className="md:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-surface/80 px-4 backdrop-blur md:px-6">
+          <div className="flex items-center gap-1 md:hidden">
+            <MobileNavDrawer user={user} />
             <Logo href="/dashboard" />
           </div>
-          <div className="ml-auto flex items-center gap-1">
-            <div className="md:hidden">
-              <ThemeToggle />
-            </div>
-            <form action={signOutAction} className="md:hidden">
-              <Button variant="ghost" size="icon" type="submit" aria-label="Sign out">
-                <LogOut className="size-4" />
-              </Button>
-            </form>
+          <div className="ml-auto flex items-center gap-1 md:hidden">
+            <ThemeToggle />
           </div>
         </header>
 

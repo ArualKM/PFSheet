@@ -25,6 +25,8 @@
   --pf-success: #57d9a3;
   --pf-focus: #67d5ff;
   --pf-radius: 0.75rem;
+  /* Minimum comfortable touch target (theme-independent). */
+  --pf-tap: 44px;
 }
 
 .parchment {
@@ -164,4 +166,16 @@
 /* Numeric stat readouts use tabular figures so columns stay aligned. */
 @utility tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Minimum comfortable touch target for interactive controls on touch devices. */
+@utility tap-target {
+  min-height: var(--pf-tap);
+  min-width: var(--pf-tap);
+}
+
+/* Fluid stat readout — scales down gracefully on narrow screens instead of wrapping. */
+@utility stat-value {
+  font-size: clamp(1rem, 0.85rem + 1.2vw, 1.35rem);
+  line-height: 1.1;
 }

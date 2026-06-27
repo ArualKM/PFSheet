@@ -22,6 +22,9 @@ const buttonVariants = cva(
         default: "h-10 px-4 py-2",
         lg: "h-11 px-6 text-base",
         icon: "size-10",
+        // Touch-comfortable sizes (>= 44px) for mobile nav/drawer/sheet controls.
+        touch: "h-11 min-w-11 px-4",
+        "icon-touch": "size-11",
       },
     },
     defaultVariants: { variant: "default", size: "default" },
