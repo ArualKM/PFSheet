@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import {
   Check,
@@ -23,6 +24,8 @@ import {
   ScrollText,
   Settings,
   Calculator,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   ABILITY_KEYS,
@@ -96,6 +99,37 @@ export function CharacterEditor({
   const [advanced, setAdvanced] = useState(false);
   const [activeSection, setActiveSection] = useState("core");
   const [activeSub, setActiveSub] = useState("details");
+
+  // Restore the last-open section/sub on mount (client-only; per character). Done in an
+  // effect, not lazy init, to avoid an SSR/client hydration mismatch.
+  const navKey = `pf-editor-nav:${characterId}`;
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(navKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { section?: string; sub?: string };
+      if (saved.section) setActiveSection(saved.section);
+      if (saved.sub) setActiveSub(saved.sub);
+    } catch {
+      // ignore unreadable/absent storage
+    }
+  }, [navKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // Skip the first persist so the initial default state can't clobber the saved nav
+  // before the restore effect's update commits; persist on every change after.
+  const skipInitialPersist = useRef(true);
+  useEffect(() => {
+    if (skipInitialPersist.current) {
+      skipInitialPersist.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(navKey, JSON.stringify({ section: activeSection, sub: activeSub }));
+    } catch {
+      // ignore quota/unavailable
+    }
+  }, [navKey, activeSection, activeSub]);
 
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
   // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
@@ -172,7 +206,9 @@ export function CharacterEditor({
 
   const section = sections.find((s) => s.key === activeSection) ?? sections[0]!;
   const sub = section.items.find((i) => i.key === activeSub) ?? section.items[0]!;
-  const panelLabelId = section.items.length > 1 ? `subtab-${activeSub}` : `section-tab-${activeSection}`;
+  // Label the panel by the RESOLVED sub/section (always present + visible at every
+  // breakpoint), not the raw stored key which may be stale or in a hidden rail.
+  const panelLabelId = section.items.length > 1 ? `subtab-${sub.key}` : `panel-heading-${section.key}`;
 
   // Roving-tabindex arrow-key movement for the two tablists.
   const onSectionKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
@@ -205,17 +241,21 @@ export function CharacterEditor({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[190px_minmax(0,1fr)_300px]">
-      <div className="lg:sticky lg:top-20 lg:self-start">
+    <div className="grid gap-4 md:grid-cols-[190px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)_300px]">
+      {/* Section rail — md+ only (the < md picker is a bottom sheet). Keeps the
+          tablist + roving-tabindex a11y intact. */}
+      <div className="hidden md:sticky md:top-20 md:block md:self-start">
         <div
           role="tablist"
           aria-orientation="vertical"
           aria-label="Sheet sections"
-          className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1 lg:flex-col lg:overflow-visible"
+          className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-1"
         >
           {sections.map((s, idx) => {
             const Icon = s.icon;
-            const active = s.key === activeSection;
+            // Compare to the RESOLVED section so a stale stored key can't leave the rail
+            // with no selected tab (which would make every tab tabIndex=-1, unreachable).
+            const active = s.key === section.key;
             return (
               <button
                 key={s.key}
@@ -244,6 +284,21 @@ export function CharacterEditor({
       </div>
 
       <div className="min-w-0">
+        {/* Mobile section picker (< md) — a bottom sheet listing all sections. */}
+        <div className="mb-3 md:hidden">
+          <SectionSheet
+            sections={sections}
+            activeKey={activeSection}
+            onSelect={(sKey, subKey) => {
+              setActiveSection(sKey);
+              setActiveSub(subKey);
+            }}
+          />
+        </div>
+
+        {/* Mobile/tablet live-preview stat bar (< lg) — sticky, expands inline. */}
+        <LivePreviewBar ed={ed} characterId={characterId} advanced={advanced} />
+
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {section.items.length > 1 ? (
             <div role="tablist" aria-label={`${section.label} panels`} className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
@@ -253,14 +308,14 @@ export function CharacterEditor({
                   type="button"
                   role="tab"
                   id={`subtab-${i.key}`}
-                  aria-selected={i.key === activeSub}
+                  aria-selected={i.key === sub.key}
                   aria-controls="editor-panel"
-                  tabIndex={i.key === activeSub ? 0 : -1}
+                  tabIndex={i.key === sub.key ? 0 : -1}
                   onClick={() => setActiveSub(i.key)}
                   onKeyDown={(e) => onSubKeyDown(e, idx)}
                   className={cn(
                     "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                    i.key === activeSub
+                    i.key === sub.key
                       ? "bg-surface-raised text-foreground"
                       : "text-muted-foreground hover:text-foreground",
                   )}
@@ -270,7 +325,9 @@ export function CharacterEditor({
               ))}
             </div>
           ) : (
-            <h2 className="px-1 text-sm font-semibold text-foreground">{section.items[0]!.label}</h2>
+            <h2 id={`panel-heading-${section.key}`} className="px-1 text-sm font-semibold text-foreground">
+              {section.items[0]!.label}
+            </h2>
           )}
           <div className="flex items-center gap-2">
             <button
@@ -307,9 +364,108 @@ export function CharacterEditor({
         </Card>
       </div>
 
-      <aside className="h-fit lg:sticky lg:top-20">
+      <aside className="hidden h-fit lg:sticky lg:top-20 lg:block">
         <LivePreview ed={ed} characterId={characterId} advanced={advanced} />
       </aside>
+    </div>
+  );
+}
+
+/** Mobile (< md) section picker: a button showing the active section that opens a
+ *  bottom-sheet list of all sections (replaces the desktop vertical rail). */
+function SectionSheet({
+  sections,
+  activeKey,
+  onSelect,
+}: {
+  sections: SheetSection[];
+  activeKey: string;
+  onSelect: (sectionKey: string, subKey: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = sections.find((s) => s.key === activeKey) ?? sections[0]!;
+  const ActiveIcon = active.icon;
+  return (
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className="tap-target flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium"
+        >
+          <ActiveIcon className="size-4 text-gold" />
+          <span className="text-foreground">{active.label}</span>
+          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden" />
+        <Dialog.Content
+          className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface p-3 focus:outline-none md:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          <Dialog.Title className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Sheet sections
+          </Dialog.Title>
+          <div className="mt-1 space-y-1">
+            {sections.map((s) => {
+              const Icon = s.icon;
+              const isActive = s.key === activeKey;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => {
+                    onSelect(s.key, s.items[0]!.key);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "tap-target flex w-full items-center gap-3 rounded-lg px-3 text-left text-sm",
+                    isActive ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className={cn("size-4 shrink-0", isActive ? "text-gold" : "")} />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+/** Mobile/tablet (< lg) live-preview: a sticky collapsed stat bar that expands inline
+ *  to the full LivePreview — the "edit a field, watch the math" loop at the table. */
+function LivePreviewBar({ ed, characterId, advanced }: { ed: EditorApi; characterId: string; advanced: boolean }) {
+  const [open, setOpen] = useState(false);
+  const s = ed.computed.summary;
+  return (
+    <div className="sticky top-20 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="mobile-live-preview"
+        className="tap-target flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs"
+      >
+        <span className="tnum font-semibold text-foreground">
+          HP {s.hp.current}/{s.hp.max}
+        </span>
+        <span className="tnum text-muted-foreground">AC {s.ac}</span>
+        <span className="tnum text-muted-foreground">
+          F {formatModifier(s.fortitude)} · R {formatModifier(s.reflex)} · W {formatModifier(s.will)}
+        </span>
+        <span className="ml-auto inline-flex items-center gap-1 text-rune">
+          {open ? "Hide" : "Stats"}
+          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {/* Always render the region so aria-controls resolves; only mount the (heavier)
+          preview when expanded. */}
+      <div id="mobile-live-preview" hidden={!open} className="border-t border-border p-2">
+        {open && <LivePreview ed={ed} characterId={characterId} advanced={advanced} />}
+      </div>
     </div>
   );
 }
