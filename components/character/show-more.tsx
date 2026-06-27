@@ -1,30 +1,30 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Children, useState, type ReactNode } from "react";
 
 /**
- * Renders the first `cap` items with a "Show all N" toggle — progressive disclosure
- * for long read-view lists on small screens. The full list is already in props (a
- * client-side slice of already-authorized data; nothing is fetched, so it can't leak).
+ * Renders the first `cap` children with a "Show all N" toggle — progressive disclosure
+ * for long read-view lists on small screens. Takes pre-rendered children (NOT a render
+ * function) so it works when used from a Server Component — a function prop can't cross
+ * the server→client boundary. The full list is already in the (already-authorized) props.
  */
-export function ShowMore<T>({
-  items,
+export function ShowMore({
+  children,
   cap = 6,
-  render,
   className,
   noun = "",
 }: {
-  items: T[];
+  children: ReactNode;
   cap?: number;
-  render: (item: T, index: number) => ReactNode;
   className?: string;
   noun?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const items = Children.toArray(children);
   const shown = expanded ? items : items.slice(0, cap);
   return (
     <>
-      <div className={className}>{shown.map(render)}</div>
+      <div className={className}>{shown}</div>
       {items.length > cap && (
         <button
           type="button"

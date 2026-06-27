@@ -69,12 +69,8 @@ export function CharacterDashboard({
 
           {vm.attacks && vm.attacks.length > 0 && (
             <SectionCard title="Attacks" icon={Swords}>
-              <ShowMore
-                items={vm.attacks}
-                cap={6}
-                noun="attacks"
-                className="divide-y divide-border/60"
-                render={(atk, i) => (
+              <ShowMore cap={6} noun="attacks" className="divide-y divide-border/60">
+                {vm.attacks.map((atk, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 py-2">
                     <span className="truncate text-sm text-foreground">{atk.name}</span>
                     <span className="flex items-center gap-4">
@@ -84,25 +80,21 @@ export function CharacterDashboard({
                       {atk.damage && <span className="tnum text-sm text-gold">{atk.damage}</span>}
                     </span>
                   </div>
-                )}
-              />
+                ))}
+              </ShowMore>
             </SectionCard>
           )}
 
           {rankedSkills.length > 0 && (
             <SectionCard title="Skills" icon={ScrollText}>
-              <ShowMore
-                items={rankedSkills}
-                cap={8}
-                noun="skills"
-                className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3"
-                render={(s) => (
+              <ShowMore cap={8} noun="skills" className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
+                {rankedSkills.map((s) => (
                   <div key={s.key} className="flex items-center justify-between border-b border-border/40 py-1">
                     <span className="truncate text-sm text-foreground">{s.label}</span>
                     <span className="tnum text-sm font-semibold text-rune">{formatModifier(s.total)}</span>
                   </div>
-                )}
-              />
+                ))}
+              </ShowMore>
             </SectionCard>
           )}
         </div>
@@ -189,17 +181,13 @@ export function CharacterDashboard({
 
           {vm.feats && vm.feats.length > 0 && (
             <SectionCard title="Feats" icon={Sparkles}>
-              <ShowMore
-                items={vm.feats}
-                cap={12}
-                noun="feats"
-                className="flex flex-wrap gap-1.5"
-                render={(f, i) => (
+              <ShowMore cap={12} noun="feats" className="flex flex-wrap gap-1.5">
+                {vm.feats.map((f, i) => (
                   <Badge key={i} variant="outline">
                     {f.name}
                   </Badge>
-                )}
-              />
+                ))}
+              </ShowMore>
             </SectionCard>
           )}
 
