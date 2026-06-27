@@ -223,6 +223,36 @@ function avgPerHitDie(hitDie: number): number {
   return Math.floor(hitDie / 2) + 1;
 }
 
+/**
+ * Compute max HP from a character's class levels (PF1e): the very first character level takes the
+ * full die; later levels take the die ("max") or its average ("average"). Each level adds the base
+ * Constitution modifier, floored at a minimum of 1 hp per Hit Die, then favored-class hp bonuses are
+ * added. Uses the base Con score (temporary Con boosts grant temp hp, not max hp). A class with no
+ * hitDie defaults to d8.
+ */
+export function computeMaxHpFromLevels(
+  character: PathForgeCharacterV1,
+  method: "average" | "max",
+): { total: number; hd: number; con: number; fcb: number; levels: number } {
+  const conMod = Math.floor(((character.abilities.primary.con.score ?? 10) - 10) / 2);
+  const fcb = Math.max(0, character.health.favoredClassHpBonus ?? 0);
+  let hd = 0;
+  let levels = 0;
+  let rolled = 0;
+  let first = true;
+  for (const row of character.identity.classes) {
+    const die = hitDieNumber(row.hitDie) || 8;
+    for (let l = 0; l < row.level; l++) {
+      const base = first ? die : method === "max" ? die : avgPerHitDie(die);
+      first = false;
+      hd += base;
+      levels += 1;
+      rolled += Math.max(1, base + conMod); // each HD yields at least 1 hp after Con
+    }
+  }
+  return { total: rolled + fcb, hd, con: conMod * levels, fcb, levels };
+}
+
 export type ClassApplyReport = {
   wrote: string[];
   skipped: string[];
@@ -271,7 +301,7 @@ export function recomputeClassDerived(
   const manualCount = character.identity.classes.length - linked.length;
   if (manualCount > 0) {
     warnings.push(
-      `${manualCount} class${manualCount === 1 ? "" : "es"} without a preset weren't included in the BAB/save/HP recompute — set those manually.`,
+      `${manualCount} class${manualCount === 1 ? "" : "es"} without a preset weren't included in the BAB/save recompute — set those manually. (HP from levels counts every class; set its Hit Die or it defaults to d8.)`,
     );
   }
 
@@ -304,23 +334,11 @@ export function recomputeClassDerived(
 
   const hpMethod = opts.hpMethod ?? "manual";
   if (hpMethod !== "manual") {
-    // First level of the FIRST class always takes max; the rest follow the method.
-    let hp = 0;
-    let firstLevelTaken = false;
-    for (const { row, preset } of linked) {
-      const die = hitDieNumber(row.hitDie) || preset.hitDie;
-      for (let l = 0; l < row.level; l++) {
-        if (!firstLevelTaken) {
-          hp += die;
-          firstLevelTaken = true;
-        } else {
-          hp += hpMethod === "max" ? die : avgPerHitDie(die);
-        }
-      }
-    }
+    // HD (across all classes, not just preset-linked) + Con + favored-class hp.
+    const hp = computeMaxHpFromLevels(character, hpMethod).total;
     character.health.maxHp = hp;
     if (character.health.currentHp === 0) character.health.currentHp = hp;
-    wrote.push(`Set max HP to ${hp} (${hpMethod})`);
+    wrote.push(`Set max HP to ${hp} (${hpMethod} + Con + FCB)`);
   }
 
   return { wrote, warnings };

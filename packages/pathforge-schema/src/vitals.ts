@@ -18,6 +18,8 @@ export const healthBlockSchema = z.object({
   nonlethalDamage: z.number().int().default(0),
   /** Negative levels from energy drain: −1 per level to attacks/saves/checks and −5 hp each. */
   negativeLevels: z.number().int().default(0),
+  /** Total HP gained from favored-class bonuses (count of levels you took the +1 hp option). */
+  favoredClassHpBonus: z.number().int().default(0),
   hitDice: z.array(hitDiceEntrySchema).default([]),
   damageReduction: z.array(modifierEntrySchema).default([]),
   energyResistance: z.array(modifierEntrySchema).default([]),

@@ -33,6 +33,7 @@ import {
   OPTIONAL_RULE_MODULES,
   isRuleEnabled,
   recomputeClassDerived,
+  computeMaxHpFromLevels,
   type PathForgeCharacterV1,
   type AbilityKey,
   type ModifierEntry,
@@ -829,6 +830,24 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 }
                 className="w-32"
               />
+              <SelectField
+                label="Hit Die"
+                value={cl.hitDie ?? ""}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    const target = c.identity.classes[i];
+                    if (target) target.hitDie = v || undefined;
+                  })
+                }
+                options={[
+                  { value: "", label: "—" },
+                  { value: "d6", label: "d6" },
+                  { value: "d8", label: "d8" },
+                  { value: "d10", label: "d10" },
+                  { value: "d12", label: "d12" },
+                ]}
+                className="w-20"
+              />
               <NumberField
                 label="Level"
                 value={cl.level}
@@ -1351,6 +1370,13 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
   const removeCondDef = (i: number) => ed.update((c) => c.defenses.conditionalDefenses.splice(i, 1));
 
   const [hpDelta, setHpDelta] = useState(5);
+  const [hpMethod, setHpMethod] = useState<"average" | "max">("average");
+  const hpFromLevels = computeMaxHpFromLevels(ed.draft, hpMethod);
+  const applyComputedHp = () =>
+    ed.update((c) => {
+      c.health.maxHp = hpFromLevels.total;
+      if (c.health.currentHp === 0) c.health.currentHp = hpFromLevels.total;
+    });
   const hpMax = ed.computed.summary.hp.max;
   const hpState = ed.computed.summary.hp.status;
   const damage = (amount: number) => ed.update((c) => (c.health.currentHp -= amount));
@@ -1393,6 +1419,44 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
           <span className="ml-auto text-sm font-semibold uppercase tracking-wide text-danger">{hpState}</span>
         )}
       </div>
+
+      <section>
+        <h3 className="mb-2 text-sm font-semibold text-foreground">Compute HP from levels</h3>
+        <div className="flex flex-wrap items-end gap-3">
+          <SelectField
+            label="Method"
+            value={hpMethod}
+            onChange={(v) => setHpMethod(v as "average" | "max")}
+            options={[
+              { value: "average", label: "Average" },
+              { value: "max", label: "Max" },
+            ]}
+            className="w-28"
+          />
+          <NumberField
+            label="Favored-class HP"
+            value={ed.draft.health.favoredClassHpBonus}
+            min={0}
+            onChange={(v) => ed.update((c) => (c.health.favoredClassHpBonus = v))}
+            className="w-32"
+          />
+          <div className="pb-1.5 text-sm text-muted-foreground">
+            ={" "}
+            <span className="font-semibold text-foreground">{hpFromLevels.total} HP</span>{" "}
+            <span className="text-xs">
+              (HD {hpFromLevels.hd}
+              {hpFromLevels.con ? ` · Con ${hpFromLevels.con >= 0 ? "+" : ""}${hpFromLevels.con}` : ""}
+              {hpFromLevels.fcb ? ` · FCB +${hpFromLevels.fcb}` : ""})
+            </span>
+          </div>
+          <Button size="sm" variant="secondary" onClick={applyComputedHp} disabled={hpFromLevels.levels === 0}>
+            Apply to Max HP
+          </Button>
+        </div>
+        {hpFromLevels.levels === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">Add class levels on the Identity tab to compute HP.</p>
+        )}
+      </section>
 
       <section>
         <h3 className="mb-2 text-sm font-semibold text-foreground">Conditions</h3>
