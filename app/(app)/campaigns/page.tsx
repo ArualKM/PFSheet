@@ -3,10 +3,9 @@ import Link from "next/link";
 import { Swords, Users, ArrowRight } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CampaignCreateForm } from "@/components/campaign/campaign-create-form";
+import { CampaignsHeader } from "@/components/campaign/campaigns-header";
 
 export const metadata: Metadata = { title: "Campaigns" };
 
@@ -38,11 +37,7 @@ export default async function CampaignsPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Campaigns"
-        description="Group characters into a table, review sheets as a GM, and keep the party in sync."
-        actions={<CampaignCreateForm />}
-      />
+      <CampaignsHeader />
 
       {campaigns.length === 0 ? (
         <Card className="border-dashed">

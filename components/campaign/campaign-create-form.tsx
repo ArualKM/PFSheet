@@ -1,35 +1,27 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useActionState } from "react";
+import { X } from "lucide-react";
 import { createCampaignAction, type CreateCampaignState } from "@/lib/actions/campaigns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function CampaignCreateForm() {
-  const [open, setOpen] = useState(false);
+/** Controlled create form — rendered full-width below the page header by CampaignsHeader. */
+export function CampaignCreateForm({ onClose }: { onClose: () => void }) {
   const [state, formAction, pending] = useActionState<CreateCampaignState, FormData>(
     createCampaignAction,
     {},
   );
 
-  if (!open) {
-    return (
-      <Button onClick={() => setOpen(true)}>
-        <Plus className="size-4" /> New campaign
-      </Button>
-    );
-  }
-
   return (
-    <Card className="w-full">
+    <Card className="mb-6 w-full">
       <CardContent className="p-5">
         <form action={formAction} className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Create a campaign</h2>
-            <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose}>
               <X className="size-4" />
               <span className="sr-only">Cancel</span>
             </Button>
@@ -58,7 +50,7 @@ export function CampaignCreateForm() {
           </div>
           {state.error && <p className="text-sm text-danger">{state.error}</p>}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
