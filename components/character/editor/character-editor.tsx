@@ -1350,13 +1350,48 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
     });
   const removeCondDef = (i: number) => ed.update((c) => c.defenses.conditionalDefenses.splice(i, 1));
 
+  const [hpDelta, setHpDelta] = useState(5);
+  const hpMax = ed.computed.summary.hp.max;
+  const hpState = ed.computed.summary.hp.status;
+  const damage = (amount: number) => ed.update((c) => (c.health.currentHp -= amount));
+  const heal = (amount: number) =>
+    ed.update((c) => {
+      // Healing restores hp (up to max) and removes an equal amount of nonlethal damage.
+      c.health.currentHp = Math.min(hpMax, c.health.currentHp + amount);
+      c.health.nonlethalDamage = Math.max(0, c.health.nonlethalDamage - amount);
+    });
+  const nonlethalHit = (amount: number) =>
+    ed.update((c) => (c.health.nonlethalDamage = Math.max(0, c.health.nonlethalDamage + amount)));
+
   return (
     <div className="space-y-6">
-      <div className="grid max-w-xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid max-w-3xl gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <NumberField label="Max HP" value={maxHp} min={0} onChange={(v) => ed.update((c) => (c.health.maxHp = v))} />
         <NumberField label="Current HP" value={h.currentHp} onChange={(v) => ed.update((c) => (c.health.currentHp = v))} />
         <NumberField label="Temp HP" value={h.tempHp} min={0} onChange={(v) => ed.update((c) => (c.health.tempHp = v))} />
         <NumberField label="Nonlethal" value={h.nonlethalDamage} min={0} onChange={(v) => ed.update((c) => (c.health.nonlethalDamage = v))} />
+        <NumberField
+          label="Negative levels"
+          value={h.negativeLevels}
+          min={0}
+          onChange={(v) => ed.update((c) => (c.health.negativeLevels = v))}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-3">
+        <NumberField label="Quick adjust" value={hpDelta} min={0} onChange={setHpDelta} className="w-28" />
+        <Button size="sm" variant="outline" onClick={() => damage(hpDelta)}>
+          − Damage
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => heal(hpDelta)}>
+          + Heal
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => nonlethalHit(hpDelta)}>
+          Nonlethal
+        </Button>
+        {hpState !== "ok" && (
+          <span className="ml-auto text-sm font-semibold uppercase tracking-wide text-danger">{hpState}</span>
+        )}
       </div>
 
       <section>

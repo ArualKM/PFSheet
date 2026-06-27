@@ -139,7 +139,9 @@ export function auditCharacter(
     }
   }
 
-  const maxHp = num(computed.summary.hp?.max);
+  // Audit the stored max, not computed.summary.hp.max — the latter is reduced by negative levels,
+  // so an energy-drained PC (stored max ≤ 5×levels) would otherwise false-positive this warning.
+  const maxHp = num(character.health.maxHp);
   if (totalLevel > 0 && maxHp <= 0) {
     warnings.push({
       id: "hp-nonpositive",

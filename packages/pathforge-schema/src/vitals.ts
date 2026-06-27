@@ -16,6 +16,8 @@ export const healthBlockSchema = z.object({
   currentHp: z.number().int().default(0),
   tempHp: z.number().int().default(0),
   nonlethalDamage: z.number().int().default(0),
+  /** Negative levels from energy drain: −1 per level to attacks/saves/checks and −5 hp each. */
+  negativeLevels: z.number().int().default(0),
   hitDice: z.array(hitDiceEntrySchema).default([]),
   damageReduction: z.array(modifierEntrySchema).default([]),
   energyResistance: z.array(modifierEntrySchema).default([]),

@@ -208,6 +208,21 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
     }
   }
 
+  // Negative levels (energy drain): −1 per level to attacks, saves, and skill/ability checks.
+  // (Each also costs 5 hp — applied to the HP summary, not the modifier index.)
+  const negLevels = Math.max(0, character.health.negativeLevels ?? 0);
+  if (negLevels > 0) {
+    for (const target of ["attack", "saves", "skills"]) {
+      const mod = modifierEntryToMod("Negative levels", {
+        id: `neglevel-${target}`,
+        label: `Negative levels (×${negLevels})`,
+        value: -negLevels,
+        enabled: true,
+      });
+      if (mod) push(classifyTarget(target), mod);
+    }
+  }
+
   // Always-on modifiers entered directly on a stat (entries with no condition).
   for (const m of character.defenses.armorClass.conditionalModifiers) {
     push("ac", modifierEntryToMod("Armor Class", m));
@@ -271,6 +286,20 @@ function weaponDamageMod(abilityMod: number, handed: string): number {
 
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
+}
+
+/** PF1e health status from lethal + nonlethal damage. Dead at hp ≤ −Con score. */
+function hpStatus(
+  current: number,
+  nonlethal: number,
+  conScore: number,
+): "ok" | "staggered" | "disabled" | "unconscious" | "dying" | "dead" {
+  if (current <= -conScore) return "dead";
+  if (current < 0) return "dying";
+  if (current === 0) return "disabled";
+  if (nonlethal > current) return "unconscious";
+  if (nonlethal === current) return "staggered";
+  return "ok";
 }
 
 /**
@@ -487,7 +516,14 @@ export type ComputedCharacter = {
     initiative: number;
     /** Effective land speed: parsed base + stacked speed modifiers (buffs). */
     speed: { base: number; bonus: number; total: number };
-    hp: { current: number; max: number; temp: number };
+    hp: {
+      current: number;
+      max: number;
+      temp: number;
+      nonlethal: number;
+      negativeLevels: number;
+      status: "ok" | "staggered" | "disabled" | "unconscious" | "dying" | "dead";
+    };
     /** Compact spellcasting roll-up (absent for non-casters). */
     spells?: { casterCount: number; highestSpellLevel: number; totalSlots: number; usedSlots: number };
   };
@@ -763,6 +799,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   const spellcasting = computeSpellcasting(character, abilities, resolver);
   resolver.local = {};
 
+  const negLevels = Math.max(0, character.health.negativeLevels ?? 0);
+
   return {
     abilities,
     armorClass,
@@ -788,8 +826,16 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       speed: { base: speedBase, bonus: speedBonus, total: speedBase + speedBonus },
       hp: {
         current: character.health.currentHp,
-        max: num(character.health.maxHp),
+        // Energy drain lowers the hp ceiling by 5 per negative level.
+        max: Math.max(0, num(character.health.maxHp) - 5 * negLevels),
         temp: character.health.tempHp,
+        nonlethal: character.health.nonlethalDamage,
+        negativeLevels: negLevels,
+        status: hpStatus(
+          character.health.currentHp,
+          character.health.nonlethalDamage,
+          abilities.con?.effectiveScore ?? 10,
+        ),
       },
       spells: spellcasting.length
         ? {

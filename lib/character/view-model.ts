@@ -131,7 +131,14 @@ export type CharacterViewModel = {
     visibility: string;
   };
   vitals: {
-    hp: { current: number; max: number; temp: number };
+    hp: {
+      current: number;
+      max: number;
+      temp: number;
+      nonlethal: number;
+      negativeLevels: number;
+      status: "ok" | "staggered" | "disabled" | "unconscious" | "dying" | "dead";
+    };
     ac: { total: number; touch: number; flatFooted: number };
     cmb: number;
     cmd: number;
