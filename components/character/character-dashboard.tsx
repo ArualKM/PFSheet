@@ -87,6 +87,11 @@ export function CharacterDashboard({
         />
       </div>
 
+      {/* Mobile: the infobox rides up top as a wide banner (on desktop it lives in the sidebar). */}
+      <div className="lg:hidden">
+        <InfoBox vm={vm} variant="banner" />
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Left / main column */}
         <div className="min-w-0 space-y-3 lg:col-span-2">
@@ -393,7 +398,10 @@ export function CharacterDashboard({
 
         {/* Right / sidebar column — wiki-style infobox + at-a-glance trackers */}
         <div className="min-w-0 space-y-3">
-          <InfoBox vm={vm} />
+          {/* Desktop: the full wiki infobox; on mobile it's the top banner above instead. */}
+          <div className="hidden lg:block">
+            <InfoBox vm={vm} />
+          </div>
           {vm.heroPoints && (
             <SectionCard title="Hero Points" icon={Sparkles}>
               <div className="flex items-center gap-2">
@@ -675,7 +683,7 @@ function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode
 }
 
 /** Wiki-style infobox: a large portrait + a structured facts panel (identity + topline appearance). */
-function InfoBox({ vm }: { vm: CharacterViewModel }) {
+function InfoBox({ vm, variant = "sidebar" }: { vm: CharacterViewModel; variant?: "sidebar" | "banner" }) {
   const facts: Array<[string, string | undefined]> = [
     ["Race", vm.header.race],
     ["Alignment", vm.header.alignment],
@@ -693,6 +701,40 @@ function InfoBox({ vm }: { vm: CharacterViewModel }) {
     ["Features", vm.profile?.distinguishingFeatures],
   ];
   const shown = facts.filter((f): f is [string, string] => Boolean(f[1]));
+
+  // Mobile banner: a wide horizontal card (portrait left, facts in a 2-col grid) so the identity/
+  // portrait sits near the top instead of being pushed to the very bottom under the stacked columns.
+  if (variant === "banner") {
+    return (
+      <Card className="overflow-hidden">
+        <CardContent className="flex gap-4 p-4">
+          <div className="aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-raised sm:w-28">
+            <PortraitImage src={vm.header.portraitUrl} alt={vm.header.name} fallback={vm.header.name.charAt(0)} />
+          </div>
+          <div className="min-w-0 flex-1 space-y-2">
+            {vm.header.quote && (
+              <p className="text-sm italic text-muted-foreground">&ldquo;{vm.header.quote}&rdquo;</p>
+            )}
+            {shown.length > 0 && (
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                {shown.map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </dt>
+                    <dd className="truncate text-foreground" title={value}>
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="aspect-[3/4] w-full overflow-hidden bg-surface-raised">
