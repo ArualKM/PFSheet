@@ -73,7 +73,7 @@ import { ConflictResolver } from "./conflict-resolver";
 import { PortraitImage } from "../portrait-image";
 import { NumberField, TextField, TextAreaField, SelectField } from "./fields";
 import { BuffCenter } from "./buff-center";
-import { CombatEditor } from "./combat-editor";
+import { CombatEditor, SpeedEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
 import { ClassPresetPicker } from "./class-preset-picker";
@@ -202,6 +202,7 @@ export function CharacterEditor({
         { key: "details", label: "Character details", render: () => <IdentityEditor ed={ed} /> },
         { key: "abilities", label: "Ability scores", render: () => <AbilitiesEditor ed={ed} advanced={advanced} /> },
         { key: "languages", label: "Languages", render: () => <LanguagesEditor ed={ed} /> },
+        { key: "speed", label: "Speed", render: () => <SpeedEditor ed={ed} /> },
         { key: "health", label: "Health & wounds", render: () => <HealthEditor ed={ed} /> },
       ],
     },
@@ -218,7 +219,7 @@ export function CharacterEditor({
       key: "attacks",
       label: "Attacks",
       icon: Swords,
-      items: [{ key: "combat", label: "Attacks & speed", render: () => <CombatEditor ed={ed} /> }],
+      items: [{ key: "combat", label: "Attacks", render: () => <CombatEditor ed={ed} /> }],
     },
     {
       key: "abilities",

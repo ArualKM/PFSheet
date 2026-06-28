@@ -31,10 +31,43 @@ function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function CombatEditor({ ed }: { ed: CharacterEditorApi }) {
-  const attacks = ed.draft.combat.attacks;
+/** Movement speeds — a Core/movement trait, surfaced in the editor's Core section (not under Attacks). */
+export function SpeedEditor({ ed }: { ed: CharacterEditorApi }) {
   const speed = ed.draft.combat.speed;
   const computedSpeed = ed.computed.summary.speed;
+  return (
+    <section>
+      <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <Gauge className="size-4" /> Speed
+        {computedSpeed.bonus !== 0 && (
+          <Badge variant="gold">
+            {computedSpeed.total} ft {computedSpeed.bonus >= 0 ? "+" : ""}
+            {computedSpeed.bonus} from buffs
+          </Badge>
+        )}
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {SPEED_MODES.map((m) => (
+          <TextField
+            key={m.key}
+            label={m.label}
+            value={speed[m.key] ?? ""}
+            onChange={(v) =>
+              ed.update((c) => {
+                if (m.key === "base") c.combat.speed.base = v;
+                else c.combat.speed[m.key] = v || undefined;
+              })
+            }
+            placeholder={m.key === "base" ? "30 ft" : "—"}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function CombatEditor({ ed }: { ed: CharacterEditorApi }) {
+  const attacks = ed.draft.combat.attacks;
   // Only manual attacks are editable rows here; weapon-generated computed attacks (id "pf:weapon:…")
   // are excluded so they can never shadow a manual row's computed values.
   const computedById = new Map(
@@ -63,33 +96,6 @@ export function CombatEditor({ ed }: { ed: CharacterEditorApi }) {
 
   return (
     <div className="space-y-6">
-      <section>
-        <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Gauge className="size-4" /> Speed
-          {computedSpeed.bonus !== 0 && (
-            <Badge variant="gold">
-              {computedSpeed.total} ft {computedSpeed.bonus >= 0 ? "+" : ""}
-              {computedSpeed.bonus} from buffs
-            </Badge>
-          )}
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {SPEED_MODES.map((m) => (
-            <TextField
-              key={m.key}
-              label={m.label}
-              value={speed[m.key] ?? ""}
-              onChange={(v) =>
-                ed.update((c) => {
-                  if (m.key === "base") c.combat.speed.base = v;
-                  else c.combat.speed[m.key] = v || undefined;
-                })
-              }
-              placeholder={m.key === "base" ? "30 ft" : "—"}
-            />
-          ))}
-        </div>
-      </section>
 
       <section>
         <div className="mb-2 flex items-center justify-between">
