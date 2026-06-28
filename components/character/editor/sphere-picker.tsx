@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Check, X, Loader2 } from "lucide-react";
+import { applyTraditionGrants } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -182,13 +183,15 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
       });
     });
   // Selecting a tradition sets it and applies its granted drawbacks/boons (prose → editable lines the
-  // player can trim), de-duped so re-picking doesn't pile up.
+  // player can trim). Provenance-tracked, so switching A→B REPLACES the old grants instead of stacking.
   const applyTradition = (r: TraditionResult) =>
-    ensure((s) => {
-      s.tradition = r.name;
-      for (const d of grantLines(r.drawbacks_gained)) if (!s.drawbacks.includes(d)) s.drawbacks.push(d);
-      for (const b of grantLines(r.boons_gained)) if (!s.boons.includes(b)) s.boons.push(b);
-    });
+    ensure((s) =>
+      applyTraditionGrants(s, {
+        name: r.name,
+        drawbacks: grantLines(r.drawbacks_gained),
+        boons: grantLines(r.boons_gained),
+      }),
+    );
 
   const placeholder =
     mode === "talents"

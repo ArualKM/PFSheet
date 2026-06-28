@@ -54,6 +54,11 @@ export const spheresBlockSchema = z.object({
   tradition: z.string().optional(),
   drawbacks: z.array(z.string()).default([]),
   boons: z.array(z.string()).default([]),
+  /** Provenance: the drawback/boon lines the CURRENT tradition contributed, so switching traditions
+   * removes the old grants instead of stacking them (manually-added entries are left alone). */
+  traditionGrants: z
+    .object({ drawbacks: z.array(z.string()), boons: z.array(z.string()) })
+    .optional(),
   /** Current spell points; the maximum is derived (Σ class level + casting ability mod + bonus). */
   spellPointsCurrent: z.number().int().optional(),
   bonusSpellPoints: z.number().int().default(0),
@@ -70,4 +75,22 @@ export function sphereCasterLevel(casterType: SphereCasterType, classLevel: numb
   if (casterType === "high") return lvl;
   if (casterType === "mid") return Math.floor((lvl * 3) / 4);
   return Math.floor(lvl / 2);
+}
+
+/** Set a character's tradition and apply its granted drawbacks/boons (as editable lines), REPLACING
+ * the previous tradition's grants via `traditionGrants` provenance so A→B doesn't stack. Manually-added
+ * drawbacks/boons (not in the prior grants) are preserved. Mutates the block in place. */
+export function applyTraditionGrants(
+  block: Pick<SpheresBlock, "drawbacks" | "boons" | "tradition" | "traditionGrants">,
+  tradition: { name: string; drawbacks: string[]; boons: string[] },
+): void {
+  const prev = block.traditionGrants;
+  if (prev) {
+    block.drawbacks = block.drawbacks.filter((d) => !prev.drawbacks.includes(d));
+    block.boons = block.boons.filter((b) => !prev.boons.includes(b));
+  }
+  block.tradition = tradition.name;
+  for (const d of tradition.drawbacks) if (!block.drawbacks.includes(d)) block.drawbacks.push(d);
+  for (const b of tradition.boons) if (!block.boons.includes(b)) block.boons.push(b);
+  block.traditionGrants = { drawbacks: [...tradition.drawbacks], boons: [...tradition.boons] };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, sphereCasterLevel } from "@pathforge/schema";
+import { createDefaultCharacter, sphereCasterLevel, applyTraditionGrants } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 
 function enabled() {
@@ -155,6 +155,25 @@ describe("spheres", () => {
     const sp = computeCharacter(c).summary.spheres!;
     expect(sp.skillTalentsKnown).toBe(9); // floor(12 * 3/4)
     expect(sp.skillTalentsSpent).toBe(1);
+  });
+
+  it("tradition provenance: switching replaces the prior tradition's grants, keeps manual entries", () => {
+    const block: {
+      drawbacks: string[];
+      boons: string[];
+      tradition?: string;
+      traditionGrants?: { drawbacks: string[]; boons: string[] };
+    } = { drawbacks: ["Manual drawback"], boons: [] };
+
+    applyTraditionGrants(block, { name: "Tradition A", drawbacks: ["A1", "A2"], boons: ["Boon A"] });
+    expect(block.drawbacks).toEqual(["Manual drawback", "A1", "A2"]);
+    expect(block.boons).toEqual(["Boon A"]);
+    expect(block.tradition).toBe("Tradition A");
+
+    applyTraditionGrants(block, { name: "Tradition B", drawbacks: ["B1"], boons: [] });
+    expect(block.drawbacks).toEqual(["Manual drawback", "B1"]); // A1/A2 removed, manual kept
+    expect(block.boons).toEqual([]); // Boon A removed
+    expect(block.tradition).toBe("Tradition B");
   });
 
   it("absent unless a spheres module is enabled", () => {
