@@ -33,6 +33,9 @@ export function CharacterDashboard({
   const rankedSkills = (vm.skills ?? []).slice().sort((a, b) => b.total - a.total);
   // Owner/editor see editing affordances + empty-state prompts; read-only viewers don't.
   const editable = vm.viewer === "owner" || vm.viewer === "editor";
+  // Wealth gets its own card under the infobox on desktop; on mobile it folds into Inventory.
+  const wealth = vm.wealth;
+  const showWealth = !!(wealth && (wealth.pp > 0 || wealth.gp > 0 || wealth.sp > 0 || wealth.cp > 0));
 
   return (
     <div className="space-y-3">
@@ -304,6 +307,15 @@ export function CharacterDashboard({
 
           {vm.inventory && (vm.inventory.items.length > 0 || editable) && (
             <SectionCard title="Inventory" icon={Backpack}>
+              {/* Mobile: wealth folds into the top of Inventory; on desktop it's its own card by the infobox. */}
+              {wealth && showWealth && (
+                <div className="mb-3 border-b border-border/50 pb-3 lg:hidden">
+                  <h3 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Coins className="size-3.5 text-gold" /> Wealth
+                  </h3>
+                  <WealthLines wealth={wealth} />
+                </div>
+              )}
               {vm.inventory.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No items yet.</p>
               ) : (
@@ -350,6 +362,22 @@ export function CharacterDashboard({
                 </>
               )}
             </SectionCard>
+          )}
+
+          {/* Mobile fallback: surface wealth here when there's no Inventory card to fold it into
+              (no items + read-only viewer). A plain Card (not SectionCard) on purpose — the desktop
+              sidebar Wealth card already owns the `sec-wealth` region landmark id, and two SectionCards
+              with the same title would collide on that id (both are in the DOM, one display:none per
+              breakpoint). On desktop wealth is the sidebar card under the infobox. */}
+          {wealth && showWealth && !(vm.inventory && (vm.inventory.items.length > 0 || editable)) && (
+            <Card className="lg:hidden">
+              <CardContent className="p-5">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Coins className="size-4 text-gold" /> Wealth
+                </h2>
+                <WealthLines wealth={wealth} />
+              </CardContent>
+            </Card>
           )}
 
           {vm.profile &&
@@ -402,6 +430,14 @@ export function CharacterDashboard({
           <div className="hidden lg:block">
             <InfoBox vm={vm} />
           </div>
+          {/* Wealth rides right under the infobox on desktop; on mobile it folds into Inventory. */}
+          {wealth && showWealth && (
+            <div className="hidden lg:block">
+              <SectionCard title="Wealth" icon={Coins}>
+                <WealthLines wealth={wealth} />
+              </SectionCard>
+            </div>
+          )}
           {vm.heroPoints && (
             <SectionCard title="Hero Points" icon={Sparkles}>
               <div className="flex items-center gap-2">
@@ -626,28 +662,6 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
-          {vm.wealth && (vm.wealth.pp > 0 || vm.wealth.gp > 0 || vm.wealth.sp > 0 || vm.wealth.cp > 0) && (
-            <SectionCard title="Wealth" icon={Coins}>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground">
-                {(
-                  [
-                    ["pp", vm.wealth.pp],
-                    ["gp", vm.wealth.gp],
-                    ["sp", vm.wealth.sp],
-                    ["cp", vm.wealth.cp],
-                  ] as const
-                )
-                  .filter(([, n]) => n > 0)
-                  .map(([u, n]) => (
-                    <span key={u} className="tnum">
-                      {n} {u}
-                    </span>
-                  ))}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">≈ {vm.wealth.totalGp} gp total</p>
-            </SectionCard>
-          )}
-
         </div>
       </div>
 
@@ -660,6 +674,31 @@ export function CharacterDashboard({
         </p>
       )}
     </div>
+  );
+}
+
+/** The coin line + gp-total — shared by the desktop sidebar Wealth card and the mobile Inventory combo. */
+function WealthLines({ wealth }: { wealth: NonNullable<CharacterViewModel["wealth"]> }) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground">
+        {(
+          [
+            ["pp", wealth.pp],
+            ["gp", wealth.gp],
+            ["sp", wealth.sp],
+            ["cp", wealth.cp],
+          ] as const
+        )
+          .filter(([, n]) => n > 0)
+          .map(([u, n]) => (
+            <span key={u} className="tnum">
+              {n} {u}
+            </span>
+          ))}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">≈ {wealth.totalGp} gp total</p>
+    </>
   );
 }
 
