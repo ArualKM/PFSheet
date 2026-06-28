@@ -495,19 +495,40 @@ export function CharacterDashboard({
           {vm.spheres && (
             <SectionCard title="Spheres" icon={Wand2}>
               <div className="space-y-1 text-sm">
-                <div className="text-muted-foreground">
-                  Spell points{" "}
-                  <span className="tnum font-semibold text-rune">
-                    {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                  <span>CL {vm.spheres.casterLevel}</span>
-                  <span>MSB +{vm.spheres.magicSkillBonus}</span>
-                  <span>MSD {vm.spheres.magicSkillDefense}</span>
-                  <span>DC {vm.spheres.saveDc}</span>
-                  {vm.spheres.martialFocus && <span className="text-gold">Focused</span>}
-                </div>
+                {vm.spheres.systems.power && (
+                  <>
+                    <div className="text-muted-foreground">
+                      Spell points{" "}
+                      <span className="tnum font-semibold text-rune">
+                        {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                      <span>CL {vm.spheres.casterLevel}</span>
+                      <span>MSB +{vm.spheres.magicSkillBonus}</span>
+                      <span>MSD {vm.spheres.magicSkillDefense}</span>
+                      <span>DC {vm.spheres.saveDc}</span>
+                    </div>
+                  </>
+                )}
+                {vm.spheres.systems.might && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    <span>
+                      Martial focus:{" "}
+                      <span className={vm.spheres.martialFocus ? "text-gold" : "text-foreground"}>
+                        {vm.spheres.martialFocus ? "focused" : "unfocused"}
+                      </span>
+                    </span>
+                    {vm.spheres.combatSphereCount > 0 && (
+                      <span>{vm.spheres.combatSphereCount} combat spheres</span>
+                    )}
+                  </div>
+                )}
+                {vm.spheres.systems.guile && vm.spheres.skillSphereCount > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    {vm.spheres.skillSphereCount} skill spheres
+                  </div>
+                )}
                 {vm.spheres.tradition && (
                   <div className="text-xs text-muted-foreground">Tradition: {vm.spheres.tradition}</div>
                 )}

@@ -887,40 +887,49 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
   const spendSP = (delta: number) =>
     ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
   const [showPicker, setShowPicker] = useState(false);
+  const power = isModuleKeyEnabled(ed.draft, "spheres_of_power");
+  const might = isModuleKeyEnabled(ed.draft, "spheres_of_might");
 
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Spheres of Power. Spell points = casting-class level + casting ability modifier; caster level
-        sets your Magic Skill Bonus (MSB), MSD (11 + MSB), and sphere-effect save DC (10 + ½ CL + ability).
+        {power
+          ? "Spheres of Power: spell points = casting-class level + casting ability modifier; caster level sets your Magic Skill Bonus (MSB), MSD (11 + MSB), and the sphere-effect save DC (10 + ½ CL + ability). "
+          : ""}
+        Add spheres &amp; talents from the compendium below, or enter them by hand.
       </p>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
-        <span className="text-sm font-medium text-foreground">Spell points</span>
-        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
-          − Spend
-        </Button>
-        <span className="tnum text-xl font-semibold text-rune">
-          {current}
-          <span className="text-base text-muted-foreground">/{max}</span>
-        </span>
-        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
-          +
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
-          Rest
-        </Button>
-        <label className="ml-auto flex items-center gap-1.5 text-sm text-foreground">
+      {power && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+          <span className="text-sm font-medium text-foreground">Spell points</span>
+          <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
+            − Spend
+          </Button>
+          <span className="tnum text-xl font-semibold text-rune">
+            {current}
+            <span className="text-base text-muted-foreground">/{max}</span>
+          </span>
+          <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
+            +
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
+            Rest
+          </Button>
+        </div>
+      )}
+
+      {might && (
+        <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground">
           <input
             type="checkbox"
             checked={!!sp?.martialFocus}
             onChange={(e) => ensure((s) => (s.martialFocus = e.target.checked || undefined))}
           />
-          Martial focus
+          Martial focus — currently focused (Spheres of Might; expended to fuel some martial talents)
         </label>
-      </div>
+      )}
 
-      {summary && (
+      {power && summary && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>Caster level <span className="font-semibold text-foreground">{summary.casterLevel}</span></span>
           <span>MSB <span className="font-semibold text-foreground">+{summary.magicSkillBonus}</span></span>
@@ -936,12 +945,14 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           onChange={(v) => ensure((s) => (s.tradition = v || undefined))}
           className="min-w-[10rem] flex-1"
         />
-        <NumberField
-          label="Bonus SP"
-          value={sp?.bonusSpellPoints ?? 0}
-          onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
-          className="w-24"
-        />
+        {power && (
+          <NumberField
+            label="Bonus SP"
+            value={sp?.bonusSpellPoints ?? 0}
+            onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
+            className="w-24"
+          />
+        )}
       </div>
 
       <div>
@@ -955,6 +966,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
         )}
       </div>
 
+      {power && (
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Casting classes</h3>
@@ -1020,6 +1032,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           ))}
         </div>
       </section>
+      )}
 
       <section>
         <div className="mb-2 flex items-center justify-between">

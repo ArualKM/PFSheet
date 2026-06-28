@@ -594,6 +594,11 @@ export type ComputedCharacter = {
     };
     /** Spheres of Power/Might/Guile roll-up (absent unless a spheres module is enabled). */
     spheres?: {
+      /** Which of the three spheres systems are enabled — the read view/editor show stats per system. */
+      systems: { power: boolean; might: boolean; guile: boolean };
+      /** Spheres chosen in the Combat (Might) and Skill (Guile) systems. */
+      combatSphereCount: number;
+      skillSphereCount: number;
       /** Total caster level (Σ per-class High/Mid/Low contribution) — drives effect scaling + save DC. */
       casterLevel: number;
       /** Magic Skill Bonus = total casting-class levels (a separate quantity from caster level). */
@@ -988,12 +993,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   }
 
   let spheres: ComputedCharacter["summary"]["spheres"];
-  if (
-    (isModuleKeyEnabled(character, "spheres_of_power") ||
-      isModuleKeyEnabled(character, "spheres_of_might") ||
-      isModuleKeyEnabled(character, "spheres_of_guile")) &&
-    character.spheres
-  ) {
+  const spheresPower = isModuleKeyEnabled(character, "spheres_of_power");
+  const spheresMight = isModuleKeyEnabled(character, "spheres_of_might");
+  const spheresGuile = isModuleKeyEnabled(character, "spheres_of_guile");
+  if ((spheresPower || spheresMight || spheresGuile) && character.spheres) {
     const sp = character.spheres;
     // Two distinct quantities per Spheres RAW: caster level is the High/Mid/Low progression (like BAB —
     // drives effect scaling + the save DC), while MSB/MSD use TOTAL CASTING-CLASS LEVELS (not caster
@@ -1009,7 +1012,14 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     const abilityMod = primary ? (abilities[primary.castingAbility]?.modifier ?? 0) : 0;
     const spMax = Math.max(0, classLevelSum + abilityMod + (sp.bonusSpellPoints ?? 0));
     const msb = classLevelSum; // MSB = total casting-class levels (RAW), NOT the caster-level sum.
+    // Count spheres/talents by system so the read view + editor can show the right stats per system
+    // (a Might-only character shouldn't see spell points; a Power caster shouldn't see martial focus).
+    const combatCount = sp.spheres.filter((s) => s.system === "Combat").length;
+    const skillCount = sp.spheres.filter((s) => s.system === "Skill").length;
     spheres = {
+      systems: { power: spheresPower, might: spheresMight, guile: spheresGuile },
+      combatSphereCount: combatCount,
+      skillSphereCount: skillCount,
       casterLevel: totalCasterLevel,
       magicSkillBonus: msb,
       magicSkillDefense: 11 + msb,

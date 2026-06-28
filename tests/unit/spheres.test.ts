@@ -77,6 +77,41 @@ describe("spheres", () => {
     expect(computeCharacter(c).summary.spheres!.spellPoints.max).toBe(17);
   });
 
+  it("reports which systems are enabled + counts spheres by system", () => {
+    const c = enabled();
+    c.rules.modules.push({ key: "spheres_of_might", enabled: true, settings: {} });
+    c.spheres!.spheres = [
+      { id: "s1", name: "Destruction", system: "Magic" },
+      { id: "s2", name: "Berserker", system: "Combat" },
+      { id: "s3", name: "Athletics", system: "Combat" },
+    ];
+    const sp = computeCharacter(c).summary.spheres!;
+    expect(sp.systems).toEqual({ power: true, might: true, guile: false });
+    expect(sp.combatSphereCount).toBe(2);
+    expect(sp.skillSphereCount).toBe(0);
+  });
+
+  it("Might-only character (no casting classes) computes without crashing", () => {
+    const c = createDefaultCharacter({ name: "X" });
+    c.rules.modules.push({ key: "spheres_of_might", enabled: true, settings: {} });
+    c.spheres = {
+      casterClasses: [],
+      spheres: [{ id: "s1", name: "Brute", system: "Combat" }],
+      talents: [{ id: "t1", sphereName: "Brute", talentName: "Slam" }],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+      martialFocus: true,
+    };
+    const sp = computeCharacter(c).summary.spheres!;
+    expect(sp.systems).toEqual({ power: false, might: true, guile: false });
+    expect(sp.casterLevel).toBe(0);
+    expect(sp.spellPoints.max).toBe(0);
+    expect(sp.magicSkillDefense).toBe(11); // 11 + 0
+    expect(sp.martialFocus).toBe(true);
+    expect(sp.combatSphereCount).toBe(1);
+  });
+
   it("absent unless a spheres module is enabled", () => {
     expect(computeCharacter(createDefaultCharacter({ name: "X" })).summary.spheres).toBeUndefined();
   });

@@ -211,6 +211,9 @@ export type CharacterViewModel = {
   } | null;
   /** Spheres of Power/Might/Guile roll-up (null unless a spheres module is enabled). */
   spheres: {
+    systems: { power: boolean; might: boolean; guile: boolean };
+    combatSphereCount: number;
+    skillSphereCount: number;
     casterLevel: number;
     spellPoints: { current: number; max: number };
     magicSkillBonus: number;
@@ -652,6 +655,9 @@ export function buildCharacterViewModel(
       : null,
     spheres: computed.summary.spheres
       ? {
+          systems: computed.summary.spheres.systems,
+          combatSphereCount: computed.summary.spheres.combatSphereCount,
+          skillSphereCount: computed.summary.spheres.skillSphereCount,
           casterLevel: computed.summary.spheres.casterLevel,
           spellPoints: computed.summary.spheres.spellPoints,
           magicSkillBonus: computed.summary.spheres.magicSkillBonus,
