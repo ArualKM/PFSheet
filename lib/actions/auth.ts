@@ -37,6 +37,25 @@ function safeNext(next: FormDataEntryValue | null): string {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/dashboard";
 }
 
+/** Map Supabase auth errors to friendly, non-leaky copy for the most common cases. */
+function friendlyAuthError(error: { message?: string; code?: string; status?: number }): string {
+  const code = error.code ?? "";
+  const msg = error.message ?? "";
+  if (code === "invalid_credentials" || /invalid login credentials/i.test(msg)) {
+    return "That email or password doesn't match. Double-check and try again.";
+  }
+  if (code === "email_not_confirmed" || /email not confirmed/i.test(msg)) {
+    return "Please confirm your email first — check your inbox for the confirmation link.";
+  }
+  if (code === "user_already_exists" || /already registered|user already/i.test(msg)) {
+    return "An account with this email already exists. Try signing in instead.";
+  }
+  if (error.status === 429 || /rate limit|too many/i.test(msg)) {
+    return "Too many attempts — please wait a minute and try again.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
 export async function signInAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = credentialsSchema.safeParse({
     email: formData.get("email"),
@@ -48,7 +67,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyAuthError(error) };
 
   redirect(safeNext(formData.get("next")));
 }
@@ -72,7 +91,7 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
       data: displayName ? { display_name: displayName } : undefined,
     },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyAuthError(error) };
 
   // If email confirmation is required, there is no active session yet.
   if (!data.session) {
