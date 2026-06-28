@@ -64,6 +64,42 @@ export function talentSystem(
   return (sph?.system as SphereSystem) ?? "Magic";
 }
 
+/** A drawback/boon's system from its side-table meta (default Magic) — groups it into a system card. */
+export function grantSystem(name: string, meta?: Record<string, SphereGrantMeta>): SphereSystem {
+  return (meta?.[name]?.system as SphereSystem) ?? "Magic";
+}
+
+/** Names of the drawbacks + boons that specifically target one sphere/talent (by id) — for the
+ * "drawback applies here" flag. Pure + returns plain string arrays (safe for the view-model / API). */
+export function grantsTargeting(
+  block: Pick<SpheresBlock, "drawbacks" | "boons" | "drawbackMeta" | "boonMeta">,
+  kind: SphereGrantTarget["kind"],
+  id: string,
+): { drawbacks: string[]; boons: string[] } {
+  const hits = (meta?: SphereGrantMeta) => meta?.appliesTo?.kind === kind && meta.appliesTo.id === id;
+  return {
+    drawbacks: block.drawbacks.filter((d) => hits(block.drawbackMeta?.[d])),
+    boons: block.boons.filter((b) => hits(block.boonMeta?.[b])),
+  };
+}
+
+/** A drawback/boon can apply to a specific sphere or talent (by its stable id) instead of the whole
+ * tradition — surfaced as a "drawback applies here" flag on that option in the editor + read view. */
+export const sphereGrantTargetSchema = z.object({
+  kind: z.enum(["sphere", "talent"]),
+  id: z.string(),
+});
+export type SphereGrantTarget = z.infer<typeof sphereGrantTargetSchema>;
+
+/** Side-table metadata for one drawback/boon, keyed by its NAME. drawbacks/boons stay string[] (so the
+ * 3-way merge + tradition-grant provenance are unchanged); this just layers optional grouping + targeting
+ * on top. `system` sorts it into the right system card; `appliesTo` flags the sphere/talent it affects. */
+export const sphereGrantMetaSchema = z.object({
+  system: z.enum(["Magic", "Combat", "Skill"]).optional(),
+  appliesTo: sphereGrantTargetSchema.optional(),
+});
+export type SphereGrantMeta = z.infer<typeof sphereGrantMetaSchema>;
+
 export const spheresBlockSchema = z.object({
   casterClasses: z.array(sphereCasterClassSchema).default([]),
   spheres: z.array(sphereChoiceSchema).default([]),
@@ -74,6 +110,9 @@ export const spheresBlockSchema = z.object({
   traditionCustom: z.boolean().optional(),
   drawbacks: z.array(z.string()).default([]),
   boons: z.array(z.string()).default([]),
+  /** Per-name side-tables (see sphereGrantMetaSchema): grouping by system + per-option targeting. */
+  drawbackMeta: z.record(z.string(), sphereGrantMetaSchema).optional(),
+  boonMeta: z.record(z.string(), sphereGrantMetaSchema).optional(),
   /** Provenance: the drawback/boon lines the CURRENT tradition contributed, so switching traditions
    * removes the old grants instead of stacking them (manually-added entries are left alone). */
   traditionGrants: z

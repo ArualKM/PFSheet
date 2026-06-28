@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Check,
   CircleAlert,
-  X,
   Loader2,
   Cloud,
   CloudOff,
@@ -66,8 +65,10 @@ import {
   type PsionicsBlock,
   type SpheresBlock,
   type SphereSystem,
+  type SphereGrantTarget,
   SPHERE_CASTER_TYPES,
   talentSystem,
+  grantSystem,
   type MilestoneLevelingBlock,
   type MilestoneDifficulty,
   MILESTONE_DIFFICULTIES,
@@ -940,6 +941,15 @@ const SYSTEM_CARDS: { sys: SphereSystem; label: string; Icon: typeof Sparkles; t
   { sys: "Skill", label: "Guile", Icon: Target, text: "text-success" },
 ];
 
+/** Decode a "kind:id" target select value (e.g. "sphere:sph_x") back into a grant target, or undefined. */
+function decodeGrantTarget(v: string): SphereGrantTarget | undefined {
+  if (!v) return undefined;
+  const [kind, ...rest] = v.split(":");
+  const id = rest.join(":");
+  if ((kind === "sphere" || kind === "talent") && id) return { kind, id };
+  return undefined;
+}
+
 function SpheresEditor({ ed }: { ed: EditorApi }) {
   const sp = ed.draft.spheres;
   const summary = ed.computed.summary.spheres;
@@ -988,7 +998,26 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
   const hasSystemData = (sys: SphereSystem) =>
     (sp?.casterClasses ?? []).some((c) => (c.system ?? "Magic") === sys) ||
     (sp?.spheres ?? []).some((x) => x.system === sys) ||
-    (sp?.talents ?? []).some((t) => talentSystem(t, sp?.spheres ?? []) === sys);
+    (sp?.talents ?? []).some((t) => talentSystem(t, sp?.spheres ?? []) === sys) ||
+    (sp?.drawbacks ?? []).some((d) => grantSystem(d, sp?.drawbackMeta) === sys) ||
+    (sp?.boons ?? []).some((b) => grantSystem(b, sp?.boonMeta) === sys);
+  // Set/clear a drawback's or boon's target sphere/talent (the "applies here" flag).
+  const setGrantTarget = (kind: "drawback" | "boon", name: string, target: SphereGrantTarget | undefined) =>
+    ensure((s) => {
+      const key = kind === "drawback" ? "drawbackMeta" : "boonMeta";
+      const meta = { ...(s[key] ?? {}) };
+      meta[name] = { ...(meta[name] ?? {}), appliesTo: target };
+      s[key] = meta;
+    });
+  // When a sphere/talent is deleted, clear any drawback/boon flag that pointed at it (stale target).
+  const clearTargetsTo = (s: SpheresBlock, id: string) => {
+    for (const meta of [s.drawbackMeta, s.boonMeta]) {
+      if (!meta) continue;
+      for (const k of Object.keys(meta)) {
+        if (meta[k]?.appliesTo?.id === id) meta[k] = { ...meta[k], appliesTo: undefined };
+      }
+    }
+  };
 
   const tiles: { label: string; value: ReactNode }[] = [];
   if (summary) {
@@ -1148,74 +1177,9 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           </label>
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-                <CircleAlert className="size-3.5 text-danger" /> Drawbacks ({sp?.drawbacks.length ?? 0})
-              </span>
-              <Button size="sm" variant="ghost" onClick={() => openPicker("drawbacks")}>
-                <Plus className="size-3.5" /> Add
-              </Button>
-            </div>
-            {(sp?.drawbacks.length ?? 0) === 0 ? (
-              <p className="text-xs text-muted-foreground">None.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {sp?.drawbacks.map((d, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <span className="break-words">{d}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${d}`}
-                      onClick={() => ensure((s) => s.drawbacks.splice(i, 1))}
-                      className="-mr-1 shrink-0 rounded-full p-1 text-muted-foreground hover:text-danger"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-                <Sparkles className="size-3.5 text-success" /> Boons ({sp?.boons.length ?? 0})
-              </span>
-              <Button size="sm" variant="ghost" onClick={() => openPicker("boons")}>
-                <Plus className="size-3.5" /> Add
-              </Button>
-            </div>
-            {(sp?.boons.length ?? 0) === 0 ? (
-              <p className="text-xs text-muted-foreground">None.</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {sp?.boons.map((b, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-success/35 bg-success/10 px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <span className="break-words">{b}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${b}`}
-                      onClick={() => ensure((s) => s.boons.splice(i, 1))}
-                      className="-mr-1 shrink-0 rounded-full p-1 text-muted-foreground hover:text-danger"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Some drawbacks grant bonus talents — add those under the matching system below.
+          Drawbacks &amp; boons are managed per system below — add each to the system it belongs to, and flag
+          one to a specific sphere or talent it affects.
         </p>
         {renderPicker("")}
       </section>
@@ -1229,6 +1193,18 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
         const talentsOf = (sp?.talents ?? [])
           .map((t, i) => ({ t, i }))
           .filter(({ t }) => talentSystem(t, sp?.spheres ?? []) === d.sys);
+        const drawbacksOf = (sp?.drawbacks ?? [])
+          .map((name, i) => ({ name, i }))
+          .filter(({ name }) => grantSystem(name, sp?.drawbackMeta) === d.sys);
+        const boonsOf = (sp?.boons ?? [])
+          .map((name, i) => ({ name, i }))
+          .filter(({ name }) => grantSystem(name, sp?.boonMeta) === d.sys);
+        // "Affects" options for the per-grant target picker: this system's spheres + talents.
+        const targetOptions = [
+          { value: "", label: "Whole tradition" },
+          ...spheresOf.filter(({ x }) => x.name).map(({ x }) => ({ value: `sphere:${x.id}`, label: `Sphere: ${x.name}` })),
+          ...talentsOf.filter(({ t }) => t.talentName).map(({ t }) => ({ value: `talent:${t.id}`, label: `Talent: ${t.talentName}` })),
+        ];
         const Icon = d.Icon;
         return (
           <section key={d.sys} className="rounded-xl border border-border p-3">
@@ -1355,7 +1331,12 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                         ]}
                         className="w-28"
                       />
-                      <Button variant="ghost" size="icon" aria-label="Remove sphere" onClick={() => ensure((s) => s.spheres.splice(i, 1))}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove sphere"
+                        onClick={() => ensure((s) => { clearTargetsTo(s, x.id); s.spheres.splice(i, 1); })}
+                      >
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
@@ -1400,11 +1381,103 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                         ]}
                         className="w-24"
                       />
-                      <Button variant="ghost" size="icon" aria-label="Remove talent" onClick={() => ensure((s) => s.talents.splice(i, 1))}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove talent"
+                        onClick={() => ensure((s) => { clearTargetsTo(s, tal.id); s.talents.splice(i, 1); })}
+                      >
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Drawbacks (this system) — each can be flagged to a specific sphere/talent it affects. */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h4 className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <CircleAlert className="size-3.5 text-danger" /> Drawbacks ({drawbacksOf.length})
+                  </h4>
+                  <Button size="sm" variant="ghost" onClick={() => openPicker("drawbacks", d.sys)}>
+                    <Plus className="size-3.5" /> Add
+                  </Button>
+                </div>
+                {drawbacksOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+                <div className="space-y-1.5">
+                  {drawbacksOf.map(({ name, i }) => {
+                    const t = sp?.drawbackMeta?.[name]?.appliesTo;
+                    return (
+                      <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-danger/30 bg-danger/5 p-1.5">
+                        <span className="min-w-[8rem] flex-1 break-words py-1.5 text-sm text-foreground">{name}</span>
+                        <SelectField
+                          label="Affects"
+                          value={t ? `${t.kind}:${t.id}` : ""}
+                          onChange={(v) => setGrantTarget("drawback", name, decodeGrantTarget(v))}
+                          options={targetOptions}
+                          className="w-full sm:w-40"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${name}`}
+                          onClick={() =>
+                            ensure((s) => {
+                              s.drawbacks.splice(i, 1);
+                              // only drop the (name-keyed) meta when no other entry of that name remains
+                              if (s.drawbackMeta && !s.drawbacks.includes(name)) delete s.drawbackMeta[name];
+                            })
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Boons (this system) */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h4 className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Sparkles className="size-3.5 text-success" /> Boons ({boonsOf.length})
+                  </h4>
+                  <Button size="sm" variant="ghost" onClick={() => openPicker("boons", d.sys)}>
+                    <Plus className="size-3.5" /> Add
+                  </Button>
+                </div>
+                {boonsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+                <div className="space-y-1.5">
+                  {boonsOf.map(({ name, i }) => {
+                    const t = sp?.boonMeta?.[name]?.appliesTo;
+                    return (
+                      <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-success/35 bg-success/5 p-1.5">
+                        <span className="min-w-[8rem] flex-1 break-words py-1.5 text-sm text-foreground">{name}</span>
+                        <SelectField
+                          label="Affects"
+                          value={t ? `${t.kind}:${t.id}` : ""}
+                          onChange={(v) => setGrantTarget("boon", name, decodeGrantTarget(v))}
+                          options={targetOptions}
+                          className="w-full sm:w-40"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${name}`}
+                          onClick={() =>
+                            ensure((s) => {
+                              s.boons.splice(i, 1);
+                              if (s.boonMeta && !s.boons.includes(name)) delete s.boonMeta[name];
+                            })
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1769,6 +1842,7 @@ const PRIVACY_EDIT_SECTIONS: Array<{ key: string; label: string }> = [
   { key: "features", label: "Features & traits" },
   { key: "buffs", label: "Active buffs" },
   { key: "spells", label: "Spellcasting" },
+  { key: "spheres", label: "Spheres" },
   { key: "inventory", label: "Inventory" },
   { key: "wealth", label: "Wealth" },
   { key: "backstory", label: "Background & profile" },

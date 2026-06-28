@@ -18,6 +18,7 @@ import {
   GameIcon,
   itemIconName,
 } from "@/components/ui/game-icons";
+import { TriangleAlert } from "lucide-react";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
 import { TalentRow } from "./talent-row";
@@ -546,8 +547,19 @@ export function CharacterDashboard({
                 {vm.spheres.spheresList.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
                     {vm.spheres.spheresList.map((s, i) => (
-                      <Badge key={i} variant="outline">
+                      <Badge
+                        key={i}
+                        variant="outline"
+                        className={cn("gap-1", s.targetedBy.length > 0 && "border-danger/50 text-danger")}
+                        title={s.targetedBy.length > 0 ? `Affected by: ${s.targetedBy.join(", ")}` : undefined}
+                      >
                         {s.name}
+                        {s.targetedBy.length > 0 && (
+                          <>
+                            <TriangleAlert className="size-3" aria-hidden />
+                            <span className="sr-only">Affected by: {s.targetedBy.join(", ")}</span>
+                          </>
+                        )}
                       </Badge>
                     ))}
                   </div>
@@ -557,7 +569,13 @@ export function CharacterDashboard({
                     {[...vm.spheres.talentsList]
                       .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
                       .map((t, i) => (
-                        <TalentRow key={i} name={t.name} sphere={t.sphere} compendiumId={t.compendiumId} />
+                        <TalentRow
+                          key={i}
+                          name={t.name}
+                          sphere={t.sphere}
+                          compendiumId={t.compendiumId}
+                          targetedBy={t.targetedBy}
+                        />
                       ))}
                   </ShowMore>
                 )}

@@ -1,5 +1,5 @@
 import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef } from "@pathforge/schema";
-import { ABILITY_KEYS } from "@pathforge/schema";
+import { ABILITY_KEYS, grantsTargeting } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 import { languageBudget, type LanguageBudget } from "./languages";
 import { iterativeAttackBonuses } from "./combat";
@@ -51,6 +51,7 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   features: "public",
   buffs: "public",
   spells: "public",
+  spheres: "public",
   formulaDetails: "public",
   backstory: "public",
   // Public by default — a shared sheet is opt-in, so most owners want it all visible. Owners who want
@@ -78,6 +79,7 @@ function visible(character: PathForgeCharacterV1, section: string, viewer: Viewe
 const SECTION_LABELS: Record<string, string> = {
   buffs: "Active buffs",
   spells: "Spellcasting",
+  spheres: "Spheres",
   backstory: "Backstory & profile",
   inventory: "Inventory",
   wealth: "Wealth",
@@ -227,9 +229,17 @@ export type CharacterViewModel = {
     talentCount: number;
     tradition: string;
     martialFocus: boolean;
-    /** Chosen spheres + talents (build choices, shown like spells). */
-    spheresList: Array<{ name: string; system: string }>;
-    talentsList: Array<{ sphere: string; name: string; category?: string; system?: string; compendiumId?: string }>;
+    /** Chosen spheres + talents (build choices, shown like spells). `targetedBy` = names of the
+     * drawbacks/boons flagged to that specific option (the "drawback applies here" note). */
+    spheresList: Array<{ name: string; system: string; targetedBy: string[] }>;
+    talentsList: Array<{
+      sphere: string;
+      name: string;
+      category?: string;
+      system?: string;
+      compendiumId?: string;
+      targetedBy: string[];
+    }>;
   } | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
@@ -658,7 +668,7 @@ export function buildCharacterViewModel(
         }
       : null,
     spheres: computed.summary.spheres
-      ? {
+      ? gate("spheres", {
           systems: computed.summary.spheres.systems,
           combatSphereCount: computed.summary.spheres.combatSphereCount,
           skillSphereCount: computed.summary.spheres.skillSphereCount,
@@ -675,15 +685,22 @@ export function buildCharacterViewModel(
           talentCount: computed.summary.spheres.talentCount,
           tradition: computed.summary.spheres.tradition,
           martialFocus: computed.summary.spheres.martialFocus,
-          spheresList: (character.spheres?.spheres ?? []).map((s) => ({ name: s.name, system: s.system })),
-          talentsList: (character.spheres?.talents ?? []).map((t) => ({
-            sphere: t.sphereName,
-            name: t.talentName,
-            category: t.category,
-            system: t.system,
-            compendiumId: t.compendiumId,
-          })),
-        }
+          spheresList: (character.spheres?.spheres ?? []).map((s) => {
+            const tg = grantsTargeting(character.spheres!, "sphere", s.id);
+            return { name: s.name, system: s.system, targetedBy: [...tg.drawbacks, ...tg.boons] };
+          }),
+          talentsList: (character.spheres?.talents ?? []).map((t) => {
+            const tg = grantsTargeting(character.spheres!, "talent", t.id);
+            return {
+              sphere: t.sphereName,
+              name: t.talentName,
+              category: t.category,
+              system: t.system,
+              compendiumId: t.compendiumId,
+              targetedBy: [...tg.drawbacks, ...tg.boons],
+            };
+          }),
+        })
       : null,
     advancement:
       isOwnerView &&

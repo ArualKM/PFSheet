@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, sphereCasterLevel, applyTraditionGrants, talentSystem } from "@pathforge/schema";
+import {
+  createDefaultCharacter,
+  sphereCasterLevel,
+  applyTraditionGrants,
+  talentSystem,
+  grantSystem,
+  grantsTargeting,
+} from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 
 function enabled() {
@@ -205,6 +212,23 @@ describe("spheres", () => {
     expect(talentSystem({ sphereName: "Brute" }, spheres)).toBe("Combat"); // inferred from sphere
     expect(talentSystem({ sphereName: "Destruction" }, spheres)).toBe("Magic");
     expect(talentSystem({ sphereName: "Nonexistent" }, spheres)).toBe("Magic"); // fallback
+  });
+
+  it("grantSystem + grantsTargeting read the drawback/boon side-table meta", () => {
+    const block = {
+      drawbacks: ["Draining Casting", "Magical Signs"],
+      boons: ["Easy Focus"],
+      drawbackMeta: {
+        "Draining Casting": { system: "Combat" as const, appliesTo: { kind: "talent" as const, id: "tal_1" } },
+      },
+      boonMeta: {},
+    };
+    expect(grantSystem("Draining Casting", block.drawbackMeta)).toBe("Combat");
+    expect(grantSystem("Magical Signs", block.drawbackMeta)).toBe("Magic"); // no meta → default
+    const onTalent = grantsTargeting(block, "talent", "tal_1");
+    expect(onTalent.drawbacks).toEqual(["Draining Casting"]);
+    expect(onTalent.boons).toEqual([]);
+    expect(grantsTargeting(block, "sphere", "sph_x").drawbacks).toEqual([]); // nothing targets this
   });
 
   it("absent unless a spheres module is enabled", () => {

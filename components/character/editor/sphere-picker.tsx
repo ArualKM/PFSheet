@@ -255,13 +255,20 @@ export function SpherePicker({
       });
       s.traditionCustom = undefined; // applied a preset → not a hand-built tradition
     });
+  const grantSys = (resultSystem: string | null): SphereSystem | undefined =>
+    system ??
+    (resultSystem === "Magic" || resultSystem === "Combat" || resultSystem === "Skill" ? resultSystem : undefined);
   const addDrawback = (r: DrawbackResult) =>
     ensure((s) => {
       if (!s.drawbacks.includes(r.name)) s.drawbacks.push(r.name);
+      const sys = grantSys(r.system);
+      if (sys) s.drawbackMeta = { ...(s.drawbackMeta ?? {}), [r.name]: { ...(s.drawbackMeta?.[r.name] ?? {}), system: sys } };
     });
   const addBoon = (r: BoonResult) =>
     ensure((s) => {
       if (!s.boons.includes(r.name)) s.boons.push(r.name);
+      const sys = grantSys(r.system);
+      if (sys) s.boonMeta = { ...(s.boonMeta ?? {}), [r.name]: { ...(s.boonMeta?.[r.name] ?? {}), system: sys } };
     });
 
   const placeholder =

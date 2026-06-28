@@ -96,6 +96,29 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(build("anonymous", mutate).hiddenSections).toContain("Active buffs");
   });
 
+  it("gates the spheres section behind privacy (was capability-only before Pass 3b)", () => {
+    const withSpheres = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "spheres_of_power", enabled: true, settings: {} });
+      c.spheres = {
+        casterClasses: [
+          { id: "c1", className: "Incanter", system: "Magic", casterType: "high", classLevel: 5, castingAbility: "int" },
+        ],
+        spheres: [{ id: "s1", name: "Destruction", system: "Magic" }],
+        talents: [],
+        drawbacks: [],
+        boons: [],
+        bonusSpellPoints: 0,
+      };
+    };
+    expect(build("anonymous", withSpheres).spheres).not.toBeNull(); // public by default
+    const hidden = build("anonymous", (c) => {
+      withSpheres(c);
+      c.privacy.sections.spheres = "private";
+    });
+    expect(hidden.spheres).toBeNull();
+    expect(hidden.hiddenSections).toContain("Spheres");
+  });
+
   it("respects formulaDetails privacy for the show-math affordance", () => {
     const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
       c.privacy.sections.formulaDetails = "owner_only";
