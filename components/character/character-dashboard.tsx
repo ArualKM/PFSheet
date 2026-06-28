@@ -15,7 +15,9 @@ import {
   Eye,
   Wand2,
   Flag,
-} from "lucide-react";
+  GameIcon,
+  itemIconName,
+} from "@/components/ui/game-icons";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
 import { ShowMore } from "./show-more";
@@ -319,47 +321,7 @@ export function CharacterDashboard({
               {vm.inventory.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No items yet.</p>
               ) : (
-                <>
-                  <ShowMore cap={10} noun="items" className="space-y-1.5">
-                    {vm.inventory.items.map((it, i) => {
-                      const meta = [
-                        it.weapon?.enhancement ? `+${it.weapon.enhancement}` : null,
-                        it.weapon?.damage,
-                        it.weapon?.damageType,
-                        it.weapon?.crit,
-                        it.weapon?.range,
-                        it.armorBonus ? `+${it.armorBonus} AC` : null,
-                        it.armorCheckPenalty ? `ACP −${it.armorCheckPenalty}` : null,
-                        it.cost || null,
-                        typeof it.weight === "number" && it.weight > 0 ? `${it.weight} lb` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <div key={i} className="flex items-start justify-between gap-2 text-sm">
-                          <span className="min-w-0">
-                            <span className="block truncate text-foreground">
-                              {it.name}
-                              {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
-                            </span>
-                            {meta && <span className="block text-[11px] text-muted-foreground">{meta}</span>}
-                            {it.notes && (
-                              <span className="block text-[11px] italic text-muted-foreground/80">{it.notes}</span>
-                            )}
-                          </span>
-                          {it.equipped && (
-                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </ShowMore>
-                  {vm.inventory.carriedWeight > 0 && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      ≈ {vm.inventory.carriedWeight} lb carried
-                    </p>
-                  )}
-                </>
+                <InventoryList inv={vm.inventory} />
               )}
             </SectionCard>
           )}
@@ -699,6 +661,81 @@ function WealthLines({ wealth }: { wealth: NonNullable<CharacterViewModel["wealt
       </div>
       <p className="mt-1 text-xs text-muted-foreground">≈ {wealth.totalGp} gp total</p>
     </>
+  );
+}
+
+type InventoryVM = NonNullable<CharacterViewModel["inventory"]>;
+
+/** Inventory split into Equipped/Worn vs Carried, each item tagged with its category glyph. */
+function InventoryList({ inv }: { inv: InventoryVM }) {
+  const equipped = inv.items.filter((it) => it.equipped);
+  const carried = inv.items.filter((it) => !it.equipped);
+  // Only label the groups when there's a real split — a single group reads cleaner unlabeled.
+  const showHeaders = equipped.length > 0 && carried.length > 0;
+  return (
+    <div className="space-y-3">
+      {equipped.length > 0 && (
+        <div className="space-y-1.5">
+          {showHeaders && <InvHeading label="Equipped" count={equipped.length} />}
+          {equipped.map((it, i) => (
+            <InvRow key={`e${i}`} it={it} showBadge={!showHeaders} />
+          ))}
+        </div>
+      )}
+      {carried.length > 0 && (
+        <div className="space-y-1.5">
+          {showHeaders && <InvHeading label="Carried" count={carried.length} />}
+          <ShowMore cap={10} noun="items" className="space-y-1.5">
+            {carried.map((it, i) => (
+              <InvRow key={`c${i}`} it={it} showBadge={false} />
+            ))}
+          </ShowMore>
+        </div>
+      )}
+      {inv.carriedWeight > 0 && (
+        <p className="text-xs text-muted-foreground">≈ {inv.carriedWeight} lb carried</p>
+      )}
+    </div>
+  );
+}
+
+function InvHeading({ label, count }: { label: string; count: number }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {label} <span className="text-muted-foreground/60">({count})</span>
+    </p>
+  );
+}
+
+function InvRow({ it, showBadge }: { it: InventoryVM["items"][number]; showBadge: boolean }) {
+  const meta = [
+    it.weapon?.enhancement ? `+${it.weapon.enhancement}` : null,
+    it.weapon?.damage,
+    it.weapon?.damageType,
+    it.weapon?.crit,
+    it.weapon?.range,
+    it.armorBonus ? `+${it.armorBonus} AC` : null,
+    it.armorCheckPenalty ? `ACP −${it.armorCheckPenalty}` : null,
+    it.cost || null,
+    typeof it.weight === "number" && it.weight > 0 ? `${it.weight} lb` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <GameIcon name={itemIconName(it.category)} className="mt-0.5 size-4 text-gold/80" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-foreground">
+          {it.name}
+          {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
+        </span>
+        {meta && <span className="block text-[11px] text-muted-foreground">{meta}</span>}
+        {it.notes && <span className="block text-[11px] italic text-muted-foreground/80">{it.notes}</span>}
+      </span>
+      {showBadge && it.equipped && (
+        <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
+      )}
+    </div>
   );
 }
 
