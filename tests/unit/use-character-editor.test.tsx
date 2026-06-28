@@ -89,6 +89,45 @@ describe("useCharacterEditor — version-guarded save + conflict handling", () =
     expect(result.current.draft.identity.name).toBe("C");
   });
 
+  it("does not freeze on 'unsaved' when a debounce fires during a slow save (the fast-typing freeze)", async () => {
+    const base = createDefaultCharacter({ name: "A" });
+    let release: (v: unknown) => void = () => {};
+    saveMock
+      .mockImplementationOnce(() => new Promise((r) => (release = r))) // first save is slow (hangs)
+      .mockResolvedValue({ ok: true, version: 3 });
+
+    const { result } = renderHook(() => useCharacterEditor("c1", base, 1));
+    act(() => result.current.update((d) => void (d.identity.name = "B")));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950); // debounce → first save starts + hangs
+      await Promise.resolve();
+    });
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe("saving");
+
+    // Type during the slow save (status → "unsaved"), then let THAT edit's debounce timer fire while
+    // the save is still in flight — this sets savePendingRef and is the exact freeze trigger.
+    act(() => result.current.update((d) => void (d.identity.name = "C")));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950);
+      await Promise.resolve();
+    });
+    expect(saveMock).toHaveBeenCalledTimes(1); // the mid-save flush early-returned
+    expect(result.current.status).toBe("unsaved");
+
+    // The slow save resolves. With the old re-arm (setStatus("unsaved") no-op) this froze forever.
+    await act(async () => {
+      release({ ok: true, version: 2 });
+      await Promise.resolve();
+    });
+    await settle();
+
+    // The kick rescheduled a flush → "C" saved → status recovers to "saved".
+    expect(saveMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(result.current.status).toBe("saved");
+    expect(result.current.draft.identity.name).toBe("C");
+  });
+
   it("coalesces a re-save after an edit during an in-flight save (no back-to-back hammering)", async () => {
     const base = createDefaultCharacter({ name: "A" });
     let release: (v: unknown) => void = () => {};
