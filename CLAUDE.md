@@ -256,6 +256,38 @@ options-compendium (migration `0017` generic `<domain>_compendium` + search RPC 
 on sourcing the OGL datasets); Path of War → Spheres → Akashic (XL each, reuse the parser+compendium);
 Mythic depth (ability-boosts→scores, path abilities, Hard-to-Kill). See `docs/NEXT_SESSION.md`.
 
+**Read-view overhaul + reliability + privacy (2026-06-28).** A polish/QA session on top of the audit;
+each pass shipped after an adversarial Workflow review, gate-green, prod clean.
+- **Read-view IA** (`character-dashboard.tsx`): a **wiki infobox** (large portrait + facts `<dl>`)
+  replaces the old hero banner; sections regrouped into **Combat** (BAB/CMB/CMD + attacks) and
+  **Defenses** (`DefensesCard({ saves, defenses })` — saves + DR/resist/immunity/conditions, always
+  rendered); **content-first** rebalance moves Spellcasting/Inventory/Feats/etc. into the wide
+  `lg:col-span-2` main column, trackers (hero points/mythic/honor/psionics/advancement/senses/
+  milestones/languages/wealth) into the right rail; narrative → a **Background** card; **Speed moved
+  Attacks→Core**. **Mobile:** `InfoBox` takes `variant="banner"` and dual-renders — a wide top banner
+  (`lg:hidden`, portrait + 2-col facts) on mobile, the tall sidebar card (`hidden lg:block`) on desktop
+  — so identity isn't buried at the bottom when columns stack.
+- **Read-view completeness** — surfaced ~18 "typed-but-hidden" gaps in the view-model (`view-model.ts`):
+  profile sub-fields (affiliations/family/ideals/likes/dislikes/flaws/phobias/uniqueTraits + skin/hair/
+  eyes/features), inventory item notes(owner)/cost/weight/weapon-stats + `carriedWeight`, alternate
+  `vitals.movement`, spell-like abilities (`spellcasting.slas`), psionic `powers`, an `advancement`
+  block (XP — owner-only, hidden under Milestone Leveling), and `senses`.
+- **Privacy** — `DEFAULT_SECTION_PRIVACY` now defaults **inventory + wealth to `public`** (owner call:
+  "most things should be public"); the share view NAMES the hidden sections (`vm.hiddenSections`); and a
+  **Privacy & sharing** panel in the Settings editor (`character-editor.tsx`) writes per-section levels
+  into `c.privacy.sections` (was modeled but had no UI). Same gating drives the read view AND `/api/v1`.
+- **Editable profile** — `lib/actions/profile.ts` `updateProfileAction` (display name + globally-unique
+  handle, RLS self-scoped, 23505→"handle taken", mirrors name to auth metadata) + `profile-form.tsx`;
+  `inviteMemberAction` lowercases the handle so invite-by-handle works end-to-end.
+- **Autosave hardening** (`use-character-editor.ts`; see [[pathforge-autosave-livelock]]) — fixed the
+  fast-typing FREEZE: the mid-save re-arm called `setStatus("unsaved")`, a no-op when already "unsaved",
+  so the debounce effect (keyed on `status`) never re-fired and no flush was scheduled. Fix: a
+  `flushKick` counter added to the effect deps. Plus a 20s `Promise.race` save-timeout and a try/catch
+  around the editor's `computeCharacter` useMemo (a compute throw can no longer white-screen the editor).
+- **Milestone Leveling** optional system (`milestone-leveling.ts`) rebuilt on the owner's real campaign
+  tables (cumulative per-level requirement ladder + 4-difficulty job-reward matrix); `summary.milestoneLeveling`
+  guards `readyToLevel` on `nextThreshold > currentThreshold` (kills the L1–2 false positive).
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
