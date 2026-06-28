@@ -44,6 +44,9 @@ export const sphereTalentRefSchema = z.object({
    * when absent it's inferred from the talent's sphere via talentSystem(); set explicitly when the
    * talent is picked from a system-scoped tab. */
   system: z.enum(["Magic", "Combat", "Skill"]).optional(),
+  /** A bonus (free) talent — granted by a drawback/tradition; shown separately and NOT counted against
+   * the talents-known budget (excluded from combat/skill talents "spent"). */
+  bonus: z.boolean().optional(),
   notes: z.string().optional(),
   /** Links to a sphere_talents row (pick cache). */
   compendiumId: z.string().optional(),
@@ -97,6 +100,8 @@ export type SphereGrantTarget = z.infer<typeof sphereGrantTargetSchema>;
 export const sphereGrantMetaSchema = z.object({
   system: z.enum(["Magic", "Combat", "Skill"]).optional(),
   appliesTo: sphereGrantTargetSchema.optional(),
+  /** Free-text annotation shown on the chip, e.g. "+1 talent" or "−2 vs fire" (the mockup's "→ …"). */
+  note: z.string().optional(),
 });
 export type SphereGrantMeta = z.infer<typeof sphereGrantMetaSchema>;
 

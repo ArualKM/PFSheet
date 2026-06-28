@@ -6,6 +6,8 @@ import Link from "next/link";
 import {
   Check,
   CircleAlert,
+  X,
+  Star,
   Loader2,
   Cloud,
   CloudOff,
@@ -994,6 +996,76 @@ function SphereSubsection({
   );
 }
 
+/** A compact removable chip (the redesigned Spheres editor's spheres/talents/drawbacks/boons). The body
+ * is an optional click target (open a grant's target/note editor, toggle a talent's bonus flag); the
+ * trailing × removes it. `tone` = the border/bg/text classes; `note` renders the "→ …" annotation. */
+function SphereChip({
+  label,
+  note,
+  tone,
+  title,
+  leading,
+  onClick,
+  onRemove,
+}: {
+  label: string;
+  note?: string;
+  tone: string;
+  title?: string;
+  leading?: ReactNode;
+  onClick?: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span className={cn("inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs", tone)}>
+      {leading}
+      <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        disabled={!onClick}
+        className={cn("min-w-0 truncate text-left", onClick && "hover:underline")}
+      >
+        {label}
+        {note ? <span className="opacity-75"> → {note}</span> : null}
+      </button>
+      <button
+        type="button"
+        aria-label={`Remove ${label}`}
+        onClick={onRemove}
+        className="-mr-0.5 shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
+
+/** A small "add by name" inline input — manual entry alongside the compendium Browse, for the chip lists. */
+function AddByName({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
+  const [v, setV] = useState("");
+  const commit = () => {
+    const name = v.trim();
+    if (name) onAdd(name);
+    setV("");
+  };
+  return (
+    <input
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+      }}
+      onBlur={commit}
+      placeholder={placeholder}
+      className="h-7 w-32 rounded-full border border-dashed border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground"
+    />
+  );
+}
+
 /** Decode a "kind:id" target select value (e.g. "sphere:sph_x") back into a grant target, or undefined. */
 function decodeGrantTarget(v: string): SphereGrantTarget | undefined {
   if (!v) return undefined;
@@ -1020,6 +1092,15 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
     ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<SpherePickerMode>("talents");
+  // Which drawback/boon chip's target+note editor is open (one at a time), keyed by system+kind+name.
+  const [editingGrant, setEditingGrant] = useState<string | null>(null);
+  const setGrantNote = (kind: "drawback" | "boon", name: string, note: string) =>
+    ensure((s) => {
+      const key = kind === "drawback" ? "drawbackMeta" : "boonMeta";
+      const meta = { ...(s[key] ?? {}) };
+      meta[name] = { ...(meta[name] ?? {}), note: note || undefined };
+      s[key] = meta;
+    });
   // "" = unscoped (traditions/drawbacks/boons in the shared Tradition card); a system scopes the
   // picker to that system's card. The picker renders inline under whichever entry point opened it.
   const [pickerScope, setPickerScope] = useState<SphereSystem | "">("");
@@ -1121,6 +1202,8 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
         const talentsOf = (sp?.talents ?? [])
           .map((t, i) => ({ t, i }))
           .filter(({ t }) => talentSystem(t, sp?.spheres ?? []) === d.sys);
+        const regularTalentsOf = talentsOf.filter(({ t }) => !t.bonus);
+        const bonusTalentsOf = talentsOf.filter(({ t }) => t.bonus);
         const drawbacksOf = (sp?.drawbacks ?? [])
           .map((name, i) => ({ name, i }))
           .filter(({ name }) => grantSystem(name, sp?.drawbackMeta) === d.sys);
@@ -1201,22 +1284,24 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
               </label>
             )}
 
-            {/* Tradition (this system) */}
-            <div className="mb-3 rounded-lg border border-border p-2.5">
+            {/* Tradition (this system) — prominent card: name + custom + Browse presets, then drawback /
+                boon / bonus-talent chips. Click a drawback/boon chip to set its target + note. */}
+            <section className="mb-3 rounded-xl border border-rune/30 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <ScrollText className="size-3.5" /> Tradition
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <ScrollText className="size-4 text-rune" /> Tradition
                   {trad?.name && (
-                    <span className="truncate text-xs font-medium normal-case text-rune">
-                      {trad.custom ? `Custom · ${trad.name}` : trad.name}
+                    <span className="truncate text-sm font-medium text-rune">
+                      — {trad.custom ? `Custom: ${trad.name}` : trad.name}
                     </span>
                   )}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => openPicker("traditions", d.sys)}>
-                  <Plus className="size-3.5" /> Browse
+                  <Plus className="size-3.5" /> Browse presets
                 </Button>
               </div>
-              <div className="mt-1.5 flex flex-wrap items-end gap-3">
+
+              <div className="mt-2 flex flex-wrap items-end gap-3">
                 <TextField
                   label="Tradition name"
                   value={trad?.name ?? ""}
@@ -1233,7 +1318,145 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                   Custom build
                 </label>
               </div>
-            </div>
+
+              {/* Drawbacks */}
+              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <CircleAlert className="size-3.5 text-danger" /> Drawbacks
+                </span>
+                {drawbacksOf.map(({ name, i }) => (
+                  <SphereChip
+                    key={name}
+                    label={name}
+                    note={sp?.drawbackMeta?.[name]?.note}
+                    tone="border-danger/30 bg-danger/10 text-foreground"
+                    title="Set target / note"
+                    onClick={() =>
+                      setEditingGrant(editingGrant === `${d.sys}:drawback:${name}` ? null : `${d.sys}:drawback:${name}`)
+                    }
+                    onRemove={() =>
+                      ensure((s) => {
+                        s.drawbacks.splice(i, 1);
+                        if (s.drawbackMeta && !s.drawbacks.includes(name)) delete s.drawbackMeta[name];
+                      })
+                    }
+                  />
+                ))}
+                <button type="button" onClick={() => openPicker("drawbacks", d.sys)} className="text-xs text-rune hover:underline">
+                  + Browse
+                </button>
+                <AddByName
+                  placeholder="+ name"
+                  onAdd={(name) =>
+                    ensure((s) => {
+                      if (!s.drawbacks.includes(name)) s.drawbacks.push(name);
+                      const m = { ...(s.drawbackMeta ?? {}) };
+                      m[name] = { ...m[name], system: d.sys };
+                      s.drawbackMeta = m;
+                    })
+                  }
+                />
+              </div>
+
+              {/* Boons */}
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <Sparkles className="size-3.5 text-success" /> Boons
+                </span>
+                {boonsOf.map(({ name, i }) => (
+                  <SphereChip
+                    key={name}
+                    label={name}
+                    note={sp?.boonMeta?.[name]?.note}
+                    tone="border-success/35 bg-success/10 text-foreground"
+                    title="Set target / note"
+                    onClick={() =>
+                      setEditingGrant(editingGrant === `${d.sys}:boon:${name}` ? null : `${d.sys}:boon:${name}`)
+                    }
+                    onRemove={() =>
+                      ensure((s) => {
+                        s.boons.splice(i, 1);
+                        if (s.boonMeta && !s.boons.includes(name)) delete s.boonMeta[name];
+                      })
+                    }
+                  />
+                ))}
+                <button type="button" onClick={() => openPicker("boons", d.sys)} className="text-xs text-rune hover:underline">
+                  + Browse
+                </button>
+                <AddByName
+                  placeholder="+ name"
+                  onAdd={(name) =>
+                    ensure((s) => {
+                      if (!s.boons.includes(name)) s.boons.push(name);
+                      const m = { ...(s.boonMeta ?? {}) };
+                      m[name] = { ...m[name], system: d.sys };
+                      s.boonMeta = m;
+                    })
+                  }
+                />
+              </div>
+
+              {/* Bonus talents (free; from drawbacks/tradition) */}
+              {bonusTalentsOf.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Bonus talents</span>
+                  {bonusTalentsOf.map(({ t: tal, i }) => (
+                    <SphereChip
+                      key={tal.id}
+                      label={tal.talentName || "(unnamed)"}
+                      tone="border-rune/40 bg-rune/15 text-foreground"
+                      leading={
+                        <button
+                          type="button"
+                          aria-label="Unmark bonus"
+                          title="Make a normal talent"
+                          onClick={() => ensure((s) => { const t = s.talents[i]; if (t) t.bonus = undefined; })}
+                          className="shrink-0 text-rune"
+                        >
+                          <Star className="size-3 fill-current" />
+                        </button>
+                      }
+                      onRemove={() => ensure((s) => { clearTargetsTo(s, tal.id); s.talents.splice(i, 1); })}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Inline editor for the clicked drawback/boon chip (target + note) */}
+              {[
+                ...drawbacksOf.map((x) => ({ ...x, kind: "drawback" as const })),
+                ...boonsOf.map((x) => ({ ...x, kind: "boon" as const })),
+              ]
+                .filter(({ kind, name }) => editingGrant === `${d.sys}:${kind}:${name}`)
+                .map(({ kind, name }) => {
+                  const meta = kind === "drawback" ? sp?.drawbackMeta?.[name] : sp?.boonMeta?.[name];
+                  const t = meta?.appliesTo;
+                  return (
+                    <div
+                      key={`${kind}:${name}`}
+                      className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-border bg-surface-raised p-2"
+                    >
+                      <SelectField
+                        label={`"${name}" affects`}
+                        value={t ? `${t.kind}:${t.id}` : ""}
+                        onChange={(v) => setGrantTarget(kind, name, decodeGrantTarget(v))}
+                        options={targetOptions}
+                        className="w-full sm:w-44"
+                      />
+                      <TextField
+                        label="Note (e.g. +1 talent)"
+                        value={meta?.note ?? ""}
+                        onChange={(v) => setGrantNote(kind, name, v)}
+                        className="min-w-[8rem] flex-1"
+                      />
+                      <Button size="sm" variant="ghost" onClick={() => setEditingGrant(null)}>
+                        Done
+                      </Button>
+                    </div>
+                  );
+                })}
+            </section>
 
             {renderPicker(d.sys)}
 
@@ -1311,171 +1534,68 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                   ))}
               </SphereSubsection>
 
-              {/* Spheres */}
+              {/* Spheres — chips */}
               <SphereSubsection
                 title="Spheres"
                 count={spheresOf.length}
-                addLabel="Sphere"
+                addLabel="Browse"
                 defaultOpen={spheresOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
-                onAdd={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: d.sys }))}
+                onAdd={() => openPicker("spheres", d.sys)}
               >
-                {spheresOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                {spheresOf.map(({ x, i }) => (
-                    <div key={x.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
-                      <TextField
-                        label="Sphere"
-                        value={x.name}
-                        onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.name = v; })}
-                        className="min-w-[10rem] flex-1"
-                      />
-                      <SelectField
-                        label="System"
-                        value={x.system}
-                        onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.system = v as SpheresBlock["spheres"][number]["system"]; })}
-                        options={[
-                          { value: "Magic", label: "Magic" },
-                          { value: "Combat", label: "Combat" },
-                          { value: "Skill", label: "Skill" },
-                        ]}
-                        className="w-28"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Remove sphere"
-                        onClick={() => ensure((s) => { clearTargetsTo(s, x.id); s.spheres.splice(i, 1); })}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {spheresOf.length === 0 && <span className="text-xs text-muted-foreground">None yet.</span>}
+                  {spheresOf.map(({ x, i }) => (
+                    <SphereChip
+                      key={x.id}
+                      label={x.name || "(unnamed)"}
+                      tone="border-border bg-surface-raised text-foreground"
+                      onRemove={() => ensure((s) => { clearTargetsTo(s, x.id); s.spheres.splice(i, 1); })}
+                    />
                   ))}
+                  <AddByName
+                    placeholder="+ sphere"
+                    onAdd={(name) => ensure((s) => s.spheres.push({ id: newId("sph"), name, system: d.sys }))}
+                  />
+                </div>
               </SphereSubsection>
 
-              {/* Talents */}
+              {/* Talents — chips. The ★ marks a talent as a bonus (free) talent → it moves to the
+                  Tradition card's "Bonus talents" row and stops counting against the budget. */}
               <SphereSubsection
                 title="Talents"
-                count={talentsOf.length}
-                addLabel="Talent"
-                defaultOpen={talentsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
-                onAdd={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "", system: d.sys }))}
+                count={regularTalentsOf.length}
+                addLabel="Browse"
+                defaultOpen={regularTalentsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() => openPicker("talents", d.sys)}
               >
-                {talentsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                {talentsOf.map(({ t: tal, i }) => (
-                    <div key={tal.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
-                      <TextField
-                        label="Talent"
-                        value={tal.talentName}
-                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.talentName = v; })}
-                        className="min-w-[10rem] flex-1"
-                      />
-                      <TextField
-                        label="Sphere"
-                        value={tal.sphereName}
-                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.sphereName = v; })}
-                        className="w-32"
-                      />
-                      <SelectField
-                        label="System"
-                        value={talentSystem(tal, sp?.spheres ?? [])}
-                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.system = v as SphereSystem; })}
-                        options={[
-                          { value: "Magic", label: "Magic" },
-                          { value: "Combat", label: "Combat" },
-                          { value: "Skill", label: "Skill" },
-                        ]}
-                        className="w-24"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Remove talent"
-                        onClick={() => ensure((s) => { clearTargetsTo(s, tal.id); s.talents.splice(i, 1); })}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {regularTalentsOf.length === 0 && <span className="text-xs text-muted-foreground">None yet.</span>}
+                  {regularTalentsOf.map(({ t: tal, i }) => (
+                    <SphereChip
+                      key={tal.id}
+                      label={tal.talentName || "(unnamed)"}
+                      tone="border-border bg-surface-raised text-foreground"
+                      leading={
+                        <button
+                          type="button"
+                          aria-label="Mark as a bonus talent"
+                          title="Mark as a bonus (free) talent"
+                          onClick={() => ensure((s) => { const t = s.talents[i]; if (t) t.bonus = true; })}
+                          className="shrink-0 text-muted-foreground hover:text-rune"
+                        >
+                          <Star className="size-3" />
+                        </button>
+                      }
+                      onRemove={() => ensure((s) => { clearTargetsTo(s, tal.id); s.talents.splice(i, 1); })}
+                    />
                   ))}
-              </SphereSubsection>
-
-              {/* Drawbacks (this system) — each can be flagged to a specific sphere/talent it affects. */}
-              <SphereSubsection
-                title="Drawbacks"
-                count={drawbacksOf.length}
-                accent="text-danger"
-                addLabel="Add"
-                defaultOpen={drawbacksOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
-                onAdd={() => openPicker("drawbacks", d.sys)}
-              >
-                {drawbacksOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                {drawbacksOf.map(({ name, i }) => {
-                    const t = sp?.drawbackMeta?.[name]?.appliesTo;
-                    return (
-                      <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-danger/30 bg-danger/5 p-1.5">
-                        <span className="min-w-[8rem] flex-1 break-words py-1.5 text-sm text-foreground">{name}</span>
-                        <SelectField
-                          label="Affects"
-                          value={t ? `${t.kind}:${t.id}` : ""}
-                          onChange={(v) => setGrantTarget("drawback", name, decodeGrantTarget(v))}
-                          options={targetOptions}
-                          className="w-full sm:w-40"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove ${name}`}
-                          onClick={() =>
-                            ensure((s) => {
-                              s.drawbacks.splice(i, 1);
-                              // only drop the (name-keyed) meta when no other entry of that name remains
-                              if (s.drawbackMeta && !s.drawbacks.includes(name)) delete s.drawbackMeta[name];
-                            })
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-              </SphereSubsection>
-
-              {/* Boons (this system) */}
-              <SphereSubsection
-                title="Boons"
-                count={boonsOf.length}
-                accent="text-success"
-                addLabel="Add"
-                defaultOpen={boonsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
-                onAdd={() => openPicker("boons", d.sys)}
-              >
-                {boonsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                {boonsOf.map(({ name, i }) => {
-                    const t = sp?.boonMeta?.[name]?.appliesTo;
-                    return (
-                      <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-success/35 bg-success/5 p-1.5">
-                        <span className="min-w-[8rem] flex-1 break-words py-1.5 text-sm text-foreground">{name}</span>
-                        <SelectField
-                          label="Affects"
-                          value={t ? `${t.kind}:${t.id}` : ""}
-                          onChange={(v) => setGrantTarget("boon", name, decodeGrantTarget(v))}
-                          options={targetOptions}
-                          className="w-full sm:w-40"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove ${name}`}
-                          onClick={() =>
-                            ensure((s) => {
-                              s.boons.splice(i, 1);
-                              if (s.boonMeta && !s.boons.includes(name)) delete s.boonMeta[name];
-                            })
-                          }
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    );
-                  })}
+                  <AddByName
+                    placeholder="+ talent"
+                    onAdd={(name) =>
+                      ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: name, system: d.sys }))
+                    }
+                  />
+                </div>
               </SphereSubsection>
             </div>
           </section>

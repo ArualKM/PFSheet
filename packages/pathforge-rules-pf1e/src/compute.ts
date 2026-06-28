@@ -1032,8 +1032,9 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     // Spheres + talents counted per system. A talent's system honors its explicit `system` tag, else is
     // inferred from its sphere (default Magic) — same talentSystem() the editor groups by, so the engine
     // counts and the per-system cards always agree.
-    const combatTalentsSpent = sp.talents.filter((t) => talentSystem(t, sp.spheres) === "Combat").length;
-    const skillTalentsSpent = sp.talents.filter((t) => talentSystem(t, sp.spheres) === "Skill").length;
+    // Bonus (free) talents don't count against the known/spent budget.
+    const combatTalentsSpent = sp.talents.filter((t) => !t.bonus && talentSystem(t, sp.spheres) === "Combat").length;
+    const skillTalentsSpent = sp.talents.filter((t) => !t.bonus && talentSystem(t, sp.spheres) === "Skill").length;
     spheres = {
       systems: { power: spheresPower, might: spheresMight, guile: spheresGuile },
       combatSphereCount: sp.spheres.filter((s) => s.system === "Combat").length,

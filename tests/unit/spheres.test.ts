@@ -205,6 +205,25 @@ describe("spheres", () => {
     expect(computeCharacter(c).summary.spheres!.combatTalentsSpent).toBe(1);
   });
 
+  it("bonus (free) talents are excluded from the spent budget", () => {
+    const c = createDefaultCharacter({ name: "X" });
+    c.rules.modules.push({ key: "spheres_of_might", enabled: true, settings: {} });
+    c.spheres = {
+      casterClasses: [
+        { id: "p1", className: "Armiger", system: "Combat", casterType: "high", classLevel: 8, castingAbility: "str" },
+      ],
+      spheres: [{ id: "s1", name: "Brute", system: "Combat" }],
+      talents: [
+        { id: "t1", sphereName: "Brute", talentName: "Slam" },
+        { id: "t2", sphereName: "Brute", talentName: "Free Slam", bonus: true },
+      ],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+    };
+    expect(computeCharacter(c).summary.spheres!.combatTalentsSpent).toBe(1); // the bonus talent doesn't count
+  });
+
   it("talentSystem: explicit tag wins, else infers from the talent's sphere, else Magic", () => {
     const spheres = [
       { name: "Brute", system: "Combat" as const },
