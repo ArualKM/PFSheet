@@ -50,3 +50,8 @@ next-env.d.ts
 # local scratch
 /tmp
 *.local.md
+
+# Spheres source research — scraped wiki HTML + downloaded page assets (bulky, not app code).
+# The 6 normalized TSVs ARE versioned (the compendium import source); the raw pages are not.
+**/downloaded source web pages/
+**/*_SAMPLE.tsv
