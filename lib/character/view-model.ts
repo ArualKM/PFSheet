@@ -53,8 +53,10 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   spells: "public",
   formulaDetails: "public",
   backstory: "public",
-  inventory: "party",
-  wealth: "party",
+  // Public by default — a shared sheet is opt-in, so most owners want it all visible. Owners who want
+  // their loot/gold hidden (e.g. in a campaign) can set these to Party/Private in the privacy editor.
+  inventory: "public",
+  wealth: "public",
   journal: "party",
   privateNotes: "owner_only",
   gmSecrets: "gm_only",
