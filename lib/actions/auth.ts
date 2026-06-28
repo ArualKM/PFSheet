@@ -98,3 +98,55 @@ export async function signInWithOAuthAction(provider: "google" | "discord"): Pro
   }
   redirect(data.url);
 }
+
+const emailSchema = z.object({ email: z.string().email("Enter a valid email address.") });
+
+/**
+ * Step 1 of password recovery: email a reset link. The link returns through the existing
+ * /auth/callback (PKCE `code` → session), then lands on /reset-password/update. We always return the
+ * same message regardless of whether the email exists, to avoid account-enumeration.
+ */
+export async function requestPasswordResetAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = emailSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Enter a valid email address." };
+  }
+  const supabase = await createClient();
+  const redirectTo = `${await authRedirectOrigin()}/auth/callback?next=${encodeURIComponent(
+    "/reset-password/update",
+  )}`;
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, { redirectTo });
+  if (error) console.error("resetPasswordForEmail error:", error.message);
+  return { message: "If that email has an account, a password-reset link is on its way." };
+}
+
+const newPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters."),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, { message: "Passwords don't match.", path: ["confirm"] });
+
+/**
+ * Step 2 of password recovery: set the new password. Requires the recovery session established by the
+ * emailed link (via /auth/callback), so a stale/missing link is rejected rather than silently no-op'd.
+ */
+export async function updatePasswordAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const parsed = newPasswordSchema.safeParse({
+    password: formData.get("password"),
+    confirm: formData.get("confirm"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid password." };
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Your reset link is invalid or has expired. Request a new one." };
+  }
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) return { error: error.message };
+  redirect("/dashboard");
+}

@@ -180,3 +180,27 @@ export function isModuleKeyEnabled(character: PathForgeCharacterV1, key: string)
   const mod = OPTIONAL_RULE_MODULES.find((m) => m.key === key);
   return mod ? isRuleEnabled(character, mod) : false;
 }
+
+/**
+ * Module keys that are fully wired (schema → engine/view-model → dashboard/editor). Everything else in
+ * OPTIONAL_RULE_MODULES is a toggle whose system isn't built yet — the editor marks those "Coming soon"
+ * and won't let you newly enable them, so a toggle never silently does nothing. Add a key here as its
+ * system ships.
+ */
+const IMPLEMENTED_MODULE_KEYS = new Set<string>([
+  "mythic",
+  "background_skills",
+  "wounds_vigor",
+  "fractional",
+  "gestalt",
+  "hero_points",
+  "honor",
+  "stamina",
+  "milestone_leveling",
+  "psionics",
+]);
+
+/** Whether a module is offered as a toggle but its system isn't built yet ("Coming soon"). */
+export function isModuleComingSoon(key: string): boolean {
+  return !IMPLEMENTED_MODULE_KEYS.has(key);
+}

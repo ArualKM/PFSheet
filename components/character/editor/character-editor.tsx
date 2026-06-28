@@ -33,6 +33,7 @@ import {
   OPTIONAL_RULE_MODULES,
   isRuleEnabled,
   isModuleKeyEnabled,
+  isModuleComingSoon,
   isBackgroundSkill,
   maxHeroPoints,
   HONOR_CODES,
@@ -1312,24 +1313,38 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
           <div className="grid gap-2 sm:grid-cols-2">
             {OPTIONAL_RULE_MODULES.filter((m) => m.group === g.key).map((mod) => {
               const on = isRuleEnabled(ed.draft, mod);
+              const comingSoon = isModuleComingSoon(mod.key);
+              // Coming-soon systems can't be newly enabled (the toggle would do nothing), but an
+              // already-on one stays toggle-able so it can be turned back off.
+              const locked = comingSoon && !on;
               return (
                 <label
                   key={mod.key}
                   className={cn(
-                    "flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-colors",
-                    on ? "border-gold/40 bg-gold/5" : "border-border hover:border-border/80",
+                    "flex items-start gap-2.5 rounded-lg border p-3 transition-colors",
+                    locked
+                      ? "cursor-not-allowed border-border opacity-60"
+                      : "cursor-pointer",
+                    !locked && on ? "border-gold/40 bg-gold/5" : "",
+                    !locked && !on ? "border-border hover:border-border/80" : "",
                   )}
                 >
                   <input
                     type="checkbox"
                     checked={on}
+                    disabled={locked}
                     onChange={(e) => toggleRule(mod, e.target.checked)}
                     aria-label={mod.name}
-                    className="mt-0.5 size-4 accent-[var(--pf-gold)]"
+                    className="mt-0.5 size-4 accent-[var(--pf-gold)] disabled:cursor-not-allowed"
                   />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-sm font-medium text-foreground">{mod.name}</span>
+                      {comingSoon && (
+                        <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Coming soon
+                        </span>
+                      )}
                       {mod.publisher && (
                         <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] text-muted-foreground">
                           {mod.publisher}
