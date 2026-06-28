@@ -12,6 +12,7 @@ import {
   Coins,
   ScrollText,
   EyeOff,
+  Eye,
   Wand2,
   Flag,
 } from "lucide-react";
@@ -264,6 +265,83 @@ export function CharacterDashboard({
                   <span>{vm.psionics.powersKnown} powers</span>
                   {vm.psionics.focused && <span className="text-gold">Focused</span>}
                 </div>
+                {vm.psionics.powers.length > 0 && (
+                  <ShowMore cap={10} noun="powers" className="space-y-0.5 pt-1">
+                    {[...vm.psionics.powers]
+                      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+                      .map((p, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate text-foreground">{p.name}</span>
+                          <span className="shrink-0 text-muted-foreground">
+                            L{p.level}
+                            {p.ppCost != null ? ` · ${p.ppCost} PP` : ""}
+                          </span>
+                        </div>
+                      ))}
+                  </ShowMore>
+                )}
+              </div>
+            </SectionCard>
+          )}
+          {vm.advancement && (
+            <SectionCard title="Advancement" icon={Flag}>
+              <div className="space-y-1.5 text-sm">
+                {vm.advancement.nextLevelXp != null && vm.advancement.nextLevelXp > 0 ? (
+                  <>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="tnum text-lg font-semibold text-foreground">
+                        {vm.advancement.currentXp ?? 0}
+                        <span className="text-sm text-muted-foreground">/{vm.advancement.nextLevelXp}</span>
+                      </span>
+                      {vm.advancement.xpTrack && (
+                        <span className="text-xs capitalize text-muted-foreground">
+                          {vm.advancement.xpTrack} track
+                        </span>
+                      )}
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-rune"
+                        style={{
+                          width: `${Math.min(100, ((vm.advancement.currentXp ?? 0) / vm.advancement.nextLevelXp) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : vm.advancement.currentXp != null ? (
+                  <div className="tnum text-lg font-semibold text-foreground">{vm.advancement.currentXp} XP</div>
+                ) : null}
+                {vm.advancement.favoredClasses.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    <span className="text-xs text-muted-foreground">Favored:</span>
+                    {vm.advancement.favoredClasses.map((fc, i) => (
+                      <Badge key={i} variant="outline">
+                        {fc}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+          {(vm.senses.vision.length > 0 || vm.senses.special.length > 0 || vm.senses.notes) && (
+            <SectionCard title="Senses" icon={Eye}>
+              <div className="space-y-1.5 text-sm">
+                {(vm.senses.vision.length > 0 || vm.senses.special.length > 0) && (
+                  <div className="flex flex-wrap gap-1">
+                    {[...vm.senses.vision, ...vm.senses.special].map((s, i) => (
+                      <Badge key={i} variant="default">
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {vm.senses.perception != null && (
+                  <div className="text-muted-foreground">
+                    Perception <span className="tnum text-foreground">{formatModifier(vm.senses.perception)}</span>
+                  </div>
+                )}
+                {vm.senses.notes && <p className="text-xs text-muted-foreground">{vm.senses.notes}</p>}
               </div>
             </SectionCard>
           )}
@@ -374,6 +452,25 @@ export function CharacterDashboard({
                 {vm.spellcasting.spellbook && vm.spellcasting.spellbook.length > 0 && (
                   <SpellListViewer title="Spellbook" spells={vm.spellcasting.spellbook} />
                 )}
+                {vm.spellcasting.slas.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Spell-like abilities
+                    </p>
+                    <div className="space-y-0.5">
+                      {vm.spellcasting.slas.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="min-w-0 truncate text-foreground">{s.name}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {s.usesPerDay == null
+                              ? "At will"
+                              : `${Math.max(0, s.usesPerDay - s.used)}/${s.usesPerDay}/day`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}
@@ -384,6 +481,9 @@ export function CharacterDashboard({
                 {vm.feats.map((f, i) => (
                   <Badge key={i} variant="outline">
                     {f.name}
+                    {f.type && f.type.trim() && (
+                      <span className="ml-1 text-muted-foreground">({f.type})</span>
+                    )}
                   </Badge>
                 ))}
               </ShowMore>

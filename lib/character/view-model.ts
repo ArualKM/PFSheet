@@ -204,7 +204,18 @@ export type CharacterViewModel = {
     manifesterLevel: number;
     powersKnown: number;
     focused: boolean;
+    /** The actual powers-known list (was only a count before). */
+    powers: Array<{ name: string; level: number; discipline?: string; ppCost?: number; augment?: string; description?: string }>;
   } | null;
+  /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
+  advancement: {
+    currentXp?: number;
+    nextLevelXp?: number;
+    xpTrack?: string;
+    favoredClasses: string[];
+  } | null;
+  /** Senses — vision modes + special senses + perception. Always visible (informational). */
+  senses: { vision: string[]; special: string[]; perception: number | null; notes?: string };
   /** Milestone-leveling tracker (null unless the module is enabled). Replaces XP. */
   milestoneLeveling: {
     current: number;
@@ -231,6 +242,8 @@ export type CharacterViewModel = {
     prepared: Array<SpellView & { used: number; prepared: number; casterId?: string }> | null;
     known: Array<SpellView & { casterId?: string }>;
     spellbook: SpellView[] | null;
+    /** Spell-like abilities (name + uses/day; at-will when usesPerDay is null). */
+    slas: Array<{ name: string; usesPerDay: number | null; used: number }>;
     counts: { known: number; prepared: number; spellbook: number };
   } | null;
   profile: {
@@ -389,6 +402,11 @@ export function buildCharacterViewModel(
             : null,
           known: sp.knownSpells.map((k) => ({ ...toSpellView(k), casterId: k.casterId })),
           spellbook: sp.spellbook.length ? sp.spellbook.map((b) => toSpellView(b)) : null,
+          slas: sp.spellLikeAbilities.map((s) => ({
+            name: s.name,
+            usesPerDay: typeof s.usesPerDay === "number" ? s.usesPerDay : null,
+            used: s.used ?? 0,
+          })),
           counts: {
             known: sp.knownSpells.length,
             prepared: sp.preparedSpells.length,
@@ -605,8 +623,35 @@ export function buildCharacterViewModel(
           manifesterLevel: computed.summary.psionics.manifesterLevel,
           powersKnown: computed.summary.psionics.powersKnown,
           focused: computed.summary.psionics.focused,
+          powers: (character.psionics?.powersKnown ?? []).map((p) => ({
+            name: p.name,
+            level: p.level,
+            discipline: p.discipline,
+            ppCost: p.ppCost,
+            augment: isOwnerView ? p.augment : undefined,
+            description: isOwnerView ? p.description : undefined,
+          })),
         }
       : null,
+    advancement:
+      isOwnerView &&
+      !computed.summary.milestoneLeveling &&
+      (character.progression.currentXp != null ||
+        character.progression.nextLevelXp != null ||
+        character.progression.favoredClasses.length > 0)
+        ? {
+            currentXp: character.progression.currentXp,
+            nextLevelXp: character.progression.nextLevelXp,
+            xpTrack: character.progression.xpTrack,
+            favoredClasses: character.progression.favoredClasses,
+          }
+        : null,
+    senses: {
+      vision: character.senses.vision,
+      special: character.senses.senses,
+      perception: computed.skills["perception"]?.value ?? null,
+      notes: isOwnerView ? character.senses.notes : undefined,
+    },
     milestoneLeveling: computed.summary.milestoneLeveling ?? null,
     spellcasting,
     profile,
