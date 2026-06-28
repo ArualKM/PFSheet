@@ -8,7 +8,7 @@ import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-type Mode = "talents" | "spheres" | "traditions";
+type Mode = "talents" | "spheres" | "traditions" | "drawbacks" | "boons";
 
 type TalentResult = {
   id: string;
@@ -30,10 +30,12 @@ type TraditionResult = {
   boons_gained: string | null;
   description: string | null;
 };
+type DrawbackResult = { id: string; name: string; sphere: string | null; tradition: string | null; description: string | null };
+type BoonResult = { id: string; name: string; tradition: string | null; description: string | null };
 
 const CATEGORIES = ["Base Talent", "Advanced Talent", "Legendary Talent"];
 const SYSTEMS = ["Magic", "Combat", "Skill"] as const;
-const MODES: Mode[] = ["talents", "spheres", "traditions"];
+const MODES: Mode[] = ["talents", "spheres", "traditions", "drawbacks", "boons"];
 
 function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -69,32 +71,58 @@ function rankByName<T extends { name: string }>(items: T[], term: string): T[] {
  * so the long names stay readable in the editor's panel width (mobile + desktop alike). Picking a
  * tradition sets it and applies its granted drawbacks/boons as editable entries.
  */
-export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+export type SpherePickerMode = Mode;
+
+export function SpherePicker({
+  ed,
+  onClose,
+  mode,
+  onModeChange,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  /** Controlled by the parent so a different "Add"/"Browse" entry point can retarget the tab
+   * without remounting the picker (which would refetch the reference tables + drop the search). */
+  mode: SpherePickerMode;
+  onModeChange: (mode: SpherePickerMode) => void;
+}) {
   const supabase = useMemo(() => createClient(), []);
-  const [mode, setMode] = useState<Mode>("talents");
   const [q, setQ] = useState("");
   const [sphere, setSphere] = useState("");
   const [category, setCategory] = useState("");
   const [allSpheres, setAllSpheres] = useState<SphereResult[]>([]);
   const [allTraditions, setAllTraditions] = useState<TraditionResult[]>([]);
+  const [allDrawbacks, setAllDrawbacks] = useState<DrawbackResult[]>([]);
+  const [allBoons, setAllBoons] = useState<BoonResult[]>([]);
   const [talents, setTalents] = useState<TalentResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refLoading, setRefLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Spheres (68) + traditions (225) are small — load once and rank client-side.
+  // Spheres (68) + traditions (225) + drawbacks (489) + boons (29) are small — load once, rank client-side.
+  // refLoading starts true (useState) and flips false after the fetch; the component remounts fresh on
+  // each open, so no synchronous re-arm is needed here.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [sphereRes, tradRes] = await Promise.all([
+      const [sphereRes, tradRes, drawRes, boonRes] = await Promise.all([
         supabase.from("sphere_compendium").select("id,name,system").order("name", { ascending: true }),
         supabase
           .from("sphere_traditions")
           .select("id,name,type,drawbacks_gained,boons_gained,description")
           .order("name", { ascending: true }),
+        supabase
+          .from("sphere_drawbacks")
+          .select("id,name,sphere,tradition,description")
+          .order("name", { ascending: true }),
+        supabase.from("sphere_boons").select("id,name,tradition,description").order("name", { ascending: true }),
       ]);
       if (cancelled) return;
       if (sphereRes.data) setAllSpheres(sphereRes.data as SphereResult[]);
       if (tradRes.data) setAllTraditions(tradRes.data as TraditionResult[]);
+      if (drawRes.data) setAllDrawbacks(drawRes.data as DrawbackResult[]);
+      if (boonRes.data) setAllBoons(boonRes.data as BoonResult[]);
+      setRefLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -142,6 +170,8 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
     () => rankByName(allTraditions, mode === "traditions" ? q : ""),
     [allTraditions, q, mode],
   );
+  const drawbacks = useMemo(() => rankByName(allDrawbacks, mode === "drawbacks" ? q : ""), [allDrawbacks, q, mode]);
+  const boons = useMemo(() => rankByName(allBoons, mode === "boons" ? q : ""), [allBoons, q, mode]);
 
   const addedTalents = useMemo(
     () => new Set((ed.draft.spheres?.talents ?? []).map((t) => t.compendiumId).filter(Boolean)),
@@ -151,6 +181,8 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
     () => new Set((ed.draft.spheres?.spheres ?? []).map((s) => s.compendiumId).filter(Boolean)),
     [ed.draft.spheres?.spheres],
   );
+  const addedDrawbacks = useMemo(() => new Set(ed.draft.spheres?.drawbacks ?? []), [ed.draft.spheres?.drawbacks]);
+  const addedBoons = useMemo(() => new Set(ed.draft.spheres?.boons ?? []), [ed.draft.spheres?.boons]);
   const currentTradition = ed.draft.spheres?.tradition ?? "";
 
   const ensure = (mut: (s: NonNullable<typeof ed.draft.spheres>) => void) =>
@@ -185,20 +217,33 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
   // Selecting a tradition sets it and applies its granted drawbacks/boons (prose → editable lines the
   // player can trim). Provenance-tracked, so switching A→B REPLACES the old grants instead of stacking.
   const applyTradition = (r: TraditionResult) =>
-    ensure((s) =>
+    ensure((s) => {
       applyTraditionGrants(s, {
         name: r.name,
         drawbacks: grantLines(r.drawbacks_gained),
         boons: grantLines(r.boons_gained),
-      }),
-    );
+      });
+      s.traditionCustom = undefined; // applied a preset → not a hand-built tradition
+    });
+  const addDrawback = (r: DrawbackResult) =>
+    ensure((s) => {
+      if (!s.drawbacks.includes(r.name)) s.drawbacks.push(r.name);
+    });
+  const addBoon = (r: BoonResult) =>
+    ensure((s) => {
+      if (!s.boons.includes(r.name)) s.boons.push(r.name);
+    });
 
   const placeholder =
     mode === "talents"
       ? "Search talents by name or text…"
       : mode === "spheres"
         ? "Search spheres…"
-        : "Search traditions…";
+        : mode === "traditions"
+          ? "Search traditions…"
+          : mode === "drawbacks"
+            ? "Search drawbacks…"
+            : "Search boons…";
 
   return (
     <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
@@ -212,7 +257,7 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
       </div>
 
       <div
-        className="mb-2 inline-flex rounded-lg border border-border p-0.5 text-xs"
+        className="mb-2 flex gap-0.5 overflow-x-auto rounded-lg border border-border p-0.5 text-xs"
         role="group"
         aria-label="Compendium search mode"
       >
@@ -221,8 +266,8 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
             key={m}
             type="button"
             aria-pressed={mode === m}
-            onClick={() => setMode(m)}
-            className={`rounded-md px-3 py-1 capitalize ${
+            onClick={() => onModeChange(m)}
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 capitalize ${
               mode === m ? "bg-gold/15 font-semibold text-foreground" : "text-muted-foreground"
             }`}
           >
@@ -331,9 +376,9 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
           ))}
 
         {mode === "spheres" &&
-          (spheres.length === 0 && !loading ? (
+          (spheres.length === 0 ? (
             <li className="px-1 py-2 text-sm text-muted-foreground">
-              {q.trim().length === 1 ? "Keep typing…" : "No spheres found."}
+              {refLoading ? "Loading…" : q.trim().length === 1 ? "Keep typing…" : "No spheres found."}
             </li>
           ) : (
             spheres.map((r) => {
@@ -371,9 +416,9 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
           ))}
 
         {mode === "traditions" &&
-          (traditions.length === 0 && !loading ? (
+          (traditions.length === 0 ? (
             <li className="px-1 py-2 text-sm text-muted-foreground">
-              {q.trim().length === 1 ? "Keep typing…" : "No traditions found."}
+              {refLoading ? "Loading…" : q.trim().length === 1 ? "Keep typing…" : "No traditions found."}
             </li>
           ) : (
             traditions.map((r) => {
@@ -409,6 +454,90 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
                     ) : (
                       <>
                         <Plus className="size-4" /> Choose
+                      </>
+                    )}
+                  </Button>
+                </li>
+              );
+            })
+          ))}
+
+        {mode === "drawbacks" &&
+          (drawbacks.length === 0 ? (
+            <li className="px-1 py-2 text-sm text-muted-foreground">
+              {refLoading ? "Loading…" : q.trim().length === 1 ? "Keep typing…" : "No drawbacks found."}
+            </li>
+          ) : (
+            drawbacks.map((r) => {
+              const isAdded = addedDrawbacks.has(r.name);
+              return (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
+                    {(r.sphere || r.tradition) && (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {[r.sphere, r.tradition].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isAdded ? "ghost" : "secondary"}
+                    disabled={isAdded}
+                    onClick={() => addDrawback(r)}
+                    aria-label={`Add ${r.name}`}
+                    className="shrink-0"
+                  >
+                    {isAdded ? (
+                      <>
+                        <Check className="size-4" /> Added
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="size-4" /> Add
+                      </>
+                    )}
+                  </Button>
+                </li>
+              );
+            })
+          ))}
+
+        {mode === "boons" &&
+          (boons.length === 0 ? (
+            <li className="px-1 py-2 text-sm text-muted-foreground">
+              {refLoading ? "Loading…" : q.trim().length === 1 ? "Keep typing…" : "No boons found."}
+            </li>
+          ) : (
+            boons.map((r) => {
+              const isAdded = addedBoons.has(r.name);
+              return (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
+                    {r.tradition && <p className="truncate text-[11px] text-muted-foreground">{r.tradition}</p>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isAdded ? "ghost" : "secondary"}
+                    disabled={isAdded}
+                    onClick={() => addBoon(r)}
+                    aria-label={`Add ${r.name}`}
+                    className="shrink-0"
+                  >
+                    {isAdded ? (
+                      <>
+                        <Check className="size-4" /> Added
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="size-4" /> Add
                       </>
                     )}
                   </Button>

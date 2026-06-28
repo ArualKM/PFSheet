@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Check,
   CircleAlert,
+  X,
   Loader2,
   Cloud,
   CloudOff,
@@ -80,7 +81,7 @@ import { BuffCenter } from "./buff-center";
 import { CombatEditor, SpeedEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
-import { SpherePicker } from "./sphere-picker";
+import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -887,28 +888,108 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
   const spendSP = (delta: number) =>
     ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
   const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<SpherePickerMode>("talents");
+  const openPicker = (m: SpherePickerMode) => {
+    setPickerMode(m);
+    setShowPicker(true);
+  };
   const power = isModuleKeyEnabled(ed.draft, "spheres_of_power");
   const might = isModuleKeyEnabled(ed.draft, "spheres_of_might");
   const guile = isModuleKeyEnabled(ed.draft, "spheres_of_guile");
+  const tradition = sp?.tradition ?? "";
+  const isCustomTradition = !!sp?.traditionCustom;
+
+  const tiles: { label: string; value: ReactNode }[] = [];
+  if (summary) {
+    if (power) {
+      tiles.push({ label: "Caster level", value: summary.casterLevel });
+      tiles.push({
+        label: "Spell points",
+        value: (
+          <>
+            {current}
+            <span className="text-base font-normal text-muted-foreground">/{max}</span>
+          </>
+        ),
+      });
+      tiles.push({
+        label: "MSB / MSD",
+        value: (
+          <>
+            +{summary.magicSkillBonus}
+            <span className="text-base font-normal text-muted-foreground"> / {summary.magicSkillDefense}</span>
+          </>
+        ),
+      });
+      tiles.push({ label: "Save DC", value: summary.saveDc });
+    }
+    if (might) {
+      tiles.push({
+        label: "Combat talents",
+        value: (
+          <>
+            {summary.combatTalentsSpent}
+            <span className="text-base font-normal text-muted-foreground">/{summary.combatTalentsKnown}</span>
+          </>
+        ),
+      });
+    }
+    if (guile) {
+      tiles.push({
+        label: "Skill talents",
+        value: (
+          <>
+            {summary.skillTalentsSpent}
+            <span className="text-base font-normal text-muted-foreground">/{summary.skillTalentsKnown}</span>
+          </>
+        ),
+      });
+    }
+  }
 
   return (
-    <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        {power
-          ? "Spheres of Power: spell points = casting-class level + casting ability modifier; caster level sets your Magic Skill Bonus (MSB), MSD (11 + MSB), and the sphere-effect save DC (10 + ½ CL + ability). "
-          : ""}
-        Add spheres &amp; talents from the compendium below, or enter them by hand.
-      </p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Sparkles className="size-4 text-rune" /> Spheres
+        </span>
+        {[
+          { on: power, Icon: Sparkles, label: "Power", tone: "border-rune/40 bg-rune/15" },
+          { on: might, Icon: Swords, label: "Might", tone: "border-gold/40 bg-gold/15" },
+          { on: guile, Icon: Target, label: "Guile", tone: "border-success/35 bg-success/10" },
+        ].map(({ on, Icon, label, tone }) => (
+          <span
+            key={label}
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${
+              on ? `${tone} text-foreground` : "border-border text-muted-foreground"
+            }`}
+          >
+            <Icon className="size-3.5" /> {label}
+          </span>
+        ))}
+      </div>
+
+      {tiles.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+          {tiles.map((t) => (
+            <div key={t.label} className="rounded-lg border border-border bg-surface-raised p-2.5">
+              <div className="text-[11px] text-muted-foreground">{t.label}</div>
+              <div className="tnum text-xl font-semibold text-foreground">{t.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {power && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
-          <span className="text-sm font-medium text-foreground">Spell points</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm">
+          <Zap className="size-4 text-rune" />
+          <span className="font-medium text-foreground">Spell points</span>
           <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
             − Spend
           </Button>
-          <span className="tnum text-xl font-semibold text-rune">
+          <span className="tnum text-lg font-semibold text-rune">
             {current}
-            <span className="text-base text-muted-foreground">/{max}</span>
+            <span className="text-sm text-muted-foreground">/{max}</span>
           </span>
           <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
             +
@@ -916,53 +997,148 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
             Rest
           </Button>
+          <div className="w-full sm:ml-auto sm:w-auto">
+            <NumberField
+              label="Bonus SP"
+              value={sp?.bonusSpellPoints ?? 0}
+              onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
+              className="w-24"
+            />
+          </div>
         </div>
       )}
 
       {might && (
-        <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-foreground">
+        <label className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm text-foreground">
           <input
             type="checkbox"
+            className="size-4 accent-[var(--pf-gold)]"
             checked={!!sp?.martialFocus}
             onChange={(e) => ensure((s) => (s.martialFocus = e.target.checked || undefined))}
           />
-          Martial focus — currently focused (Spheres of Might; expended to fuel some martial talents)
+          <Swords className="size-4 text-gold" /> Martial focus — currently focused (expended to fuel some martial
+          talents)
         </label>
       )}
 
-      {power && summary && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span>Caster level <span className="font-semibold text-foreground">{summary.casterLevel}</span></span>
-          <span>MSB <span className="font-semibold text-foreground">+{summary.magicSkillBonus}</span></span>
-          <span>MSD <span className="font-semibold text-foreground">{summary.magicSkillDefense}</span></span>
-          <span>Save DC <span className="font-semibold text-foreground">{summary.saveDc}</span></span>
+      <section className="rounded-xl border border-rune/30 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <ScrollText className="size-4 shrink-0 text-rune" />
+            <span className="text-sm font-semibold text-foreground">Tradition</span>
+            {tradition ? (
+              <span className="truncate text-sm text-rune">
+                {isCustomTradition ? `Custom · ${tradition}` : tradition}
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">none chosen</span>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => openPicker("traditions")}>
+            <Plus className="size-4" /> Browse traditions
+          </Button>
         </div>
-      )}
 
-      <div className="flex flex-wrap items-end gap-2">
-        <TextField
-          label="Tradition"
-          value={sp?.tradition ?? ""}
-          onChange={(v) => ensure((s) => (s.tradition = v || undefined))}
-          className="min-w-[10rem] flex-1"
-        />
-        {power && (
-          <NumberField
-            label="Bonus SP"
-            value={sp?.bonusSpellPoints ?? 0}
-            onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
-            className="w-24"
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <TextField
+            label="Tradition name"
+            value={tradition}
+            onChange={(v) => ensure((s) => (s.tradition = v || undefined))}
+            className="min-w-[10rem] flex-1"
           />
-        )}
-      </div>
+          <label className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              className="size-4 accent-[var(--pf-gold)]"
+              checked={isCustomTradition}
+              onChange={(e) => ensure((s) => (s.traditionCustom = e.target.checked || undefined))}
+            />
+            Custom build
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                <CircleAlert className="size-3.5 text-danger" /> Drawbacks ({sp?.drawbacks.length ?? 0})
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => openPicker("drawbacks")}>
+                <Plus className="size-3.5" /> Add
+              </Button>
+            </div>
+            {(sp?.drawbacks.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">None.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {sp?.drawbacks.map((d, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-danger/30 bg-danger/10 px-2 py-0.5 text-xs text-foreground"
+                  >
+                    <span className="break-words">{d}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${d}`}
+                      onClick={() => ensure((s) => s.drawbacks.splice(i, 1))}
+                      className="-mr-1 shrink-0 rounded-full p-1 text-muted-foreground hover:text-danger"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+                <Sparkles className="size-3.5 text-success" /> Boons ({sp?.boons.length ?? 0})
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => openPicker("boons")}>
+                <Plus className="size-3.5" /> Add
+              </Button>
+            </div>
+            {(sp?.boons.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">None.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {sp?.boons.map((b, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-success/35 bg-success/10 px-2 py-0.5 text-xs text-foreground"
+                  >
+                    <span className="break-words">{b}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${b}`}
+                      onClick={() => ensure((s) => s.boons.splice(i, 1))}
+                      className="-mr-1 shrink-0 rounded-full p-1 text-muted-foreground hover:text-danger"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Some drawbacks grant bonus talents — add those under <span className="text-foreground">Talents</span> below.
+        </p>
+      </section>
 
       <div>
-        <Button size="sm" variant={showPicker ? "secondary" : "ghost"} onClick={() => setShowPicker((v) => !v)}>
-          <Plus className="size-4" /> Browse the Spheres compendium
+        <Button
+          size="sm"
+          variant={showPicker ? "secondary" : "ghost"}
+          onClick={() => (showPicker ? setShowPicker(false) : openPicker("talents"))}
+        >
+          <Plus className="size-4" /> Browse spheres &amp; talents
         </Button>
         {showPicker && (
           <div className="mt-2">
-            <SpherePicker ed={ed} onClose={() => setShowPicker(false)} />
+            <SpherePicker ed={ed} mode={pickerMode} onModeChange={setPickerMode} onClose={() => setShowPicker(false)} />
           </div>
         )}
       </div>
@@ -1120,55 +1296,6 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           ))}
         </div>
       </section>
-
-      {(sp?.tradition || (sp?.drawbacks.length ?? 0) > 0 || (sp?.boons.length ?? 0) > 0) && (
-        <section className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Drawbacks ({sp?.drawbacks.length ?? 0})</h3>
-            <ul className="space-y-1">
-              {(sp?.drawbacks.length ?? 0) === 0 && <li className="text-xs text-muted-foreground">None.</li>}
-              {sp?.drawbacks.map((d, i) => (
-                <li
-                  key={i}
-                  className="flex items-start justify-between gap-2 rounded-md border border-border/60 p-1.5 text-xs"
-                >
-                  <span className="min-w-0 break-words text-muted-foreground">{d}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove drawback"
-                    onClick={() => ensure((s) => s.drawbacks.splice(i, 1))}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Boons ({sp?.boons.length ?? 0})</h3>
-            <ul className="space-y-1">
-              {(sp?.boons.length ?? 0) === 0 && <li className="text-xs text-muted-foreground">None.</li>}
-              {sp?.boons.map((b, i) => (
-                <li
-                  key={i}
-                  className="flex items-start justify-between gap-2 rounded-md border border-border/60 p-1.5 text-xs"
-                >
-                  <span className="min-w-0 break-words text-muted-foreground">{b}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove boon"
-                    onClick={() => ensure((s) => s.boons.splice(i, 1))}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

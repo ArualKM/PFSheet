@@ -52,6 +52,9 @@ export const spheresBlockSchema = z.object({
   spheres: z.array(sphereChoiceSchema).default([]),
   talents: z.array(sphereTalentRefSchema).default([]),
   tradition: z.string().optional(),
+  /** True when the tradition was assembled by the player (name + hand-picked drawbacks/boons/talents)
+   * rather than applied from a compendium preset — drives the "Custom" framing in the editor. */
+  traditionCustom: z.boolean().optional(),
   drawbacks: z.array(z.string()).default([]),
   boons: z.array(z.string()).default([]),
   /** Provenance: the drawback/boon lines the CURRENT tradition contributed, so switching traditions
