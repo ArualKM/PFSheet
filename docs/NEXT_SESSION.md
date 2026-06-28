@@ -1,8 +1,10 @@
 # PathForge — where we are & what's next
 
-_Last updated: 2026-06-28 (end of the "read-view overhaul + autosave hardening + privacy" session).
-Quick "resume here" doc; the authoritative milestone log is [`../CLAUDE.md`](../CLAUDE.md) Status, and
-the S4 plan is [`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md) + [`S4_SYSTEM_DESIGNS.md`](S4_SYSTEM_DESIGNS.md)._
+_Last updated: 2026-06-28. Quick "resume here" doc; the authoritative milestone log is
+[`../CLAUDE.md`](../CLAUDE.md) Status. **The plan to 1.0 is now [`V1_ROADMAP.md`](V1_ROADMAP.md)**
+(grounded 7-domain assessment → prioritized V1·1–V1·6). The S4 3pp plan
+([`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md) + [`S4_SYSTEM_DESIGNS.md`](S4_SYSTEM_DESIGNS.md))
+is now **post-1.0** (the XL flagship systems are deferred past v1)._
 
 ## Current state
 
@@ -37,18 +39,28 @@ the S4 plan is [`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md) + [`S4_S
    share view now NAMES hidden sections; **Inventory + Wealth are public by default** now (per owner
    call). The same `privacy.sections` gating drives the read view AND the `/api/v1/.../stats` endpoint.
 
-## Immediate next steps — finishing S4 (in order)
+## Immediate next steps — the road to v1 (see [`V1_ROADMAP.md`](V1_ROADMAP.md))
 
-1. **The seeded options-compendium (Phase E·2)** — migration `0017`: a generic `<domain>_compendium`
-   table + `search_<domain>` RPC cloned from `spell_compendium`/`search_spell_compendium`
-   (migrations `0006`/`0008`/`0009`), plus a generic `optionRefSchema` + an `<OptionPicker>`
-   generalizing `spell-picker.tsx`. **BLOCKED on the long pole: sourcing the OGL datasets** (hundreds of
-   powers/maneuvers/talents/veils — Dreamscarred/DDS; confirm distributability or author a starter set).
-   Owner has approved applying additive compendium migrations to prod.
-2. **Path of War core** → **Spheres (Power/Might/Guile)** → **Akashic** — XL each; reuse the Psionics
-   pattern + the parser (each needs its per-domain parser grammar). Spheres is XL/last.
-3. **Mythic depth** — tier ability-score boosts → scores, path abilities + mythic feats, Hard-to-Kill.
-4. Then **S6** (dice roller, encounter tracker, more compendiums), **S7** (final review → 1.0).
+The 7-domain readiness assessment found the core (sheet math, campaigns/GM, imports/exports/API, QA
+architecture) **essentially v1-complete**. What's left is a tight, mostly-cheap set. **Start with V1·1.**
+
+1. **V1·1 — launch-blockers (MUST, cheap):** password-reset flow · styled `not-found.tsx` (+ `/c`) ·
+   `global-error.tsx` + public/auth error boundaries · gate the **~10 dead optional-rule toggles**
+   behind a `comingSoon` badge · **apply the API-key pepper** (`lib/api/auth.ts`) · pin
+   `bump_sheet_version` search_path (migration `0017`).
+2. **V1·2 — polish/trust:** finish the **icon overhaul** (GameIcon foundation shipped — extend to the
+   remaining thematic surfaces + add CC-BY attribution) · PWA raster icons · robots/sitemap ·
+   privacy+terms pages · security headers (CSP/HSTS).
+3. **V1·3 — sheet depth:** feat/feature/trait **automation editor** (highest value) · more conditions ·
+   Mythic depth (boosts→scores, path abilities) · ABP math.
+4. **V1·4 — campaign writes:** GM-set enabled modules · edit campaign name/desc · invite consent.
+5. **V1·5 — QA gate:** E2E in CI (public smoke + seeded account) · a11y/axe pass.
+6. **V1·6:** printable-PDF export (§13.3).
+
+**Post-1.0 (deferred):** the S4 flagship 3pp (compendium infra → Spheres ×3 → Path of War → Akashic;
+OGL-data + licensing gated) · spellcasting subsystems (domains/bloodlines/mysteries) · sheet tails
+(encumbrance, per-maneuver CMB, race catalog) · native apps + S5b Phase 2 · perf gate. Full detail +
+rationale in [`V1_ROADMAP.md`](V1_ROADMAP.md).
 
 ## Deferred / needs attention (not blocking)
 
