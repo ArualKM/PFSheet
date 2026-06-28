@@ -21,8 +21,16 @@ export default function ShareLayout({ children }: { children: ReactNode }) {
       </header>
       <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
       <footer className="border-t border-border">
-        <div className="mx-auto max-w-5xl px-4 py-6 text-center text-xs text-muted-foreground md:px-6">
-          Forged with PathForge · A fan-made Pathfinder 1e toolkit, not affiliated with Paizo Inc.
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-center text-xs text-muted-foreground md:px-6">
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+          </nav>
+          <p>Forged with PathForge · A fan-made Pathfinder 1e toolkit, not affiliated with Paizo Inc.</p>
         </div>
       </footer>
     </div>

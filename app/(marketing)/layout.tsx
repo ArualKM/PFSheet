@@ -23,9 +23,20 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:px-6">
           <Logo href="/" showWordmark />
-          <p className="md:ml-auto">
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 md:ml-auto">
+            <Link href="/developers" className="hover:text-foreground">
+              Developers
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+          </nav>
+          <p className="text-xs text-muted-foreground/80 md:max-w-xs md:text-right">
             A fan-made Pathfinder 1e toolkit. Not affiliated with or endorsed by Paizo Inc.
           </p>
         </div>
