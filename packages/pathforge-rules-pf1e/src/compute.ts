@@ -17,6 +17,7 @@ import {
   mythicSurgeDie,
   isGestalt,
   bonusPowerPoints,
+  sphereCasterLevel,
   milestoneRequirementForLevel,
   MILESTONE_MAX_LEVEL,
 } from "@pathforge/schema";
@@ -591,6 +592,23 @@ export type ComputedCharacter = {
       powersKnown: number;
       focused: boolean;
     };
+    /** Spheres of Power/Might/Guile roll-up (absent unless a spheres module is enabled). */
+    spheres?: {
+      /** Total caster level (Σ per-class High/Mid/Low contribution) — drives effect scaling + save DC. */
+      casterLevel: number;
+      /** Magic Skill Bonus = total casting-class levels (a separate quantity from caster level). */
+      magicSkillBonus: number;
+      magicSkillDefense: number;
+      /** Sphere-effect save DC = 10 + ½ caster level + casting ability modifier. */
+      saveDc: number;
+      spellPoints: { current: number; max: number };
+      sphereCount: number;
+      talentCount: number;
+      tradition: string;
+      martialFocus: boolean;
+      drawbackCount: number;
+      boonCount: number;
+    };
     /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. The level is the
      * character's class level; the milestone total tells you when the next level is earned. */
     milestoneLeveling?: {
@@ -969,6 +987,46 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let spheres: ComputedCharacter["summary"]["spheres"];
+  if (
+    (isModuleKeyEnabled(character, "spheres_of_power") ||
+      isModuleKeyEnabled(character, "spheres_of_might") ||
+      isModuleKeyEnabled(character, "spheres_of_guile")) &&
+    character.spheres
+  ) {
+    const sp = character.spheres;
+    // Two distinct quantities per Spheres RAW: caster level is the High/Mid/Low progression (like BAB —
+    // drives effect scaling + the save DC), while MSB/MSD use TOTAL CASTING-CLASS LEVELS (not caster
+    // level). The spell-point pool + DC use the primary (highest-level) casting class's level + ability.
+    let totalCasterLevel = 0;
+    let classLevelSum = 0;
+    let primary: (typeof sp.casterClasses)[number] | undefined;
+    for (const cc of sp.casterClasses) {
+      totalCasterLevel += sphereCasterLevel(cc.casterType, cc.classLevel);
+      classLevelSum += Math.max(0, cc.classLevel);
+      if (!primary || cc.classLevel > primary.classLevel) primary = cc;
+    }
+    const abilityMod = primary ? (abilities[primary.castingAbility]?.modifier ?? 0) : 0;
+    const spMax = Math.max(0, classLevelSum + abilityMod + (sp.bonusSpellPoints ?? 0));
+    const msb = classLevelSum; // MSB = total casting-class levels (RAW), NOT the caster-level sum.
+    spheres = {
+      casterLevel: totalCasterLevel,
+      magicSkillBonus: msb,
+      magicSkillDefense: 11 + msb,
+      saveDc: 10 + Math.floor(totalCasterLevel / 2) + abilityMod,
+      spellPoints: {
+        current: Math.max(0, Math.min(spMax, sp.spellPointsCurrent ?? spMax)),
+        max: spMax,
+      },
+      sphereCount: sp.spheres.length,
+      talentCount: sp.talents.length,
+      tradition: sp.tradition ?? "",
+      martialFocus: !!sp.martialFocus,
+      drawbackCount: sp.drawbacks.length,
+      boonCount: sp.boons.length,
+    };
+  }
+
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
     const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
@@ -1059,6 +1117,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       woundsVigor,
       mythic,
       psionics,
+      spheres,
       milestoneLeveling,
     },
   };

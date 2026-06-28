@@ -492,6 +492,49 @@ export function CharacterDashboard({
               </div>
             </SectionCard>
           )}
+          {vm.spheres && (
+            <SectionCard title="Spheres" icon={Wand2}>
+              <div className="space-y-1 text-sm">
+                <div className="text-muted-foreground">
+                  Spell points{" "}
+                  <span className="tnum font-semibold text-rune">
+                    {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                  <span>CL {vm.spheres.casterLevel}</span>
+                  <span>MSB +{vm.spheres.magicSkillBonus}</span>
+                  <span>MSD {vm.spheres.magicSkillDefense}</span>
+                  <span>DC {vm.spheres.saveDc}</span>
+                  {vm.spheres.martialFocus && <span className="text-gold">Focused</span>}
+                </div>
+                {vm.spheres.tradition && (
+                  <div className="text-xs text-muted-foreground">Tradition: {vm.spheres.tradition}</div>
+                )}
+                {vm.spheres.spheresList.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {vm.spheres.spheresList.map((s, i) => (
+                      <Badge key={i} variant="outline">
+                        {s.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {vm.spheres.talentsList.length > 0 && (
+                  <ShowMore cap={10} noun="talents" className="space-y-0.5 pt-1">
+                    {[...vm.spheres.talentsList]
+                      .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
+                      .map((t, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate text-foreground">{t.name}</span>
+                          <span className="shrink-0 text-muted-foreground">{t.sphere}</span>
+                        </div>
+                      ))}
+                  </ShowMore>
+                )}
+              </div>
+            </SectionCard>
+          )}
           {vm.advancement && (
             <SectionCard title="Advancement" icon={Flag}>
               <div className="space-y-1.5 text-sm">

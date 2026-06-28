@@ -1,0 +1,69 @@
+import { z } from "zod";
+import { sourceRefSchema } from "./common";
+
+/** §18 Spheres of Power / Might / Guile (Drop Dead Studios). A point/focus-based modular system:
+ * spherecasting classes give a caster level (by High/Mid/Low progression), a spell-point pool, and
+ * Magic Skill Bonus/Defense; characters pick spheres and talents (the discrete options → the
+ * sphere_* compendium + a later picker). Gated by isModuleKeyEnabled(c, "spheres_of_power" | …). */
+
+export const SPHERE_CASTER_TYPES = ["high", "mid", "low"] as const;
+export type SphereCasterType = (typeof SPHERE_CASTER_TYPES)[number];
+
+export const sphereCasterClassSchema = z.object({
+  id: z.string(),
+  className: z.string().default(""),
+  /** Caster-level progression (Spheres "Table: Caster Level"). */
+  casterType: z.enum(SPHERE_CASTER_TYPES).default("high"),
+  classLevel: z.number().int().min(0).default(0),
+  /** Casting ability for spell points + save DC (int/wis/cha). */
+  castingAbility: z.string().default("int"),
+});
+export type SphereCasterClass = z.infer<typeof sphereCasterClassSchema>;
+
+export const sphereChoiceSchema = z.object({
+  id: z.string(),
+  name: z.string().default(""),
+  system: z.enum(["Magic", "Combat", "Skill"]).default("Magic"),
+  notes: z.string().optional(),
+  /** Links to a sphere_compendium row (pick cache). */
+  compendiumId: z.string().optional(),
+});
+export type SphereChoice = z.infer<typeof sphereChoiceSchema>;
+
+export const sphereTalentRefSchema = z.object({
+  id: z.string(),
+  sphereName: z.string().default(""),
+  talentName: z.string().default(""),
+  /** Base / Advanced / Legendary, when known. */
+  category: z.string().optional(),
+  notes: z.string().optional(),
+  /** Links to a sphere_talents row (pick cache). */
+  compendiumId: z.string().optional(),
+  source: sourceRefSchema.optional(),
+});
+export type SphereTalentRef = z.infer<typeof sphereTalentRefSchema>;
+
+export const spheresBlockSchema = z.object({
+  casterClasses: z.array(sphereCasterClassSchema).default([]),
+  spheres: z.array(sphereChoiceSchema).default([]),
+  talents: z.array(sphereTalentRefSchema).default([]),
+  tradition: z.string().optional(),
+  drawbacks: z.array(z.string()).default([]),
+  boons: z.array(z.string()).default([]),
+  /** Current spell points; the maximum is derived (Σ class level + casting ability mod + bonus). */
+  spellPointsCurrent: z.number().int().optional(),
+  bonusSpellPoints: z.number().int().default(0),
+  /** Spheres of Might: martial focus is a binary resource (expended to fuel some talents). */
+  martialFocus: z.boolean().optional(),
+  notes: z.string().optional(),
+});
+export type SpheresBlock = z.infer<typeof spheresBlockSchema>;
+
+/** Caster level contribution per the Spheres "Table: Caster Level": High = level, Mid = ⌊3·level/4⌋,
+ * Low = ⌊level/2⌋ (verified against the imported table for L1–20). */
+export function sphereCasterLevel(casterType: SphereCasterType, classLevel: number): number {
+  const lvl = Math.max(0, Math.floor(classLevel || 0));
+  if (casterType === "high") return lvl;
+  if (casterType === "mid") return Math.floor((lvl * 3) / 4);
+  return Math.floor(lvl / 2);
+}

@@ -198,6 +198,7 @@ const IMPLEMENTED_MODULE_KEYS = new Set<string>([
   "stamina",
   "milestone_leveling",
   "psionics",
+  "spheres_of_power",
 ]);
 
 /** Whether a module is offered as a toggle but its system isn't built yet ("Coming soon"). */

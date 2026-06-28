@@ -21,6 +21,7 @@ export * from "./buff-templates";
 export * from "./formulas";
 export * from "./rules";
 export * from "./optional-rules";
+export * from "./spheres";
 export * from "./class-catalog";
 export * from "./spell-tables";
 export * from "./metamagic-catalog";

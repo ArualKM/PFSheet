@@ -209,6 +209,21 @@ export type CharacterViewModel = {
     /** The actual powers-known list (was only a count before). */
     powers: Array<{ name: string; level: number; discipline?: string; ppCost?: number; augment?: string; description?: string }>;
   } | null;
+  /** Spheres of Power/Might/Guile roll-up (null unless a spheres module is enabled). */
+  spheres: {
+    casterLevel: number;
+    spellPoints: { current: number; max: number };
+    magicSkillBonus: number;
+    magicSkillDefense: number;
+    saveDc: number;
+    sphereCount: number;
+    talentCount: number;
+    tradition: string;
+    martialFocus: boolean;
+    /** Chosen spheres + talents (build choices, shown like spells). */
+    spheresList: Array<{ name: string; system: string }>;
+    talentsList: Array<{ sphere: string; name: string; category?: string }>;
+  } | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
     currentXp?: number;
@@ -632,6 +647,25 @@ export function buildCharacterViewModel(
             ppCost: p.ppCost,
             augment: isOwnerView ? p.augment : undefined,
             description: isOwnerView ? p.description : undefined,
+          })),
+        }
+      : null,
+    spheres: computed.summary.spheres
+      ? {
+          casterLevel: computed.summary.spheres.casterLevel,
+          spellPoints: computed.summary.spheres.spellPoints,
+          magicSkillBonus: computed.summary.spheres.magicSkillBonus,
+          magicSkillDefense: computed.summary.spheres.magicSkillDefense,
+          saveDc: computed.summary.spheres.saveDc,
+          sphereCount: computed.summary.spheres.sphereCount,
+          talentCount: computed.summary.spheres.talentCount,
+          tradition: computed.summary.spheres.tradition,
+          martialFocus: computed.summary.spheres.martialFocus,
+          spheresList: (character.spheres?.spheres ?? []).map((s) => ({ name: s.name, system: s.system })),
+          talentsList: (character.spheres?.talents ?? []).map((t) => ({
+            sphere: t.sphereName,
+            name: t.talentName,
+            category: t.category,
           })),
         }
       : null,

@@ -61,6 +61,8 @@ import {
   type StaminaBlock,
   type MythicBlock,
   type PsionicsBlock,
+  type SpheresBlock,
+  SPHERE_CASTER_TYPES,
   type MilestoneLevelingBlock,
   type MilestoneDifficulty,
   MILESTONE_DIFFICULTIES,
@@ -187,6 +189,13 @@ export function CharacterEditor({
   }
   if (isModuleKeyEnabled(ed.draft, "psionics")) {
     optionalSystemItems.push({ key: "psionics", label: "Psionics", render: () => <PsionicsEditor ed={ed} /> });
+  }
+  if (
+    isModuleKeyEnabled(ed.draft, "spheres_of_power") ||
+    isModuleKeyEnabled(ed.draft, "spheres_of_might") ||
+    isModuleKeyEnabled(ed.draft, "spheres_of_guile")
+  ) {
+    optionalSystemItems.push({ key: "spheres", label: "Spheres", render: () => <SpheresEditor ed={ed} /> });
   }
   if (isModuleKeyEnabled(ed.draft, "milestone_leveling")) {
     optionalSystemItems.push({
@@ -857,6 +866,216 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
         Path abilities, mythic feats, and tier ability-score boosts get their own editor + a searchable
         compendium in a later pass.
       </p>
+    </div>
+  );
+}
+
+function SpheresEditor({ ed }: { ed: EditorApi }) {
+  const sp = ed.draft.spheres;
+  const summary = ed.computed.summary.spheres;
+  const max = summary?.spellPoints.max ?? 0;
+  const current = Math.min(sp?.spellPointsCurrent ?? max, max);
+
+  const ensure = (mut: (s: SpheresBlock) => void) =>
+    ed.update((c) => {
+      if (!c.spheres) {
+        c.spheres = { casterClasses: [], spheres: [], talents: [], drawbacks: [], boons: [], bonusSpellPoints: 0 };
+      }
+      mut(c.spheres);
+    });
+  const spendSP = (delta: number) =>
+    ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        Spheres of Power. Spell points = casting-class level + casting ability modifier; caster level
+        sets your Magic Skill Bonus (MSB), MSD (11 + MSB), and sphere-effect save DC (10 + ½ CL + ability).
+      </p>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+        <span className="text-sm font-medium text-foreground">Spell points</span>
+        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
+          − Spend
+        </Button>
+        <span className="tnum text-xl font-semibold text-rune">
+          {current}
+          <span className="text-base text-muted-foreground">/{max}</span>
+        </span>
+        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
+          +
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
+          Rest
+        </Button>
+        <label className="ml-auto flex items-center gap-1.5 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={!!sp?.martialFocus}
+            onChange={(e) => ensure((s) => (s.martialFocus = e.target.checked || undefined))}
+          />
+          Martial focus
+        </label>
+      </div>
+
+      {summary && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>Caster level <span className="font-semibold text-foreground">{summary.casterLevel}</span></span>
+          <span>MSB <span className="font-semibold text-foreground">+{summary.magicSkillBonus}</span></span>
+          <span>MSD <span className="font-semibold text-foreground">{summary.magicSkillDefense}</span></span>
+          <span>Save DC <span className="font-semibold text-foreground">{summary.saveDc}</span></span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-end gap-2">
+        <TextField
+          label="Tradition"
+          value={sp?.tradition ?? ""}
+          onChange={(v) => ensure((s) => (s.tradition = v || undefined))}
+          className="min-w-[10rem] flex-1"
+        />
+        <NumberField
+          label="Bonus SP"
+          value={sp?.bonusSpellPoints ?? 0}
+          onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
+          className="w-24"
+        />
+      </div>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Casting classes</h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              ensure((s) =>
+                s.casterClasses.push({
+                  id: newId("sphcl"),
+                  className: "",
+                  casterType: "high",
+                  classLevel: 1,
+                  castingAbility: "int",
+                }),
+              )
+            }
+          >
+            <Plus className="size-4" /> Class
+          </Button>
+        </div>
+        {(sp?.casterClasses.length ?? 0) === 0 && (
+          <p className="text-sm text-muted-foreground">No casting classes yet.</p>
+        )}
+        <div className="space-y-2">
+          {sp?.casterClasses.map((cc, i) => (
+            <div key={cc.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
+              <TextField
+                label="Class"
+                value={cc.className}
+                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.className = v; })}
+                className="min-w-[8rem] flex-1"
+              />
+              <SelectField
+                label="Type"
+                value={cc.casterType}
+                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.casterType = v as SpheresBlock["casterClasses"][number]["casterType"]; })}
+                options={SPHERE_CASTER_TYPES.map((t) => ({ value: t, label: t[0]!.toUpperCase() + t.slice(1) }))}
+                className="w-24"
+              />
+              <NumberField
+                label="Level"
+                value={cc.classLevel}
+                min={0}
+                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.classLevel = v; })}
+                className="w-16"
+              />
+              <SelectField
+                label="Ability"
+                value={cc.castingAbility}
+                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.castingAbility = v; })}
+                options={[
+                  { value: "int", label: "INT" },
+                  { value: "wis", label: "WIS" },
+                  { value: "cha", label: "CHA" },
+                ]}
+                className="w-20"
+              />
+              <Button variant="ghost" size="icon" aria-label="Remove class" onClick={() => ensure((s) => s.casterClasses.splice(i, 1))}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Spheres ({sp?.spheres.length ?? 0})</h3>
+          <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: "Magic" }))}>
+            <Plus className="size-4" /> Sphere
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {sp?.spheres.map((sph, i) => (
+            <div key={sph.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
+              <TextField
+                label="Sphere"
+                value={sph.name}
+                onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.name = v; })}
+                className="min-w-[10rem] flex-1"
+              />
+              <SelectField
+                label="System"
+                value={sph.system}
+                onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.system = v as SpheresBlock["spheres"][number]["system"]; })}
+                options={[
+                  { value: "Magic", label: "Magic" },
+                  { value: "Combat", label: "Combat" },
+                  { value: "Skill", label: "Skill" },
+                ]}
+                className="w-28"
+              />
+              <Button variant="ghost" size="icon" aria-label="Remove sphere" onClick={() => ensure((s) => s.spheres.splice(i, 1))}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          A searchable sphere/talent picker (from the imported compendium) lands in the next pass — enter
+          names manually for now.
+        </p>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Talents ({sp?.talents.length ?? 0})</h3>
+          <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "" }))}>
+            <Plus className="size-4" /> Talent
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {sp?.talents.map((tal, i) => (
+            <div key={tal.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
+              <TextField
+                label="Talent"
+                value={tal.talentName}
+                onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.talentName = v; })}
+                className="min-w-[10rem] flex-1"
+              />
+              <TextField
+                label="Sphere"
+                value={tal.sphereName}
+                onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.sphereName = v; })}
+                className="w-32"
+              />
+              <Button variant="ghost" size="icon" aria-label="Remove talent" onClick={() => ensure((s) => s.talents.splice(i, 1))}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
