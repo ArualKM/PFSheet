@@ -27,6 +27,12 @@ const ICON_FILES = {
   scroll: "lorc/scroll-unfurled",
   languages: "lorc/conversation",
   flag: "lorc/flying-flag",
+  sphere: "lorc/concentration-orb",
+  // nav · sheet sections
+  dashboard: "lorc/treasure-map",
+  character: "delapouite/character",
+  skills: "delapouite/skills",
+  settings: "delapouite/settings-knobs",
   // wealth · inventory
   coins: "delapouite/two-coins",
   backpack: "delapouite/backpack",
@@ -96,3 +102,8 @@ export const Wand2 = make("spellcasting");
 export const Flag = make("flag");
 export const Eye = make("eye");
 export const EyeOff = make("eye-off");
+export const TreasureMap = make("dashboard");
+export const ConcentrationOrb = make("sphere");
+export const User = make("character");
+export const Target = make("skills");
+export const Settings = make("settings");

@@ -14,6 +14,15 @@ import {
   Trash2,
   ExternalLink,
   Sigma,
+  Calculator,
+  ChevronDown,
+  ChevronsUpDown,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
+// Thematic sheet/section icons use the game-icons pack (themed CSS-mask glyphs); the chrome above
+// (chevrons, plus, loaders, math affordances, panel toggles) stays on lucide.
+import {
   User,
   Shield,
   Swords,
@@ -24,12 +33,7 @@ import {
   Zap,
   ScrollText,
   Settings,
-  Calculator,
-  ChevronDown,
-  ChevronsUpDown,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from "lucide-react";
+} from "@/components/ui/game-icons";
 import {
   ABILITY_KEYS,
   OPTIONAL_RULE_MODULES,

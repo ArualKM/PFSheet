@@ -37,7 +37,16 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             </Link>
           </nav>
           <p className="text-xs text-muted-foreground/80 md:max-w-xs md:text-right">
-            A fan-made Pathfinder 1e toolkit. Not affiliated with or endorsed by Paizo Inc.
+            A fan-made Pathfinder 1e toolkit. Not affiliated with or endorsed by Paizo Inc. Icons by{" "}
+            <a
+              href="https://game-icons.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              game-icons.net
+            </a>{" "}
+            (CC BY 3.0).
           </p>
         </div>
       </footer>

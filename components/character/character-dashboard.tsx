@@ -15,6 +15,7 @@ import {
   Eye,
   Wand2,
   Flag,
+  Target,
   GameIcon,
   itemIconName,
 } from "@/components/ui/game-icons";
@@ -679,7 +680,7 @@ type SpheresVM = NonNullable<CharacterViewModel["spheres"]>;
 const SPHERE_SUBSYSTEMS = [
   { key: "Magic", systemsKey: "power", label: "Power", Icon: Sparkles, iconClass: "text-rune", boxClass: "border-rune/30 bg-rune/5" },
   { key: "Combat", systemsKey: "might", label: "Might", Icon: Swords, iconClass: "text-gold", boxClass: "border-gold/30 bg-gold/5" },
-  { key: "Skill", systemsKey: "guile", label: "Guile", Icon: Eye, iconClass: "text-success", boxClass: "border-success/30 bg-success/5" },
+  { key: "Skill", systemsKey: "guile", label: "Guile", Icon: Target, iconClass: "text-success", boxClass: "border-success/30 bg-success/5" },
 ] as const;
 
 function SpheresCard({ spheres }: { spheres: SpheresVM }) {
