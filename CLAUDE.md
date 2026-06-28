@@ -307,6 +307,20 @@ and the **inventory Equipped/Carried split** (`InventoryList`).
   search_path; advisor WARN cleared). Each shipped after an adversarial Workflow review (0 confirmed
   defects). **Migrations now run through `0017`.**
 
+**Spheres compendium (2026-06-28) — the S4 flagship's data long-pole is RESOLVED.** The owner sourced +
+normalized the complete Spheres of Power/Might/Guile dataset (6 TSVs in `docs/Tables/Spheres Supabase
+Project/`). **Phase 1 (compendium-first) shipped:** migration **`0018`** = 6 `sphere_*` reference tables
+(spell_compendium contract — public-read, service-role-write, tsvector search) + imported all 4,756 rows
+to prod (68 spheres / 3,938 talents / 225 traditions / 489 drawbacks / 29 boons / 20 rules tables; each
+row carries a `source` citation). Regenerated `lib/supabase/types.ts`. **`/spheres` browser** is live
+(talent search + sphere/category filters, mirrors `/spells`; sidebar nav, Orbit icon). The raw scraped
+wiki HTML is gitignored; the TSVs are the versioned import source. **Migrations now run through `0018`.**
+Data note: sphere `base_description` is the full wiki page (verbose, TOC prefix) — trim is future polish.
+**Next — Spheres Phase 2 (character system):** `character.spheres` + `computeSpheres` (caster level ≠
+class level, spell points, MSB/MSD) + dashboard card + an editor panel with a search RPC + `<OptionPicker>`
+(deferred from Phase 1 — build it with the picker), un-gating the `spheres_of_power/might/guile` toggles.
+Path of War + Akashic still need their datasets sourced like Spheres was. See [[pathforge-modularity-roadmap]].
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
