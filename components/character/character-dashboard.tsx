@@ -90,20 +90,6 @@ export function CharacterDashboard({
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Left / main column */}
         <div className="min-w-0 space-y-3 lg:col-span-2">
-          <SectionCard title="Saving Throws" icon={Shield}>
-            <div className="grid grid-cols-3 gap-2">
-              <MiniStat label="Fortitude" value={formatModifier(vm.vitals.saves.fortitude)} />
-              <MiniStat label="Reflex" value={formatModifier(vm.vitals.saves.reflex)} />
-              <MiniStat label="Will" value={formatModifier(vm.vitals.saves.will)} />
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <MiniStat label="CMB" value={formatModifier(vm.vitals.cmb)} subtle />
-              <MiniStat label="CMD" value={vm.vitals.cmd} subtle />
-            </div>
-          </SectionCard>
-
-          <DefensesCard defenses={vm.defenses} />
-
           <SectionCard title="Ability Scores" icon={Sparkles}>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               {vm.abilities.map((a) => (
@@ -118,58 +104,63 @@ export function CharacterDashboard({
             </div>
           </SectionCard>
 
-          {vm.attacks && (vm.attacks.length > 0 || editable) && (
-            <SectionCard title="Attacks" icon={Swords}>
-              {vm.attacks.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No attacks yet.</p>
-              ) : (
-                <>
-              {(vm.fullAttack.melee.length > 1 || vm.fullAttack.ranged.length > 1) && (
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Full attack:{" "}
-                  <span className="tnum text-foreground">
-                    {vm.fullAttack.melee.map(formatModifier).join("/")} melee
-                  </span>
-                  {" · "}
-                  <span className="tnum text-foreground">
-                    {vm.fullAttack.ranged.map(formatModifier).join("/")} ranged
-                  </span>
-                </p>
-              )}
-              <ShowMore cap={6} noun="attacks" className="divide-y divide-border/60">
-                {vm.attacks.map((atk, i) => {
-                  const crit =
-                    atk.critRange || atk.critMultiplier
-                      ? `${atk.critRange ?? ""}${atk.critMultiplier ? `/${atk.critMultiplier}` : ""}`.trim()
-                      : null;
-                  const meta = [crit, atk.range].filter(Boolean).join(" · ");
-                  return (
-                    <div key={i} className="flex items-start justify-between gap-3 py-2">
-                      <div className="min-w-0">
-                        <span className="block truncate text-sm text-foreground">{atk.name}</span>
-                        {meta && <span className="text-[11px] text-muted-foreground">{meta}</span>}
-                      </div>
-                      <span className="flex shrink-0 items-center gap-4">
-                        <span className="tnum text-sm font-semibold text-rune">
-                          {formatModifier(atk.attackBonus)}
-                        </span>
-                        {atk.damage && (
-                          <span className="tnum text-sm text-gold">
-                            {atk.damage}
-                            {atk.damageType && (
-                              <span className="ml-1 text-[11px] text-muted-foreground">{atk.damageType}</span>
-                            )}
+          <SectionCard title="Combat" icon={Swords}>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <MiniStat label="BAB" value={formatModifier(vm.fullAttack.bab)} subtle />
+              <MiniStat label="CMB" value={formatModifier(vm.vitals.cmb)} subtle />
+              <MiniStat label="CMD" value={vm.vitals.cmd} subtle />
+            </div>
+            {vm.attacks && vm.attacks.length > 0 ? (
+              <>
+                {(vm.fullAttack.melee.length > 1 || vm.fullAttack.ranged.length > 1) && (
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Full attack:{" "}
+                    <span className="tnum text-foreground">
+                      {vm.fullAttack.melee.map(formatModifier).join("/")} melee
+                    </span>
+                    {" · "}
+                    <span className="tnum text-foreground">
+                      {vm.fullAttack.ranged.map(formatModifier).join("/")} ranged
+                    </span>
+                  </p>
+                )}
+                <ShowMore cap={6} noun="attacks" className="divide-y divide-border/60">
+                  {vm.attacks.map((atk, i) => {
+                    const crit =
+                      atk.critRange || atk.critMultiplier
+                        ? `${atk.critRange ?? ""}${atk.critMultiplier ? `/${atk.critMultiplier}` : ""}`.trim()
+                        : null;
+                    const meta = [crit, atk.range].filter(Boolean).join(" · ");
+                    return (
+                      <div key={i} className="flex items-start justify-between gap-3 py-2">
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm text-foreground">{atk.name}</span>
+                          {meta && <span className="text-[11px] text-muted-foreground">{meta}</span>}
+                        </div>
+                        <span className="flex shrink-0 items-center gap-4">
+                          <span className="tnum text-sm font-semibold text-rune">
+                            {formatModifier(atk.attackBonus)}
                           </span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </ShowMore>
-                </>
-              )}
-            </SectionCard>
-          )}
+                          {atk.damage && (
+                            <span className="tnum text-sm text-gold">
+                              {atk.damage}
+                              {atk.damageType && (
+                                <span className="ml-1 text-[11px] text-muted-foreground">{atk.damageType}</span>
+                              )}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </ShowMore>
+              </>
+            ) : editable ? (
+              <p className="text-sm text-muted-foreground">No attacks yet.</p>
+            ) : null}
+          </SectionCard>
+
+          <DefensesCard saves={vm.vitals.saves} defenses={vm.defenses} />
 
           {(rankedSkills.length > 0 || editable) && (
             <SectionCard title="Skills" icon={ScrollText}>
@@ -727,10 +718,16 @@ function StatTile({
   );
 }
 
-function DefensesCard({ defenses }: { defenses: CharacterViewModel["defenses"] }) {
+function DefensesCard({
+  saves,
+  defenses,
+}: {
+  saves: CharacterViewModel["vitals"]["saves"];
+  defenses: CharacterViewModel["defenses"];
+}) {
   const { damageReduction, energyResistance, immunities, spellResistance, conditions, nonlethal, conditional } =
     defenses;
-  const hasAny =
+  const hasDetail =
     damageReduction.length > 0 ||
     energyResistance.length > 0 ||
     immunities.length > 0 ||
@@ -738,33 +735,39 @@ function DefensesCard({ defenses }: { defenses: CharacterViewModel["defenses"] }
     conditions.length > 0 ||
     nonlethal > 0 ||
     conditional.length > 0;
-  if (!hasAny) return null;
 
   return (
     <SectionCard title="Defenses" icon={Shield}>
-      <div className="space-y-1.5">
-        {conditions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {conditions.map((c, i) => (
-              <Badge key={i} variant="danger">
-                {c}
-              </Badge>
-            ))}
-          </div>
-        )}
-        {damageReduction.length > 0 && <DefenseRow label="DR" value={damageReduction.join(", ")} />}
-        {energyResistance.length > 0 && <DefenseRow label="Resist" value={energyResistance.join(", ")} />}
-        {immunities.length > 0 && <DefenseRow label="Immune" value={immunities.join(", ")} />}
-        {spellResistance != null && <DefenseRow label="SR" value={String(spellResistance)} />}
-        {nonlethal > 0 && <DefenseRow label="Nonlethal" value={String(nonlethal)} />}
-        {conditional.length > 0 && (
-          <div className="space-y-1 pt-0.5">
-            {conditional.map((c, i) => (
-              <DefenseRow key={i} label={c.label} value={c.condition ? `vs ${c.condition}` : "(conditional)"} />
-            ))}
-          </div>
-        )}
+      <div className="grid grid-cols-3 gap-2">
+        <MiniStat label="Fortitude" value={formatModifier(saves.fortitude)} />
+        <MiniStat label="Reflex" value={formatModifier(saves.reflex)} />
+        <MiniStat label="Will" value={formatModifier(saves.will)} />
       </div>
+      {hasDetail && (
+        <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
+          {conditions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {conditions.map((c, i) => (
+                <Badge key={i} variant="danger">
+                  {c}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {damageReduction.length > 0 && <DefenseRow label="DR" value={damageReduction.join(", ")} />}
+          {energyResistance.length > 0 && <DefenseRow label="Resist" value={energyResistance.join(", ")} />}
+          {immunities.length > 0 && <DefenseRow label="Immune" value={immunities.join(", ")} />}
+          {spellResistance != null && <DefenseRow label="SR" value={String(spellResistance)} />}
+          {nonlethal > 0 && <DefenseRow label="Nonlethal" value={String(nonlethal)} />}
+          {conditional.length > 0 && (
+            <div className="space-y-1 pt-0.5">
+              {conditional.map((c, i) => (
+                <DefenseRow key={i} label={c.label} value={c.condition ? `vs ${c.condition}` : "(conditional)"} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </SectionCard>
   );
 }
