@@ -65,6 +65,7 @@ import {
   MILESTONE_DIFFICULTIES,
   MILESTONE_MAX_JOB_LEVEL,
   milestoneJobReward,
+  type PrivacyLevel,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
@@ -84,6 +85,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatModifier } from "@/lib/utils";
 import { COMMON_LANGUAGES, languageBudget } from "@/lib/character/languages";
+import { effectiveLevel } from "@/lib/character/view-model";
 
 const AC_COMPONENTS = [
   { key: "armor", label: "Armor", bonusType: "armor" },
@@ -1202,6 +1204,36 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+/** Sections whose visibility actually gates the read view (in render order). */
+const PRIVACY_EDIT_SECTIONS: Array<{ key: string; label: string }> = [
+  { key: "portrait", label: "Portrait" },
+  { key: "abilities", label: "Ability scores" },
+  { key: "attacks", label: "Attacks" },
+  { key: "skills", label: "Skills" },
+  { key: "feats", label: "Feats" },
+  { key: "features", label: "Features & traits" },
+  { key: "buffs", label: "Active buffs" },
+  { key: "spells", label: "Spellcasting" },
+  { key: "inventory", label: "Inventory" },
+  { key: "wealth", label: "Wealth" },
+  { key: "backstory", label: "Background & profile" },
+  { key: "formulaDetails", label: "Show math (formulas)" },
+];
+
+const PRIVACY_LEVEL_OPTIONS: Array<{ value: PrivacyLevel; label: string }> = [
+  { value: "public", label: "Public" },
+  { value: "party", label: "Party" },
+  { value: "gm_only", label: "GM only" },
+  { value: "owner_only", label: "Private (just me)" },
+];
+
+/** Collapse the wider PrivacyLevel set into the four the picker offers, so the select never goes blank. */
+function privacyDisplayLevel(l: PrivacyLevel): PrivacyLevel {
+  if (l === "campaign") return "party";
+  if (l === "private" || l === "custom") return "owner_only";
+  return l;
+}
+
 function SettingsEditor({ ed }: { ed: EditorApi }) {
   const toggleRule = (mod: OptionalRuleModule, on: boolean) =>
     ed.update((c) => {
@@ -1233,6 +1265,38 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
 
   return (
     <div className="space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Privacy &amp; sharing</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Who can see each section on shared / public views — you always see everything. Inventory and
+          Wealth default to <strong>Party</strong>, so they&rsquo;re hidden on a public share until you
+          set them to Public here.
+        </p>
+        <div className="mt-3 space-y-1.5">
+          {PRIVACY_EDIT_SECTIONS.map((s) => (
+            <div key={s.key} className="flex items-center justify-between gap-3">
+              <span className="text-sm text-foreground">{s.label}</span>
+              <select
+                value={privacyDisplayLevel(effectiveLevel(ed.draft, s.key))}
+                onChange={(e) =>
+                  ed.update((c) => {
+                    c.privacy.sections[s.key] = e.target.value as PrivacyLevel;
+                  })
+                }
+                aria-label={`${s.label} visibility`}
+                className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground md:h-10"
+              >
+                {PRIVACY_LEVEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div>
         <h3 className="text-sm font-semibold text-foreground">Optional rules &amp; 3pp</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1282,7 +1346,8 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
       ))}
 
       <p className="text-xs text-muted-foreground">
-        Theme and privacy/share settings live on the character overview for now.
+        The overall share link &amp; visibility (private / unlisted / public) and theme live on the
+        character overview.
       </p>
     </div>
   );

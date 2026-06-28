@@ -644,10 +644,11 @@ export function CharacterDashboard({
       </div>
 
       {vm.hiddenSections.length > 0 && (
-        <p className="flex items-center justify-center gap-1.5 pt-2 text-xs text-muted-foreground">
-          <EyeOff className="size-3.5" />
-          {vm.hiddenSections.length} section{vm.hiddenSections.length > 1 ? "s" : ""} hidden by the
-          owner&rsquo;s privacy settings.
+        <p className="flex flex-wrap items-center justify-center gap-1.5 pt-2 text-center text-xs text-muted-foreground">
+          <EyeOff className="size-3.5 shrink-0" />
+          <span>
+            Hidden by the owner&rsquo;s privacy settings: {vm.hiddenSections.join(", ")}.
+          </span>
         </p>
       )}
     </div>
