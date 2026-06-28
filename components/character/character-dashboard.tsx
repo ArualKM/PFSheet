@@ -74,7 +74,16 @@ export function CharacterDashboard({
         )}
         <StatTile icon={Shield} label="Armor Class" accent="gold" value={vm.vitals.ac.total} sub={`Touch ${vm.vitals.ac.touch} · FF ${vm.vitals.ac.flatFooted}`} />
         <StatTile icon={Zap} label="Initiative" accent="rune" value={formatModifier(vm.vitals.initiative)} />
-        <StatTile icon={Footprints} label="Speed" value={vm.vitals.speed} />
+        <StatTile
+          icon={Footprints}
+          label="Speed"
+          value={vm.vitals.speed}
+          sub={
+            vm.vitals.movement.length
+              ? vm.vitals.movement.map((m) => `${m.mode} ${m.value}`).join(" · ")
+              : undefined
+          }
+        />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
@@ -429,25 +438,47 @@ export function CharacterDashboard({
               {vm.inventory.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No items yet.</p>
               ) : (
-              <ShowMore cap={10} noun="items" className="space-y-1">
-                {vm.inventory.items.map((it, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 truncate text-foreground">
-                      {it.name}
-                      {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
-                      {(it.armorBonus || it.armorCheckPenalty) && (
-                        <span className="text-xs text-muted-foreground">
-                          {it.armorBonus ? ` +${it.armorBonus} AC` : ""}
-                          {it.armorCheckPenalty ? ` · ACP −${it.armorCheckPenalty}` : ""}
-                        </span>
-                      )}
-                    </span>
-                    {it.equipped && (
-                      <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
-                    )}
-                  </div>
-                ))}
-              </ShowMore>
+                <>
+                  <ShowMore cap={10} noun="items" className="space-y-1.5">
+                    {vm.inventory.items.map((it, i) => {
+                      const meta = [
+                        it.weapon?.enhancement ? `+${it.weapon.enhancement}` : null,
+                        it.weapon?.damage,
+                        it.weapon?.damageType,
+                        it.weapon?.crit,
+                        it.weapon?.range,
+                        it.armorBonus ? `+${it.armorBonus} AC` : null,
+                        it.armorCheckPenalty ? `ACP −${it.armorCheckPenalty}` : null,
+                        it.cost || null,
+                        typeof it.weight === "number" && it.weight > 0 ? `${it.weight} lb` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <div key={i} className="flex items-start justify-between gap-2 text-sm">
+                          <span className="min-w-0">
+                            <span className="block truncate text-foreground">
+                              {it.name}
+                              {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
+                            </span>
+                            {meta && <span className="block text-[11px] text-muted-foreground">{meta}</span>}
+                            {it.notes && (
+                              <span className="block text-[11px] italic text-muted-foreground/80">{it.notes}</span>
+                            )}
+                          </span>
+                          {it.equipped && (
+                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </ShowMore>
+                  {vm.inventory.carriedWeight > 0 && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      ≈ {vm.inventory.carriedWeight} lb carried
+                    </p>
+                  )}
+                </>
               )}
             </SectionCard>
           )}
@@ -474,22 +505,36 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
-          {vm.profile && (vm.profile.backstory || vm.profile.appearance || vm.profile.personality) && (
+          {vm.profile && Object.values(vm.profile).some(Boolean) && (
             <SectionCard title="Character Profile" icon={ScrollText}>
               <div className="space-y-2 text-sm text-muted-foreground">
                 {vm.profile.backstory && <p className="whitespace-pre-line">{vm.profile.backstory}</p>}
-                {vm.profile.appearance && (
-                  <p>
-                    <span className="font-medium text-foreground">Appearance:</span>{" "}
-                    {vm.profile.appearance}
-                  </p>
-                )}
-                {vm.profile.personality && (
-                  <p>
-                    <span className="font-medium text-foreground">Personality:</span>{" "}
-                    {vm.profile.personality}
-                  </p>
-                )}
+                {(
+                  [
+                    ["Appearance", vm.profile.appearance],
+                    ["Skin", vm.profile.skin],
+                    ["Hair", vm.profile.hair],
+                    ["Eyes", vm.profile.eyes],
+                    ["Distinguishing features", vm.profile.distinguishingFeatures],
+                    ["Personality", vm.profile.personality],
+                    ["Ideals & flaws", vm.profile.ideals],
+                    ["Likes", vm.profile.likes],
+                    ["Dislikes", vm.profile.dislikes],
+                    ["Flaws", vm.profile.flaws],
+                    ["Phobias", vm.profile.phobias],
+                    ["Unique traits", vm.profile.uniqueTraits],
+                    ["Allies", vm.profile.allies],
+                    ["Foes", vm.profile.foes],
+                    ["Affiliations", vm.profile.affiliations],
+                    ["Family", vm.profile.family],
+                  ] as const
+                )
+                  .filter(([, value]) => value)
+                  .map(([label, value]) => (
+                    <p key={label} className="whitespace-pre-line">
+                      <span className="font-medium text-foreground">{label}:</span> {value}
+                    </p>
+                  ))}
               </div>
             </SectionCard>
           )}
@@ -536,6 +581,9 @@ function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode
               {vm.header.name}
             </h1>
             <p className="text-muted-foreground">{vm.header.classLine}</p>
+            {vm.header.playerName && (
+              <p className="text-xs text-muted-foreground/60">Played by {vm.header.playerName}</p>
+            )}
             {raceLine && <p className="text-sm text-muted-foreground/70">{raceLine}</p>}
             {details && <p className="mt-0.5 text-xs text-muted-foreground/60">{details}</p>}
             {vm.header.quote && (

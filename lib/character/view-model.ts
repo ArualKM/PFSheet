@@ -114,6 +114,8 @@ export type CharacterViewModel = {
   canSeeMath: boolean;
   header: {
     name: string;
+    /** Real-world player name (PII) — owner/editor view only, never on public shares. */
+    playerName?: string;
     classLine: string;
     totalLevel: number;
     race?: string;
@@ -150,6 +152,8 @@ export type CharacterViewModel = {
     cmd: number;
     initiative: number;
     speed: string;
+    /** Non-base movement modes (fly/swim/climb/burrow/with-armor/other), only the ones that are set. */
+    movement: Array<{ mode: string; value: string }>;
     saves: { fortitude: number; reflex: number; will: number };
   };
   abilities: Array<{ key: string; label: string; score: number; modifier: number }>;
@@ -235,6 +239,18 @@ export type CharacterViewModel = {
     personality?: string;
     allies?: string;
     foes?: string;
+    affiliations?: string;
+    family?: string;
+    ideals?: string;
+    likes?: string;
+    dislikes?: string;
+    flaws?: string;
+    phobias?: string;
+    uniqueTraits?: string;
+    skin?: string;
+    hair?: string;
+    eyes?: string;
+    distinguishingFeatures?: string;
   } | null;
   inventory: {
     items: Array<{
@@ -244,7 +260,14 @@ export type CharacterViewModel = {
       category: string;
       armorBonus?: number;
       armorCheckPenalty?: number;
+      /** Free-text item notes (location/attunement) — owner/editor view only. */
+      notes?: string;
+      cost?: string;
+      weight?: number;
+      weapon?: { damage?: string; damageType?: string; crit?: string; range?: string; enhancement?: number };
     }>;
+    /** Total carried weight (Σ weight × quantity). */
+    carriedWeight: number;
   } | null;
   wealth: { pp: number; gp: number; sp: number; cp: number; totalGp: number } | null;
   /** Human-readable labels of sections hidden from this viewer. */
@@ -374,12 +397,63 @@ export function buildCharacterViewModel(
         })
       : null;
 
+  const ap = character.profile.appearance;
+  const pe = character.profile.personality;
   const profile = gate("backstory", {
     backstory: character.profile.backstory,
-    appearance: character.profile.appearance.description,
-    personality: character.profile.personality.description,
+    appearance: ap.description,
+    personality: pe.description,
     allies: character.profile.allies,
     foes: character.profile.foes,
+    affiliations: character.profile.affiliations,
+    family: character.profile.family,
+    ideals: pe.ideals,
+    likes: pe.likes,
+    dislikes: pe.dislikes,
+    flaws: pe.flaws,
+    phobias: pe.phobias,
+    uniqueTraits: pe.uniqueTraits,
+    skin: ap.skin,
+    hair: ap.hair,
+    eyes: ap.eyes,
+    distinguishingFeatures: ap.distinguishingFeatures,
+  });
+
+  const inventorySource = [
+    ...character.inventory.weapons,
+    ...character.inventory.armorAndShields,
+    ...character.inventory.potionsScrollsMagicItems,
+    ...character.inventory.gear,
+    ...character.inventory.otherItems,
+  ];
+  const inventoryView = gate("inventory", {
+    items: inventorySource.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      equipped: !!i.equipped,
+      category: i.category,
+      ...(typeof i.armorBonus === "number" ? { armorBonus: i.armorBonus } : {}),
+      ...(typeof i.armorCheckPenalty === "number" ? { armorCheckPenalty: i.armorCheckPenalty } : {}),
+      // Notes can hold location/attunement — owner-only, mirroring spell notes.
+      ...(isOwnerView && i.notes ? { notes: i.notes } : {}),
+      ...(i.cost ? { cost: i.cost } : {}),
+      ...(typeof i.weight === "number" ? { weight: i.weight } : {}),
+      ...(i.weapon
+        ? {
+            weapon: {
+              damage: i.weapon.damageDice,
+              damageType: i.weapon.damageType,
+              crit: [i.weapon.critRange, i.weapon.critMultiplier].filter(Boolean).join("/") || undefined,
+              range: i.weapon.range,
+              enhancement: i.weapon.enhancement || undefined,
+            },
+          }
+        : {}),
+    })),
+    carriedWeight: inventorySource.reduce(
+      (s, i) => s + (typeof i.weight === "number" ? i.weight : 0) * (i.quantity ?? 1),
+      0,
+    ),
   });
 
   return {
@@ -388,6 +462,8 @@ export function buildCharacterViewModel(
     canSeeMath: visible(character, "formulaDetails", viewer),
     header: {
       name: character.identity.name,
+      // PII: only the owner/editor sees the real player's name, never public/party/GM shares.
+      playerName: isOwnerView ? character.identity.playerName : undefined,
       classLine,
       totalLevel: character.identity.totalLevel,
       race: character.identity.race,
@@ -418,6 +494,18 @@ export function buildCharacterViewModel(
       cmd: computed.summary.cmd,
       initiative: computed.summary.initiative,
       speed: character.combat.speed.base,
+      movement: (
+        [
+          ["With armor", character.combat.speed.withArmor],
+          ["Fly", character.combat.speed.fly],
+          ["Swim", character.combat.speed.swim],
+          ["Climb", character.combat.speed.climb],
+          ["Burrow", character.combat.speed.burrow],
+          ["Other", character.combat.speed.other],
+        ] as Array<[string, string | undefined]>
+      )
+        .filter((m) => Boolean(m[1]))
+        .map((m) => ({ mode: m[0], value: m[1] as string })),
       saves: {
         fortitude: computed.summary.fortitude,
         reflex: computed.summary.reflex,
@@ -522,22 +610,7 @@ export function buildCharacterViewModel(
     milestoneLeveling: computed.summary.milestoneLeveling ?? null,
     spellcasting,
     profile,
-    inventory: gate("inventory", {
-      items: [
-        ...character.inventory.weapons,
-        ...character.inventory.armorAndShields,
-        ...character.inventory.potionsScrollsMagicItems,
-        ...character.inventory.gear,
-        ...character.inventory.otherItems,
-      ].map((i) => ({
-        name: i.name,
-        quantity: i.quantity,
-        equipped: !!i.equipped,
-        category: i.category,
-        ...(typeof i.armorBonus === "number" ? { armorBonus: i.armorBonus } : {}),
-        ...(typeof i.armorCheckPenalty === "number" ? { armorCheckPenalty: i.armorCheckPenalty } : {}),
-      })),
-    }),
+    inventory: inventoryView,
     wealth: gate("wealth", {
       pp: character.wealth.pp,
       gp: character.wealth.gp,
