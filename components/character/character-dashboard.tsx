@@ -178,10 +178,222 @@ export function CharacterDashboard({
               )}
             </SectionCard>
           )}
+
+          {vm.spellcasting && (
+            <SectionCard title="Spellcasting" icon={Wand2}>
+              <div className="space-y-3">
+                {vm.spellcasting.casters.map((c, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate text-foreground">{c.className}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        CL {c.casterLevel} · Conc {c.concentration >= 0 ? "+" : ""}
+                        {c.concentration}
+                      </span>
+                    </div>
+                    {c.slots.filter((s) => s.total > 0).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {c.slots
+                          .filter((s) => s.total > 0)
+                          .map((s) => (
+                            <span
+                              key={s.level}
+                              className="rounded bg-surface-sunken px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                              title={`Save DC ${s.dc}`}
+                            >
+                              L{s.level}: {s.remaining}/{s.total}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  {vm.spellcasting.counts.known} known
+                  {vm.spellcasting.counts.prepared > 0 ? ` · ${vm.spellcasting.counts.prepared} prepared` : ""}
+                  {vm.spellcasting.counts.spellbook > 0
+                    ? ` · ${vm.spellcasting.counts.spellbook} in spellbook`
+                    : ""}
+                </p>
+
+                {vm.spellcasting.prepared && vm.spellcasting.prepared.length > 0 && (
+                  <SpellListViewer title="Prepared" spells={vm.spellcasting.prepared} />
+                )}
+                {vm.spellcasting.known.length > 0 && (
+                  <SpellListViewer
+                    title={vm.spellcasting.prepared ? "Known" : "Spells"}
+                    spells={vm.spellcasting.known}
+                  />
+                )}
+                {vm.spellcasting.spellbook && vm.spellcasting.spellbook.length > 0 && (
+                  <SpellListViewer title="Spellbook" spells={vm.spellcasting.spellbook} />
+                )}
+                {vm.spellcasting.slas.length > 0 && (
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Spell-like abilities
+                    </p>
+                    <div className="space-y-0.5">
+                      {vm.spellcasting.slas.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="min-w-0 truncate text-foreground">{s.name}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {s.usesPerDay == null
+                              ? "At will"
+                              : `${Math.max(0, s.usesPerDay - s.used)}/${s.usesPerDay}/day`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
+          {vm.feats && vm.feats.length > 0 && (
+            <SectionCard title="Feats" icon={Sparkles}>
+              <ShowMore cap={12} noun="feats" className="flex flex-wrap gap-1.5">
+                {vm.feats.map((f, i) => (
+                  <Badge key={i} variant="outline">
+                    {f.name}
+                    {f.type && f.type.trim() && (
+                      <span className="ml-1 text-muted-foreground">({f.type})</span>
+                    )}
+                  </Badge>
+                ))}
+              </ShowMore>
+            </SectionCard>
+          )}
+
+          {vm.features && vm.features.length > 0 && (
+            <SectionCard title="Features" icon={ScrollText}>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {vm.features.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-foreground">{f.name}</span>
+                    {f.uses && (
+                      <span className="tnum shrink-0 text-xs text-gold">
+                        {f.uses.remaining}/{f.uses.max}
+                        <span className="text-muted-foreground">/{f.uses.per === "day" ? "day" : f.uses.per}</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+
+          {vm.traits && vm.traits.length > 0 && (
+            <SectionCard title="Traits" icon={Sparkles}>
+              <ul className="space-y-1 text-sm">
+                {vm.traits.map((t, i) => (
+                  <li key={i} className="text-foreground">
+                    {t.name}
+                    {t.type && <span className="ml-1 text-xs text-muted-foreground">({t.type})</span>}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+
+          {vm.inventory && (vm.inventory.items.length > 0 || editable) && (
+            <SectionCard title="Inventory" icon={Backpack}>
+              {vm.inventory.items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No items yet.</p>
+              ) : (
+                <>
+                  <ShowMore cap={10} noun="items" className="space-y-1.5">
+                    {vm.inventory.items.map((it, i) => {
+                      const meta = [
+                        it.weapon?.enhancement ? `+${it.weapon.enhancement}` : null,
+                        it.weapon?.damage,
+                        it.weapon?.damageType,
+                        it.weapon?.crit,
+                        it.weapon?.range,
+                        it.armorBonus ? `+${it.armorBonus} AC` : null,
+                        it.armorCheckPenalty ? `ACP −${it.armorCheckPenalty}` : null,
+                        it.cost || null,
+                        typeof it.weight === "number" && it.weight > 0 ? `${it.weight} lb` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                      return (
+                        <div key={i} className="flex items-start justify-between gap-2 text-sm">
+                          <span className="min-w-0">
+                            <span className="block truncate text-foreground">
+                              {it.name}
+                              {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
+                            </span>
+                            {meta && <span className="block text-[11px] text-muted-foreground">{meta}</span>}
+                            {it.notes && (
+                              <span className="block text-[11px] italic text-muted-foreground/80">{it.notes}</span>
+                            )}
+                          </span>
+                          {it.equipped && (
+                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </ShowMore>
+                  {vm.inventory.carriedWeight > 0 && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      ≈ {vm.inventory.carriedWeight} lb carried
+                    </p>
+                  )}
+                </>
+              )}
+            </SectionCard>
+          )}
+
+          {vm.profile &&
+            (vm.profile.backstory ||
+              vm.profile.appearance ||
+              vm.profile.personality ||
+              vm.profile.ideals ||
+              vm.profile.likes ||
+              vm.profile.dislikes ||
+              vm.profile.flaws ||
+              vm.profile.phobias ||
+              vm.profile.uniqueTraits ||
+              vm.profile.allies ||
+              vm.profile.foes ||
+              vm.profile.affiliations ||
+              vm.profile.family) && (
+            <SectionCard title="Background" icon={ScrollText}>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {vm.profile.backstory && <p className="whitespace-pre-line">{vm.profile.backstory}</p>}
+                {(
+                  [
+                    ["Appearance", vm.profile.appearance],
+                    ["Personality", vm.profile.personality],
+                    ["Ideals & flaws", vm.profile.ideals],
+                    ["Likes", vm.profile.likes],
+                    ["Dislikes", vm.profile.dislikes],
+                    ["Flaws", vm.profile.flaws],
+                    ["Phobias", vm.profile.phobias],
+                    ["Unique traits", vm.profile.uniqueTraits],
+                    ["Allies", vm.profile.allies],
+                    ["Foes", vm.profile.foes],
+                    ["Affiliations", vm.profile.affiliations],
+                    ["Family", vm.profile.family],
+                  ] as const
+                )
+                  .filter(([, value]) => value)
+                  .map(([label, value]) => (
+                    <p key={label} className="whitespace-pre-line">
+                      <span className="font-medium text-foreground">{label}:</span> {value}
+                    </p>
+                  ))}
+              </div>
+            </SectionCard>
+          )}
         </div>
 
-        {/* Right / sidebar column */}
+        {/* Right / sidebar column — wiki-style infobox + at-a-glance trackers */}
         <div className="min-w-0 space-y-3">
+          <InfoBox vm={vm} />
           {vm.heroPoints && (
             <SectionCard title="Hero Points" icon={Sparkles}>
               <div className="flex items-center gap-2">
@@ -394,124 +606,6 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
-          {vm.spellcasting && (
-            <SectionCard title="Spellcasting" icon={Wand2}>
-              <div className="space-y-3">
-                {vm.spellcasting.casters.map((c, i) => (
-                  <div key={i} className="space-y-1">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="min-w-0 truncate text-foreground">{c.className}</span>
-                      <span className="shrink-0 text-muted-foreground">
-                        CL {c.casterLevel} · Conc {c.concentration >= 0 ? "+" : ""}
-                        {c.concentration}
-                      </span>
-                    </div>
-                    {c.slots.filter((s) => s.total > 0).length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {c.slots
-                          .filter((s) => s.total > 0)
-                          .map((s) => (
-                            <span
-                              key={s.level}
-                              className="rounded bg-surface-sunken px-1.5 py-0.5 text-[11px] text-muted-foreground"
-                              title={`Save DC ${s.dc}`}
-                            >
-                              L{s.level}: {s.remaining}/{s.total}
-                            </span>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <p className="text-xs text-muted-foreground">
-                  {vm.spellcasting.counts.known} known
-                  {vm.spellcasting.counts.prepared > 0 ? ` · ${vm.spellcasting.counts.prepared} prepared` : ""}
-                  {vm.spellcasting.counts.spellbook > 0
-                    ? ` · ${vm.spellcasting.counts.spellbook} in spellbook`
-                    : ""}
-                </p>
-
-                {vm.spellcasting.prepared && vm.spellcasting.prepared.length > 0 && (
-                  <SpellListViewer title="Prepared" spells={vm.spellcasting.prepared} />
-                )}
-                {vm.spellcasting.known.length > 0 && (
-                  <SpellListViewer
-                    title={vm.spellcasting.prepared ? "Known" : "Spells"}
-                    spells={vm.spellcasting.known}
-                  />
-                )}
-                {vm.spellcasting.spellbook && vm.spellcasting.spellbook.length > 0 && (
-                  <SpellListViewer title="Spellbook" spells={vm.spellcasting.spellbook} />
-                )}
-                {vm.spellcasting.slas.length > 0 && (
-                  <div>
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Spell-like abilities
-                    </p>
-                    <div className="space-y-0.5">
-                      {vm.spellcasting.slas.map((s, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="min-w-0 truncate text-foreground">{s.name}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {s.usesPerDay == null
-                              ? "At will"
-                              : `${Math.max(0, s.usesPerDay - s.used)}/${s.usesPerDay}/day`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </SectionCard>
-          )}
-
-          {vm.feats && vm.feats.length > 0 && (
-            <SectionCard title="Feats" icon={Sparkles}>
-              <ShowMore cap={12} noun="feats" className="flex flex-wrap gap-1.5">
-                {vm.feats.map((f, i) => (
-                  <Badge key={i} variant="outline">
-                    {f.name}
-                    {f.type && f.type.trim() && (
-                      <span className="ml-1 text-muted-foreground">({f.type})</span>
-                    )}
-                  </Badge>
-                ))}
-              </ShowMore>
-            </SectionCard>
-          )}
-
-          {vm.features && vm.features.length > 0 && (
-            <SectionCard title="Features" icon={ScrollText}>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                {vm.features.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-foreground">{f.name}</span>
-                    {f.uses && (
-                      <span className="tnum shrink-0 text-xs text-gold">
-                        {f.uses.remaining}/{f.uses.max}
-                        <span className="text-muted-foreground">/{f.uses.per === "day" ? "day" : f.uses.per}</span>
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </SectionCard>
-          )}
-
-          {vm.traits && vm.traits.length > 0 && (
-            <SectionCard title="Traits" icon={Sparkles}>
-              <ul className="space-y-1 text-sm">
-                {vm.traits.map((t, i) => (
-                  <li key={i} className="text-foreground">
-                    {t.name}
-                    {t.type && <span className="ml-1 text-xs text-muted-foreground">({t.type})</span>}
-                  </li>
-                ))}
-              </ul>
-            </SectionCard>
-          )}
-
           {vm.languages.known.length > 0 && (
             <SectionCard title="Languages" icon={Languages}>
               <div className="flex flex-wrap gap-1.5">
@@ -521,56 +615,6 @@ export function CharacterDashboard({
                   </Badge>
                 ))}
               </div>
-            </SectionCard>
-          )}
-
-          {vm.inventory && (vm.inventory.items.length > 0 || editable) && (
-            <SectionCard title="Inventory" icon={Backpack}>
-              {vm.inventory.items.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No items yet.</p>
-              ) : (
-                <>
-                  <ShowMore cap={10} noun="items" className="space-y-1.5">
-                    {vm.inventory.items.map((it, i) => {
-                      const meta = [
-                        it.weapon?.enhancement ? `+${it.weapon.enhancement}` : null,
-                        it.weapon?.damage,
-                        it.weapon?.damageType,
-                        it.weapon?.crit,
-                        it.weapon?.range,
-                        it.armorBonus ? `+${it.armorBonus} AC` : null,
-                        it.armorCheckPenalty ? `ACP −${it.armorCheckPenalty}` : null,
-                        it.cost || null,
-                        typeof it.weight === "number" && it.weight > 0 ? `${it.weight} lb` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <div key={i} className="flex items-start justify-between gap-2 text-sm">
-                          <span className="min-w-0">
-                            <span className="block truncate text-foreground">
-                              {it.name}
-                              {it.quantity > 1 && <span className="text-muted-foreground"> ×{it.quantity}</span>}
-                            </span>
-                            {meta && <span className="block text-[11px] text-muted-foreground">{meta}</span>}
-                            {it.notes && (
-                              <span className="block text-[11px] italic text-muted-foreground/80">{it.notes}</span>
-                            )}
-                          </span>
-                          {it.equipped && (
-                            <span className="shrink-0 text-[10px] uppercase tracking-wide text-gold">equipped</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </ShowMore>
-                  {vm.inventory.carriedWeight > 0 && (
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      ≈ {vm.inventory.carriedWeight} lb carried
-                    </p>
-                  )}
-                </>
-              )}
             </SectionCard>
           )}
 
@@ -596,39 +640,6 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
-          {vm.profile && Object.values(vm.profile).some(Boolean) && (
-            <SectionCard title="Character Profile" icon={ScrollText}>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                {vm.profile.backstory && <p className="whitespace-pre-line">{vm.profile.backstory}</p>}
-                {(
-                  [
-                    ["Appearance", vm.profile.appearance],
-                    ["Skin", vm.profile.skin],
-                    ["Hair", vm.profile.hair],
-                    ["Eyes", vm.profile.eyes],
-                    ["Distinguishing features", vm.profile.distinguishingFeatures],
-                    ["Personality", vm.profile.personality],
-                    ["Ideals & flaws", vm.profile.ideals],
-                    ["Likes", vm.profile.likes],
-                    ["Dislikes", vm.profile.dislikes],
-                    ["Flaws", vm.profile.flaws],
-                    ["Phobias", vm.profile.phobias],
-                    ["Unique traits", vm.profile.uniqueTraits],
-                    ["Allies", vm.profile.allies],
-                    ["Foes", vm.profile.foes],
-                    ["Affiliations", vm.profile.affiliations],
-                    ["Family", vm.profile.family],
-                  ] as const
-                )
-                  .filter(([, value]) => value)
-                  .map(([label, value]) => (
-                    <p key={label} className="whitespace-pre-line">
-                      <span className="font-medium text-foreground">{label}:</span> {value}
-                    </p>
-                  ))}
-              </div>
-            </SectionCard>
-          )}
         </div>
       </div>
 
@@ -643,48 +654,63 @@ export function CharacterDashboard({
   );
 }
 
+/** Slim page title (name · class · player) + the share/edit actions. The portrait + bio facts live in
+ * the wiki-style InfoBox in the sidebar. */
 function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode }) {
-  const raceLine = [vm.header.race, vm.header.alignment, vm.header.size].filter(Boolean).join(" · ");
-  const details = [
-    vm.header.gender,
-    vm.header.age,
-    vm.header.height,
-    vm.header.weight,
-    vm.header.ethnicity,
-    vm.header.deity && `Deity: ${vm.header.deity}`,
-    vm.header.homeland && `Homeland: ${vm.header.homeland}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          {vm.header.name}
+        </h1>
+        <p className="text-muted-foreground">{vm.header.classLine}</p>
+        {vm.header.playerName && (
+          <p className="text-xs text-muted-foreground/60">Played by {vm.header.playerName}</p>
+        )}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** Wiki-style infobox: a large portrait + a structured facts panel (identity + topline appearance). */
+function InfoBox({ vm }: { vm: CharacterViewModel }) {
+  const facts: Array<[string, string | undefined]> = [
+    ["Race", vm.header.race],
+    ["Alignment", vm.header.alignment],
+    ["Size", vm.header.size],
+    ["Deity", vm.header.deity],
+    ["Homeland", vm.header.homeland],
+    ["Ethnicity", vm.header.ethnicity],
+    ["Gender", vm.header.gender],
+    ["Age", vm.header.age],
+    ["Height", vm.header.height],
+    ["Weight", vm.header.weight],
+    ["Hair", vm.profile?.hair],
+    ["Eyes", vm.profile?.eyes],
+    ["Skin", vm.profile?.skin],
+    ["Features", vm.profile?.distinguishingFeatures],
+  ];
+  const shown = facts.filter((f): f is [string, string] => Boolean(f[1]));
   return (
     <Card className="overflow-hidden">
-      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
-          <div className="relative size-20 shrink-0 overflow-hidden rounded-2xl border border-border bg-surface-raised">
-            <PortraitImage
-              src={vm.header.portraitUrl}
-              alt={vm.header.name}
-              fallback={vm.header.name.charAt(0)}
-            />
-          </div>
-          <div className="min-w-0">
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-              {vm.header.name}
-            </h1>
-            <p className="text-muted-foreground">{vm.header.classLine}</p>
-            {vm.header.playerName && (
-              <p className="text-xs text-muted-foreground/60">Played by {vm.header.playerName}</p>
-            )}
-            {raceLine && <p className="text-sm text-muted-foreground/70">{raceLine}</p>}
-            {details && <p className="mt-0.5 text-xs text-muted-foreground/60">{details}</p>}
-            {vm.header.quote && (
-              <p className="mt-1 max-w-md text-sm italic text-muted-foreground">
-                &ldquo;{vm.header.quote}&rdquo;
-              </p>
-            )}
-          </div>
-        </div>
-        {actions && <div className="flex flex-wrap gap-2 sm:ml-auto">{actions}</div>}
+      <div className="aspect-[3/4] w-full overflow-hidden bg-surface-raised">
+        <PortraitImage src={vm.header.portraitUrl} alt={vm.header.name} fallback={vm.header.name.charAt(0)} />
+      </div>
+      <CardContent className="space-y-2 p-4">
+        {vm.header.quote && (
+          <p className="text-sm italic text-muted-foreground">&ldquo;{vm.header.quote}&rdquo;</p>
+        )}
+        {shown.length > 0 && (
+          <dl className="text-sm">
+            {shown.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3 border-b border-border/30 py-1 last:border-0">
+                <dt className="shrink-0 text-muted-foreground">{label}</dt>
+                <dd className="min-w-0 break-words text-right text-foreground">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </CardContent>
     </Card>
   );
