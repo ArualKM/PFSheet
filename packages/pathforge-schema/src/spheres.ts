@@ -12,10 +12,14 @@ export type SphereCasterType = (typeof SPHERE_CASTER_TYPES)[number];
 export const sphereCasterClassSchema = z.object({
   id: z.string(),
   className: z.string().default(""),
-  /** Caster-level progression (Spheres "Table: Caster Level"). */
+  /** Which Spheres system this class advances. Magic → caster level/spell points/MSB; Combat →
+   * combat talents (Spheres of Might); Skill → skill talents (Spheres of Guile). */
+  system: z.enum(["Magic", "Combat", "Skill"]).default("Magic"),
+  /** Progression rate — High/Mid/Low for casters; the same rates are Expert/Adept/Proficient (Might)
+   * and 1/Level, 3/4, 1/2 (Guile). All three resolve to full / ⌊3L/4⌋ / ⌊L/2⌋. */
   casterType: z.enum(SPHERE_CASTER_TYPES).default("high"),
   classLevel: z.number().int().min(0).default(0),
-  /** Casting ability for spell points + save DC (int/wis/cha). */
+  /** Casting ability for spell points + save DC (int/wis/cha) — Magic only. */
   castingAbility: z.string().default("int"),
 });
 export type SphereCasterClass = z.infer<typeof sphereCasterClassSchema>;

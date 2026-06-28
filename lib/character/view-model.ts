@@ -214,6 +214,10 @@ export type CharacterViewModel = {
     systems: { power: boolean; might: boolean; guile: boolean };
     combatSphereCount: number;
     skillSphereCount: number;
+    combatTalentsKnown: number;
+    combatTalentsSpent: number;
+    skillTalentsKnown: number;
+    skillTalentsSpent: number;
     casterLevel: number;
     spellPoints: { current: number; max: number };
     magicSkillBonus: number;
@@ -658,6 +662,10 @@ export function buildCharacterViewModel(
           systems: computed.summary.spheres.systems,
           combatSphereCount: computed.summary.spheres.combatSphereCount,
           skillSphereCount: computed.summary.spheres.skillSphereCount,
+          combatTalentsKnown: computed.summary.spheres.combatTalentsKnown,
+          combatTalentsSpent: computed.summary.spheres.combatTalentsSpent,
+          skillTalentsKnown: computed.summary.spheres.skillTalentsKnown,
+          skillTalentsSpent: computed.summary.spheres.skillTalentsSpent,
           casterLevel: computed.summary.spheres.casterLevel,
           spellPoints: computed.summary.spheres.spellPoints,
           magicSkillBonus: computed.summary.spheres.magicSkillBonus,

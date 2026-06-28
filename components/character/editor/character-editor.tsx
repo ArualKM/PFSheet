@@ -889,6 +889,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
   const [showPicker, setShowPicker] = useState(false);
   const power = isModuleKeyEnabled(ed.draft, "spheres_of_power");
   const might = isModuleKeyEnabled(ed.draft, "spheres_of_might");
+  const guile = isModuleKeyEnabled(ed.draft, "spheres_of_guile");
 
   return (
     <div className="space-y-5">
@@ -966,10 +967,10 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
         )}
       </div>
 
-      {power && (
+      {(power || might || guile) && (
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Casting classes</h3>
+          <h3 className="text-sm font-semibold text-foreground">Practitioner classes</h3>
           <Button
             size="sm"
             variant="ghost"
@@ -978,6 +979,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                 s.casterClasses.push({
                   id: newId("sphcl"),
                   className: "",
+                  system: power ? "Magic" : might ? "Combat" : "Skill",
                   casterType: "high",
                   classLevel: 1,
                   castingAbility: "int",
@@ -988,8 +990,11 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
             <Plus className="size-4" /> Class
           </Button>
         </div>
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Magic → caster level + spell points; Combat/Skill → talents known (same Full / 3-4 / 1-2 rate).
+        </p>
         {(sp?.casterClasses.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground">No casting classes yet.</p>
+          <p className="text-sm text-muted-foreground">No practitioner classes yet.</p>
         )}
         <div className="space-y-2">
           {sp?.casterClasses.map((cc, i) => (
@@ -999,6 +1004,17 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                 value={cc.className}
                 onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.className = v; })}
                 className="min-w-[8rem] flex-1"
+              />
+              <SelectField
+                label="System"
+                value={cc.system ?? "Magic"}
+                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.system = v as SpheresBlock["casterClasses"][number]["system"]; })}
+                options={[
+                  { value: "Magic", label: "Magic" },
+                  { value: "Combat", label: "Combat" },
+                  { value: "Skill", label: "Skill" },
+                ]}
+                className="w-24"
               />
               <SelectField
                 label="Type"
@@ -1014,17 +1030,19 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                 onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.classLevel = v; })}
                 className="w-16"
               />
-              <SelectField
-                label="Ability"
-                value={cc.castingAbility}
-                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.castingAbility = v; })}
-                options={[
-                  { value: "int", label: "INT" },
-                  { value: "wis", label: "WIS" },
-                  { value: "cha", label: "CHA" },
-                ]}
-                className="w-20"
-              />
+              {(cc.system ?? "Magic") === "Magic" && (
+                <SelectField
+                  label="Ability"
+                  value={cc.castingAbility}
+                  onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.castingAbility = v; })}
+                  options={[
+                    { value: "int", label: "INT" },
+                    { value: "wis", label: "WIS" },
+                    { value: "cha", label: "CHA" },
+                  ]}
+                  className="w-20"
+                />
+              )}
               <Button variant="ghost" size="icon" aria-label="Remove class" onClick={() => ensure((s) => s.casterClasses.splice(i, 1))}>
                 <Trash2 className="size-4" />
               </Button>

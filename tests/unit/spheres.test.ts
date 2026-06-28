@@ -8,7 +8,7 @@ function enabled() {
   c.abilities.primary.int.score = 18; // +4
   c.spheres = {
     casterClasses: [
-      { id: "c1", className: "Incanter", casterType: "high", classLevel: 10, castingAbility: "int" },
+      { id: "c1", className: "Incanter", system: "Magic", casterType: "high", classLevel: 10, castingAbility: "int" },
     ],
     spheres: [
       { id: "s1", name: "Destruction", system: "Magic" },
@@ -62,8 +62,8 @@ describe("spheres", () => {
   it("multiclass: MSB = Σ class levels; caster level = Σ High/Mid/Low (a High-only fixture can't mask it)", () => {
     const c = enabled();
     c.spheres!.casterClasses = [
-      { id: "c1", className: "Mid", casterType: "mid", classLevel: 6, castingAbility: "int" }, // CL 4
-      { id: "c2", className: "High", casterType: "high", classLevel: 4, castingAbility: "int" }, // CL 4
+      { id: "c1", className: "Mid", system: "Magic", casterType: "mid", classLevel: 6, castingAbility: "int" }, // CL 4
+      { id: "c2", className: "High", system: "Magic", casterType: "high", classLevel: 4, castingAbility: "int" }, // CL 4
     ];
     const sp = computeCharacter(c).summary.spheres!;
     expect(sp.casterLevel).toBe(8); // 4 + 4
@@ -110,6 +110,51 @@ describe("spheres", () => {
     expect(sp.magicSkillDefense).toBe(11); // 11 + 0
     expect(sp.martialFocus).toBe(true);
     expect(sp.combatSphereCount).toBe(1);
+  });
+
+  it("Might: a Combat practitioner class drives combat talents known; spent counted by sphere system", () => {
+    const c = createDefaultCharacter({ name: "M" });
+    c.rules.modules.push({ key: "spheres_of_might", enabled: true, settings: {} });
+    c.spheres = {
+      casterClasses: [
+        { id: "p1", className: "Armiger", system: "Combat", casterType: "high", classLevel: 8, castingAbility: "str" },
+      ],
+      spheres: [
+        { id: "s1", name: "Brute", system: "Combat" },
+        { id: "s2", name: "Scout", system: "Combat" },
+      ],
+      talents: [
+        { id: "t1", sphereName: "Brute", talentName: "Slam" },
+        { id: "t2", sphereName: "Scout", talentName: "Lurker" },
+      ],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+    };
+    const sp = computeCharacter(c).summary.spheres!;
+    expect(sp.combatTalentsKnown).toBe(8); // expert/high rate, level 8
+    expect(sp.combatTalentsSpent).toBe(2); // both talents' spheres are Combat-system
+    expect(sp.casterLevel).toBe(0); // no Magic classes → Power math untouched
+    expect(sp.spellPoints.max).toBe(0);
+    expect(sp.systems.might).toBe(true);
+  });
+
+  it("Guile: a Skill practitioner class drives skill talents known (3/4 rate)", () => {
+    const c = createDefaultCharacter({ name: "G" });
+    c.rules.modules.push({ key: "spheres_of_guile", enabled: true, settings: {} });
+    c.spheres = {
+      casterClasses: [
+        { id: "p1", className: "Sage", system: "Skill", casterType: "mid", classLevel: 12, castingAbility: "int" },
+      ],
+      spheres: [{ id: "s1", name: "Study", system: "Skill" }],
+      talents: [{ id: "t1", sphereName: "Study", talentName: "Analyze" }],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+    };
+    const sp = computeCharacter(c).summary.spheres!;
+    expect(sp.skillTalentsKnown).toBe(9); // floor(12 * 3/4)
+    expect(sp.skillTalentsSpent).toBe(1);
   });
 
   it("absent unless a spheres module is enabled", () => {

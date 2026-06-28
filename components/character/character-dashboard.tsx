@@ -514,19 +514,29 @@ export function CharacterDashboard({
                 {vm.spheres.systems.might && (
                   <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                     <span>
+                      Combat talents{" "}
+                      <span className="font-semibold text-foreground">
+                        {vm.spheres.combatTalentsSpent}/{vm.spheres.combatTalentsKnown}
+                      </span>
+                    </span>
+                    {vm.spheres.combatSphereCount > 0 && <span>{vm.spheres.combatSphereCount} spheres</span>}
+                    <span>
                       Martial focus:{" "}
                       <span className={vm.spheres.martialFocus ? "text-gold" : "text-foreground"}>
                         {vm.spheres.martialFocus ? "focused" : "unfocused"}
                       </span>
                     </span>
-                    {vm.spheres.combatSphereCount > 0 && (
-                      <span>{vm.spheres.combatSphereCount} combat spheres</span>
-                    )}
                   </div>
                 )}
-                {vm.spheres.systems.guile && vm.spheres.skillSphereCount > 0 && (
-                  <div className="text-xs text-muted-foreground">
-                    {vm.spheres.skillSphereCount} skill spheres
+                {vm.spheres.systems.guile && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    <span>
+                      Skill talents{" "}
+                      <span className="font-semibold text-foreground">
+                        {vm.spheres.skillTalentsSpent}/{vm.spheres.skillTalentsKnown}
+                      </span>
+                    </span>
+                    {vm.spheres.skillSphereCount > 0 && <span>{vm.spheres.skillSphereCount} spheres</span>}
                   </div>
                 )}
                 {vm.spheres.tradition && (

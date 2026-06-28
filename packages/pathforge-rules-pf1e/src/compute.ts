@@ -599,6 +599,11 @@ export type ComputedCharacter = {
       /** Spheres chosen in the Combat (Might) and Skill (Guile) systems. */
       combatSphereCount: number;
       skillSphereCount: number;
+      /** Talents known (budget from practitioner level + progression) vs spent, per martial system. */
+      combatTalentsKnown: number;
+      combatTalentsSpent: number;
+      skillTalentsKnown: number;
+      skillTalentsSpent: number;
       /** Total caster level (Σ per-class High/Mid/Low contribution) — drives effect scaling + save DC. */
       casterLevel: number;
       /** Magic Skill Bonus = total casting-class levels (a separate quantity from caster level). */
@@ -998,28 +1003,46 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   const spheresGuile = isModuleKeyEnabled(character, "spheres_of_guile");
   if ((spheresPower || spheresMight || spheresGuile) && character.spheres) {
     const sp = character.spheres;
-    // Two distinct quantities per Spheres RAW: caster level is the High/Mid/Low progression (like BAB —
-    // drives effect scaling + the save DC), while MSB/MSD use TOTAL CASTING-CLASS LEVELS (not caster
-    // level). The spell-point pool + DC use the primary (highest-level) casting class's level + ability.
+    // Practitioner classes advance their own system. Magic → caster level (High/Mid/Low; drives effect
+    // scaling + save DC) + spell points + MSB (= total casting-CLASS levels, RAW, NOT the caster-level
+    // sum). Combat → combat talents known; Skill → skill talents known — both via the SAME rates
+    // (Expert/Adept/Proficient and the utility 1 / 3-4 / 1-2 progressions all equal full / ⌊3L/4⌋ / ⌊L/2⌋).
     let totalCasterLevel = 0;
     let classLevelSum = 0;
+    let combatTalentsKnown = 0;
+    let skillTalentsKnown = 0;
     let primary: (typeof sp.casterClasses)[number] | undefined;
     for (const cc of sp.casterClasses) {
-      totalCasterLevel += sphereCasterLevel(cc.casterType, cc.classLevel);
-      classLevelSum += Math.max(0, cc.classLevel);
-      if (!primary || cc.classLevel > primary.classLevel) primary = cc;
+      const contrib = sphereCasterLevel(cc.casterType, cc.classLevel);
+      const sys = cc.system ?? "Magic";
+      if (sys === "Combat") {
+        combatTalentsKnown += contrib;
+      } else if (sys === "Skill") {
+        skillTalentsKnown += contrib;
+      } else {
+        totalCasterLevel += contrib;
+        classLevelSum += Math.max(0, cc.classLevel);
+        if (!primary || cc.classLevel > primary.classLevel) primary = cc;
+      }
     }
     const abilityMod = primary ? (abilities[primary.castingAbility]?.modifier ?? 0) : 0;
     const spMax = Math.max(0, classLevelSum + abilityMod + (sp.bonusSpellPoints ?? 0));
-    const msb = classLevelSum; // MSB = total casting-class levels (RAW), NOT the caster-level sum.
-    // Count spheres/talents by system so the read view + editor can show the right stats per system
-    // (a Might-only character shouldn't see spell points; a Power caster shouldn't see martial focus).
-    const combatCount = sp.spheres.filter((s) => s.system === "Combat").length;
-    const skillCount = sp.spheres.filter((s) => s.system === "Skill").length;
+    const msb = classLevelSum;
+    // Spheres + talents counted per system; a talent's system is inferred from its sphere on the sheet
+    // (default Magic). Lets the read view show "combat talents 3/8" etc. without per-talent system data.
+    const sphereSystemByName = new Map(sp.spheres.map((s) => [s.name.toLowerCase(), s.system]));
+    const talentSystem = (sphereName: string): string =>
+      sphereSystemByName.get(sphereName.toLowerCase()) ?? "Magic";
+    const combatTalentsSpent = sp.talents.filter((t) => talentSystem(t.sphereName) === "Combat").length;
+    const skillTalentsSpent = sp.talents.filter((t) => talentSystem(t.sphereName) === "Skill").length;
     spheres = {
       systems: { power: spheresPower, might: spheresMight, guile: spheresGuile },
-      combatSphereCount: combatCount,
-      skillSphereCount: skillCount,
+      combatSphereCount: sp.spheres.filter((s) => s.system === "Combat").length,
+      skillSphereCount: sp.spheres.filter((s) => s.system === "Skill").length,
+      combatTalentsKnown,
+      combatTalentsSpent,
+      skillTalentsKnown,
+      skillTalentsSpent,
       casterLevel: totalCasterLevel,
       magicSkillBonus: msb,
       magicSkillDefense: 11 + msb,
