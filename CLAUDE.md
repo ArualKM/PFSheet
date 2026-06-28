@@ -326,6 +326,46 @@ BAB), MSD = 11+MSB** (a review caught this RAW bug; locked with a multiclass tes
 instead of by hand) → **Spheres of Might / Guile** math (un-gate those toggles). Path of War + Akashic
 still need their datasets sourced like Spheres was. See [[pathforge-modularity-roadmap]].
 
+**Spheres + optional-rules UX overhaul (2026-06-28).** A 9-pass redesign of the Spheres editor + read
+view, each shipped after an adversarial Workflow review (gate-green, prod-clean). **Spheres of Might +
+Guile math is now LIVE** (combat/skill talents known/spent; same Full/¾/½ rate as casting via
+`sphereCasterLevel`). See [[pathforge-spheres-architecture]].
+- **Editor — per-system, self-contained.** `SpheresEditor` is ONE card per enabled system (`SYSTEM_CARDS`:
+  Power/Might/Guile, shown if enabled OR it has data), each carrying its OWN stat tiles, SP control
+  (Power) / martial-focus (Might), tradition block, and collapsible sub-sections (`SphereSubsection` —
+  count badge + chevron; lists > 6 start collapsed) for practitioner classes / spheres / talents /
+  drawbacks / boons. The compendium picker (`sphere-picker.tsx`) is now 5-mode (talents · spheres ·
+  traditions · drawbacks · boons), parent-CONTROLLED (no remount), and SYSTEM-SCOPED (filters spheres/
+  drawbacks/boons by their `system` column; talents client-filtered via a sphere→system map — no migration).
+- **Schema (all additive, NO DB migration; migrations still at 0019).** `sphereTalentRefSchema.system`
+  (optional; else inferred via `talentSystem(talent, spheres)`). `drawbackMeta`/`boonMeta` — per-NAME
+  side-tables `{ system?, appliesTo? }` (drawbacks/boons STAY `string[]`, so the 3-way merge + tradition
+  provenance are untouched); `grantSystem` groups them, `grantsTargeting` powers the per-sphere/talent
+  "drawback applies here" flag. **Per-system traditions:** `traditions: Record<system,{name,custom?,grants?}>`
+  (legacy `tradition`/`traditionCustom`/`traditionGrants` kept ONLY as a Magic fallback); helpers
+  `systemTradition` / `applySystemTradition` (replaces just that system's grants, tags them, clears legacy
+  Magic once) / `setSystemTraditionFields`.
+- **Read view (`character-dashboard.tsx`).** Spheres moved OUT of the right rail INTO the wide main column.
+  New `<SpheresCard>`: an overarching card with a COLOR-CODED block per subsystem (Power=rune, Might=gold,
+  Guile=green — color on the ICON + border/tint, label stays foreground for WCAG AA on the light theme),
+  grouping its spheres with talents nested beneath them (sphereless → "Other"). Talents expand in place via
+  `<TalentRow>` (fetch-on-expand from `sphere_talents` by `compendiumId` — no sheet bloat) — the spell-style
+  detail rows, now for talents.
+- **Privacy fix (pre-existing gap closed):** the spheres section bypassed §15 gating (capability-only). Now
+  "spheres" is a real privacy section (`DEFAULT_SECTION_PRIVACY` + `PRIVACY_EDIT_SECTIONS`, default public)
+  gated via `gate("spheres", …)` + controllable in the Settings privacy panel. The OTHER optional systems
+  (psionics/mythic/honor/…) still have the same capability-only gap — spun off as a follow-up task.
+- **App chrome (every page).** `CollapsibleSidebar` (`components/app-shell/`): the main nav + the editor's
+  "Sheet Sections" rail collapse to icons-only, hover/keyboard-focus OVERLAY-expand (no reflow), pin to
+  lock (localStorage; desktop-only, mobile drawer unchanged). The editor's **Live Values** is now a sticky
+  TOP BAR — the lg right column is gone, so the editing column gets full width.
+- **Compendium browse ranking:** `/spheres` + `/spells` rank by relevance when a query is present (RPC),
+  alpha-paginate when browsing. **Import hunt** (`lib/character/compendium-hunt.ts`): the Myth-Weavers/
+  Foundry parsers link talents/spheres/spells to the compendiums on import.
+- **Infra:** ESLint now ignores `**/.next/**` + `.claude/**` (stray agent-worktree `.next` output was being
+  linted). 304 unit tests. Next Spheres work = the seeded-compendium `<OptionPicker>` add-flow, then Path
+  of War / Akashic (datasets need sourcing like Spheres was).
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

@@ -50,6 +50,12 @@ What's shipped:
   Combat Tricks, Fractional BAB/Saves, Wounds & Vigor, Gestalt, Mythic (core), and Psionics (core) —
   each behind a per-character toggle — plus a **copy/paste statblock parser** that turns pasted
   psionic powers into structured entries (generalizing to maneuvers/talents/veils).
+- **Spheres of Power / Might / Guile** — the deepest 3pp system: a 4,756-row compendium browser at
+  `/spheres`, and a per-subsystem character editor + read view (each system gets its own caster level /
+  spell points / talents, its own tradition, and its own drawbacks/boons — with a "drawback applies here"
+  flag you can pin to a specific sphere/talent). A system-scoped compendium picker adds talents/spheres/
+  traditions/drawbacks/boons; imports hunt for matching compendium entries; talents expand in the read
+  view for their full rules text.
 
 See [`CLAUDE.md`](CLAUDE.md) for the detailed milestone log, `docs/SECONDARY_MILESTONES.md` for the
 S1–S7 roadmap, and `docs/S4_OPTIONAL_RULES_PLAN.md` for the optional-rules/3pp plan.
