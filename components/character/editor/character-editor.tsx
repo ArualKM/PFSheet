@@ -65,7 +65,9 @@ import {
   type MythicBlock,
   type PsionicsBlock,
   type SpheresBlock,
+  type SphereSystem,
   SPHERE_CASTER_TYPES,
+  talentSystem,
   type MilestoneLevelingBlock,
   type MilestoneDifficulty,
   MILESTONE_DIFFICULTIES,
@@ -931,6 +933,13 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+/** Per-system card metadata for the Spheres editor (icon + accent text token). */
+const SYSTEM_CARDS: { sys: SphereSystem; label: string; Icon: typeof Sparkles; text: string }[] = [
+  { sys: "Magic", label: "Power", Icon: Sparkles, text: "text-rune" },
+  { sys: "Combat", label: "Might", Icon: Swords, text: "text-gold" },
+  { sys: "Skill", label: "Guile", Icon: Target, text: "text-success" },
+];
+
 function SpheresEditor({ ed }: { ed: EditorApi }) {
   const sp = ed.draft.spheres;
   const summary = ed.computed.summary.spheres;
@@ -948,15 +957,38 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
     ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<SpherePickerMode>("talents");
-  const openPicker = (m: SpherePickerMode) => {
+  // "" = unscoped (traditions/drawbacks/boons in the shared Tradition card); a system scopes the
+  // picker to that system's card. The picker renders inline under whichever entry point opened it.
+  const [pickerScope, setPickerScope] = useState<SphereSystem | "">("");
+  const openPicker = (m: SpherePickerMode, scope: SphereSystem | "" = "") => {
     setPickerMode(m);
+    setPickerScope(scope);
     setShowPicker(true);
   };
+  const renderPicker = (scope: SphereSystem | "") =>
+    showPicker && pickerScope === scope ? (
+      <div className="mt-3">
+        <SpherePicker
+          ed={ed}
+          mode={pickerMode}
+          onModeChange={setPickerMode}
+          system={scope || undefined}
+          onClose={() => setShowPicker(false)}
+        />
+      </div>
+    ) : null;
   const power = isModuleKeyEnabled(ed.draft, "spheres_of_power");
   const might = isModuleKeyEnabled(ed.draft, "spheres_of_might");
   const guile = isModuleKeyEnabled(ed.draft, "spheres_of_guile");
   const tradition = sp?.tradition ?? "";
   const isCustomTradition = !!sp?.traditionCustom;
+  const systemEnabled = (sys: SphereSystem) => (sys === "Magic" ? power : sys === "Combat" ? might : guile);
+  // Show a card for any system that's enabled OR already holds data, so existing spheres/talents/classes
+  // can never be hidden + orphaned just because their module isn't toggled on.
+  const hasSystemData = (sys: SphereSystem) =>
+    (sp?.casterClasses ?? []).some((c) => (c.system ?? "Magic") === sys) ||
+    (sp?.spheres ?? []).some((x) => x.system === sys) ||
+    (sp?.talents ?? []).some((t) => talentSystem(t, sp?.spheres ?? []) === sys);
 
   const tiles: { label: string; value: ReactNode }[] = [];
   if (summary) {
@@ -1183,178 +1215,202 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           </div>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Some drawbacks grant bonus talents — add those under <span className="text-foreground">Talents</span> below.
+          Some drawbacks grant bonus talents — add those under the matching system below.
         </p>
+        {renderPicker("")}
       </section>
 
-      <div>
-        <Button
-          size="sm"
-          variant={showPicker ? "secondary" : "ghost"}
-          onClick={() => (showPicker ? setShowPicker(false) : openPicker("talents"))}
-        >
-          <Plus className="size-4" /> Browse spheres &amp; talents
-        </Button>
-        {showPicker && (
-          <div className="mt-2">
-            <SpherePicker ed={ed} mode={pickerMode} onModeChange={setPickerMode} onClose={() => setShowPicker(false)} />
-          </div>
-        )}
-      </div>
-
-      {(power || might || guile) && (
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Practitioner classes</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() =>
-              ensure((s) =>
-                s.casterClasses.push({
-                  id: newId("sphcl"),
-                  className: "",
-                  system: power ? "Magic" : might ? "Combat" : "Skill",
-                  casterType: "high",
-                  classLevel: 1,
-                  castingAbility: "int",
-                }),
-              )
-            }
-          >
-            <Plus className="size-4" /> Class
-          </Button>
-        </div>
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          Magic → caster level + spell points; Combat/Skill → talents known (same Full / 3-4 / 1-2 rate).
-        </p>
-        {(sp?.casterClasses.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground">No practitioner classes yet.</p>
-        )}
-        <div className="space-y-2">
-          {sp?.casterClasses.map((cc, i) => (
-            <div key={cc.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-              <TextField
-                label="Class"
-                value={cc.className}
-                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.className = v; })}
-                className="min-w-[8rem] flex-1"
-              />
-              <SelectField
-                label="System"
-                value={cc.system ?? "Magic"}
-                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.system = v as SpheresBlock["casterClasses"][number]["system"]; })}
-                options={[
-                  { value: "Magic", label: "Magic" },
-                  { value: "Combat", label: "Combat" },
-                  { value: "Skill", label: "Skill" },
-                ]}
-                className="w-24"
-              />
-              <SelectField
-                label="Type"
-                value={cc.casterType}
-                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.casterType = v as SpheresBlock["casterClasses"][number]["casterType"]; })}
-                options={SPHERE_CASTER_TYPES.map((t) => ({ value: t, label: t[0]!.toUpperCase() + t.slice(1) }))}
-                className="w-24"
-              />
-              <NumberField
-                label="Level"
-                value={cc.classLevel}
-                min={0}
-                onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.classLevel = v; })}
-                className="w-16"
-              />
-              {(cc.system ?? "Magic") === "Magic" && (
-                <SelectField
-                  label="Ability"
-                  value={cc.castingAbility}
-                  onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.castingAbility = v; })}
-                  options={[
-                    { value: "int", label: "INT" },
-                    { value: "wis", label: "WIS" },
-                    { value: "cha", label: "CHA" },
-                  ]}
-                  className="w-20"
-                />
-              )}
-              <Button variant="ghost" size="icon" aria-label="Remove class" onClick={() => ensure((s) => s.casterClasses.splice(i, 1))}>
-                <Trash2 className="size-4" />
+      {/* One card per enabled system — its own practitioner classes, spheres, talents + scoped picker. */}
+      {SYSTEM_CARDS.filter((d) => systemEnabled(d.sys) || hasSystemData(d.sys)).map((d) => {
+        const classes = (sp?.casterClasses ?? [])
+          .map((cc, i) => ({ cc, i }))
+          .filter(({ cc }) => (cc.system ?? "Magic") === d.sys);
+        const spheresOf = (sp?.spheres ?? []).map((x, i) => ({ x, i })).filter(({ x }) => x.system === d.sys);
+        const talentsOf = (sp?.talents ?? [])
+          .map((t, i) => ({ t, i }))
+          .filter(({ t }) => talentSystem(t, sp?.spheres ?? []) === d.sys);
+        const Icon = d.Icon;
+        return (
+          <section key={d.sys} className="rounded-xl border border-border p-3">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className={cn("inline-flex items-center gap-1.5 text-sm font-semibold", d.text)}>
+                <Icon className="size-4" /> {d.label}
+              </h3>
+              <Button size="sm" variant="ghost" onClick={() => openPicker("talents", d.sys)}>
+                <Plus className="size-4" /> Browse {d.label}
               </Button>
             </div>
-          ))}
-        </div>
-      </section>
-      )}
+            {renderPicker(d.sys)}
 
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Spheres ({sp?.spheres.length ?? 0})</h3>
-          <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: "Magic" }))}>
-            <Plus className="size-4" /> Sphere
-          </Button>
-        </div>
-        <div className="space-y-1.5">
-          {sp?.spheres.map((sph, i) => (
-            <div key={sph.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
-              <TextField
-                label="Sphere"
-                value={sph.name}
-                onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.name = v; })}
-                className="min-w-[10rem] flex-1"
-              />
-              <SelectField
-                label="System"
-                value={sph.system}
-                onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.system = v as SpheresBlock["spheres"][number]["system"]; })}
-                options={[
-                  { value: "Magic", label: "Magic" },
-                  { value: "Combat", label: "Combat" },
-                  { value: "Skill", label: "Skill" },
-                ]}
-                className="w-28"
-              />
-              <Button variant="ghost" size="icon" aria-label="Remove sphere" onClick={() => ensure((s) => s.spheres.splice(i, 1))}>
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Add spheres &amp; talents from the compendium with &ldquo;Browse&rdquo; above, or type names
-          here manually.
-        </p>
-      </section>
+            <div className="mt-1 space-y-3">
+              {/* Practitioner classes */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Practitioner classes
+                  </h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      ensure((s) =>
+                        s.casterClasses.push({
+                          id: newId("sphcl"),
+                          className: "",
+                          system: d.sys,
+                          casterType: "high",
+                          classLevel: 1,
+                          castingAbility: "int",
+                        }),
+                      )
+                    }
+                  >
+                    <Plus className="size-3.5" /> Class
+                  </Button>
+                </div>
+                {classes.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+                <div className="space-y-2">
+                  {classes.map(({ cc, i }) => (
+                    <div key={cc.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
+                      <TextField
+                        label="Class"
+                        value={cc.className}
+                        onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.className = v; })}
+                        className="min-w-[8rem] flex-1"
+                      />
+                      <SelectField
+                        label="System"
+                        value={cc.system ?? "Magic"}
+                        onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.system = v as SpheresBlock["casterClasses"][number]["system"]; })}
+                        options={[
+                          { value: "Magic", label: "Magic" },
+                          { value: "Combat", label: "Combat" },
+                          { value: "Skill", label: "Skill" },
+                        ]}
+                        className="w-24"
+                      />
+                      <SelectField
+                        label="Type"
+                        value={cc.casterType}
+                        onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.casterType = v as SpheresBlock["casterClasses"][number]["casterType"]; })}
+                        options={SPHERE_CASTER_TYPES.map((t) => ({ value: t, label: t[0]!.toUpperCase() + t.slice(1) }))}
+                        className="w-24"
+                      />
+                      <NumberField
+                        label="Level"
+                        value={cc.classLevel}
+                        min={0}
+                        onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.classLevel = v; })}
+                        className="w-16"
+                      />
+                      {(cc.system ?? "Magic") === "Magic" && (
+                        <SelectField
+                          label="Ability"
+                          value={cc.castingAbility}
+                          onChange={(v) => ensure((s) => { const t = s.casterClasses[i]; if (t) t.castingAbility = v; })}
+                          options={[
+                            { value: "int", label: "INT" },
+                            { value: "wis", label: "WIS" },
+                            { value: "cha", label: "CHA" },
+                          ]}
+                          className="w-20"
+                        />
+                      )}
+                      <Button variant="ghost" size="icon" aria-label="Remove class" onClick={() => ensure((s) => s.casterClasses.splice(i, 1))}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Talents ({sp?.talents.length ?? 0})</h3>
-          <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "" }))}>
-            <Plus className="size-4" /> Talent
-          </Button>
-        </div>
-        <div className="space-y-1.5">
-          {sp?.talents.map((tal, i) => (
-            <div key={tal.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
-              <TextField
-                label="Talent"
-                value={tal.talentName}
-                onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.talentName = v; })}
-                className="min-w-[10rem] flex-1"
-              />
-              <TextField
-                label="Sphere"
-                value={tal.sphereName}
-                onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.sphereName = v; })}
-                className="w-32"
-              />
-              <Button variant="ghost" size="icon" aria-label="Remove talent" onClick={() => ensure((s) => s.talents.splice(i, 1))}>
-                <Trash2 className="size-4" />
-              </Button>
+              {/* Spheres */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Spheres ({spheresOf.length})
+                  </h4>
+                  <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: d.sys }))}>
+                    <Plus className="size-3.5" /> Sphere
+                  </Button>
+                </div>
+                {spheresOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+                <div className="space-y-1.5">
+                  {spheresOf.map(({ x, i }) => (
+                    <div key={x.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
+                      <TextField
+                        label="Sphere"
+                        value={x.name}
+                        onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.name = v; })}
+                        className="min-w-[10rem] flex-1"
+                      />
+                      <SelectField
+                        label="System"
+                        value={x.system}
+                        onChange={(v) => ensure((s) => { const t = s.spheres[i]; if (t) t.system = v as SpheresBlock["spheres"][number]["system"]; })}
+                        options={[
+                          { value: "Magic", label: "Magic" },
+                          { value: "Combat", label: "Combat" },
+                          { value: "Skill", label: "Skill" },
+                        ]}
+                        className="w-28"
+                      />
+                      <Button variant="ghost" size="icon" aria-label="Remove sphere" onClick={() => ensure((s) => s.spheres.splice(i, 1))}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Talents */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Talents ({talentsOf.length})
+                  </h4>
+                  <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "", system: d.sys }))}>
+                    <Plus className="size-3.5" /> Talent
+                  </Button>
+                </div>
+                {talentsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
+                <div className="space-y-1.5">
+                  {talentsOf.map(({ t: tal, i }) => (
+                    <div key={tal.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
+                      <TextField
+                        label="Talent"
+                        value={tal.talentName}
+                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.talentName = v; })}
+                        className="min-w-[10rem] flex-1"
+                      />
+                      <TextField
+                        label="Sphere"
+                        value={tal.sphereName}
+                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.sphereName = v; })}
+                        className="w-32"
+                      />
+                      <SelectField
+                        label="System"
+                        value={talentSystem(tal, sp?.spheres ?? [])}
+                        onChange={(v) => ensure((s) => { const t = s.talents[i]; if (t) t.system = v as SphereSystem; })}
+                        options={[
+                          { value: "Magic", label: "Magic" },
+                          { value: "Combat", label: "Combat" },
+                          { value: "Skill", label: "Skill" },
+                        ]}
+                        className="w-24"
+                      />
+                      <Button variant="ghost" size="icon" aria-label="Remove talent" onClick={() => ensure((s) => s.talents.splice(i, 1))}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
+        );
+      })}
     </div>
   );
 }

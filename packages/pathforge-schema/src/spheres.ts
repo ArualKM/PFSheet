@@ -40,12 +40,29 @@ export const sphereTalentRefSchema = z.object({
   talentName: z.string().default(""),
   /** Base / Advanced / Legendary, when known. */
   category: z.string().optional(),
+  /** Which Spheres system this talent belongs to (Magic/Combat/Skill). Optional and back-compatible:
+   * when absent it's inferred from the talent's sphere via talentSystem(); set explicitly when the
+   * talent is picked from a system-scoped tab. */
+  system: z.enum(["Magic", "Combat", "Skill"]).optional(),
   notes: z.string().optional(),
   /** Links to a sphere_talents row (pick cache). */
   compendiumId: z.string().optional(),
   source: sourceRefSchema.optional(),
 });
 export type SphereTalentRef = z.infer<typeof sphereTalentRefSchema>;
+
+export type SphereSystem = "Magic" | "Combat" | "Skill";
+
+/** A talent's system: its explicit tag if set, else inferred from its sphere's system, else Magic.
+ * Keeps grouping correct for talents saved before the `system` field existed (no migration needed). */
+export function talentSystem(
+  talent: Pick<SphereTalentRef, "system" | "sphereName">,
+  spheres: Array<Pick<SphereChoice, "name" | "system">>,
+): SphereSystem {
+  if (talent.system) return talent.system;
+  const sph = spheres.find((s) => s.name === talent.sphereName);
+  return (sph?.system as SphereSystem) ?? "Magic";
+}
 
 export const spheresBlockSchema = z.object({
   casterClasses: z.array(sphereCasterClassSchema).default([]),

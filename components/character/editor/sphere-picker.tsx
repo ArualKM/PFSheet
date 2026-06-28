@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus, Check, X, Loader2 } from "lucide-react";
-import { applyTraditionGrants } from "@pathforge/schema";
+import { applyTraditionGrants, type SphereSystem } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,8 @@ type TraditionResult = {
   boons_gained: string | null;
   description: string | null;
 };
-type DrawbackResult = { id: string; name: string; sphere: string | null; tradition: string | null; description: string | null };
-type BoonResult = { id: string; name: string; tradition: string | null; description: string | null };
+type DrawbackResult = { id: string; name: string; sphere: string | null; system: string | null; tradition: string | null; description: string | null };
+type BoonResult = { id: string; name: string; system: string | null; tradition: string | null; description: string | null };
 
 const CATEGORIES = ["Base Talent", "Advanced Talent", "Legendary Talent"];
 const SYSTEMS = ["Magic", "Combat", "Skill"] as const;
@@ -78,6 +78,7 @@ export function SpherePicker({
   onClose,
   mode,
   onModeChange,
+  system,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
@@ -85,6 +86,9 @@ export function SpherePicker({
    * without remounting the picker (which would refetch the reference tables + drop the search). */
   mode: SpherePickerMode;
   onModeChange: (mode: SpherePickerMode) => void;
+  /** When set, scopes the spheres/talents/drawbacks/boons results to one Spheres system
+   * (Magic/Combat/Skill). Traditions have no system in the data, so they stay unscoped. */
+  system?: SphereSystem;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
@@ -113,9 +117,12 @@ export function SpherePicker({
           .order("name", { ascending: true }),
         supabase
           .from("sphere_drawbacks")
-          .select("id,name,sphere,tradition,description")
+          .select("id,name,sphere,system,tradition,description")
           .order("name", { ascending: true }),
-        supabase.from("sphere_boons").select("id,name,tradition,description").order("name", { ascending: true }),
+        supabase
+          .from("sphere_boons")
+          .select("id,name,system,tradition,description")
+          .order("name", { ascending: true }),
       ]);
       if (cancelled) return;
       if (sphereRes.data) setAllSpheres(sphereRes.data as SphereResult[]);
@@ -143,7 +150,9 @@ export function SpherePicker({
         p_query: term,
         p_sphere: sphere,
         p_category: category,
-        p_limit: 40,
+        // When system-scoped we filter client-side (talents carry no system column), so fetch a
+        // deeper slice to avoid the in-system matches being crowded out by the 40-row cut.
+        p_limit: system ? 80 : 40,
       });
       if (cancelled) return;
       if (error) {
@@ -159,19 +168,39 @@ export function SpherePicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, sphere, category, mode, supabase]);
+  }, [q, sphere, category, mode, system, supabase]);
 
   const sphereOptions = useMemo(
     () => allSpheres.map((s) => ({ name: s.name, system: s.system })),
     [allSpheres],
   );
-  const spheres = useMemo(() => rankByName(allSpheres, mode === "spheres" ? q : ""), [allSpheres, q, mode]);
+  // Map sphere name → system (full sphere_compendium is loaded), so talent results (which carry no
+  // system column) can be scoped client-side, and so picked talents can be tagged with their system.
+  const sphereSystemMap = useMemo(
+    () => new Map(allSpheres.map((s) => [s.name.toLowerCase(), s.system])),
+    [allSpheres],
+  );
+  const bySystem = useCallback(
+    <T extends { system: string | null }>(items: T[]) => (system ? items.filter((i) => i.system === system) : items),
+    [system],
+  );
+  const spheres = useMemo(
+    () => rankByName(bySystem(allSpheres), mode === "spheres" ? q : ""),
+    [allSpheres, q, mode, bySystem],
+  );
   const traditions = useMemo(
     () => rankByName(allTraditions, mode === "traditions" ? q : ""),
     [allTraditions, q, mode],
   );
-  const drawbacks = useMemo(() => rankByName(allDrawbacks, mode === "drawbacks" ? q : ""), [allDrawbacks, q, mode]);
-  const boons = useMemo(() => rankByName(allBoons, mode === "boons" ? q : ""), [allBoons, q, mode]);
+  const drawbacks = useMemo(
+    () => rankByName(bySystem(allDrawbacks), mode === "drawbacks" ? q : ""),
+    [allDrawbacks, q, mode, bySystem],
+  );
+  const boons = useMemo(() => rankByName(bySystem(allBoons), mode === "boons" ? q : ""), [allBoons, q, mode, bySystem]);
+  const visibleTalents = useMemo(
+    () => (system ? talents.filter((t) => sphereSystemMap.get(t.sphere_name.toLowerCase()) === system) : talents),
+    [talents, system, sphereSystemMap],
+  );
 
   const addedTalents = useMemo(
     () => new Set((ed.draft.spheres?.talents ?? []).map((t) => t.compendiumId).filter(Boolean)),
@@ -202,6 +231,7 @@ export function SpherePicker({
         sphereName: r.sphere_name,
         talentName: r.talent_name,
         category: r.talent_category ?? undefined,
+        system: system ?? (sphereSystemMap.get(r.sphere_name.toLowerCase()) as SphereSystem | undefined),
       });
     });
   const addSphere = (r: SphereResult) =>
@@ -333,12 +363,12 @@ export function SpherePicker({
 
       <ul className="mt-2 flex max-h-[65vh] flex-col gap-1 overflow-y-auto sm:max-h-96">
         {mode === "talents" &&
-          (talents.length === 0 && !loading ? (
+          (visibleTalents.length === 0 && !loading ? (
             <li className="px-1 py-2 text-sm text-muted-foreground">
               {q.trim().length === 1 ? "Keep typing…" : "No talents found."}
             </li>
           ) : (
-            talents.map((r) => {
+            visibleTalents.map((r) => {
               const isAdded = addedTalents.has(r.id);
               return (
                 <li

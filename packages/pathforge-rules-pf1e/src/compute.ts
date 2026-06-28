@@ -18,6 +18,7 @@ import {
   isGestalt,
   bonusPowerPoints,
   sphereCasterLevel,
+  talentSystem,
   milestoneRequirementForLevel,
   MILESTONE_MAX_LEVEL,
 } from "@pathforge/schema";
@@ -1028,13 +1029,11 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     const abilityMod = primary ? (abilities[primary.castingAbility]?.modifier ?? 0) : 0;
     const spMax = Math.max(0, classLevelSum + abilityMod + (sp.bonusSpellPoints ?? 0));
     const msb = classLevelSum;
-    // Spheres + talents counted per system; a talent's system is inferred from its sphere on the sheet
-    // (default Magic). Lets the read view show "combat talents 3/8" etc. without per-talent system data.
-    const sphereSystemByName = new Map(sp.spheres.map((s) => [s.name.toLowerCase(), s.system]));
-    const talentSystem = (sphereName: string): string =>
-      sphereSystemByName.get(sphereName.toLowerCase()) ?? "Magic";
-    const combatTalentsSpent = sp.talents.filter((t) => talentSystem(t.sphereName) === "Combat").length;
-    const skillTalentsSpent = sp.talents.filter((t) => talentSystem(t.sphereName) === "Skill").length;
+    // Spheres + talents counted per system. A talent's system honors its explicit `system` tag, else is
+    // inferred from its sphere (default Magic) — same talentSystem() the editor groups by, so the engine
+    // counts and the per-system cards always agree.
+    const combatTalentsSpent = sp.talents.filter((t) => talentSystem(t, sp.spheres) === "Combat").length;
+    const skillTalentsSpent = sp.talents.filter((t) => talentSystem(t, sp.spheres) === "Skill").length;
     spheres = {
       systems: { power: spheresPower, might: spheresMight, guile: spheresGuile },
       combatSphereCount: sp.spheres.filter((s) => s.system === "Combat").length,

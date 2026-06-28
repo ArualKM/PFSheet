@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, sphereCasterLevel, applyTraditionGrants } from "@pathforge/schema";
+import { createDefaultCharacter, sphereCasterLevel, applyTraditionGrants, talentSystem } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 
 function enabled() {
@@ -174,6 +174,37 @@ describe("spheres", () => {
     expect(block.drawbacks).toEqual(["Manual drawback", "B1"]); // A1/A2 removed, manual kept
     expect(block.boons).toEqual([]); // Boon A removed
     expect(block.tradition).toBe("Tradition B");
+  });
+
+  it("engine counts talents via talentSystem — an explicit system tag wins over the sphere's system", () => {
+    const c = createDefaultCharacter({ name: "X" });
+    c.rules.modules.push({ key: "spheres_of_might", enabled: true, settings: {} });
+    c.spheres = {
+      casterClasses: [
+        { id: "p1", className: "Armiger", system: "Combat", casterType: "high", classLevel: 8, castingAbility: "str" },
+      ],
+      spheres: [{ id: "s1", name: "Destruction", system: "Magic" }],
+      talents: [
+        // explicit Combat tag despite living under a Magic sphere → counts as Combat (editor + engine agree)
+        { id: "t1", sphereName: "Destruction", talentName: "X", system: "Combat" },
+        { id: "t2", sphereName: "Destruction", talentName: "Y" }, // no tag → inferred Magic
+      ],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+    };
+    expect(computeCharacter(c).summary.spheres!.combatTalentsSpent).toBe(1);
+  });
+
+  it("talentSystem: explicit tag wins, else infers from the talent's sphere, else Magic", () => {
+    const spheres = [
+      { name: "Brute", system: "Combat" as const },
+      { name: "Destruction", system: "Magic" as const },
+    ];
+    expect(talentSystem({ system: "Skill", sphereName: "Brute" }, spheres)).toBe("Skill"); // explicit wins
+    expect(talentSystem({ sphereName: "Brute" }, spheres)).toBe("Combat"); // inferred from sphere
+    expect(talentSystem({ sphereName: "Destruction" }, spheres)).toBe("Magic");
+    expect(talentSystem({ sphereName: "Nonexistent" }, spheres)).toBe("Magic"); // fallback
   });
 
   it("absent unless a spheres module is enabled", () => {
