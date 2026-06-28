@@ -1102,6 +1102,55 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           ))}
         </div>
       </section>
+
+      {(sp?.tradition || (sp?.drawbacks.length ?? 0) > 0 || (sp?.boons.length ?? 0) > 0) && (
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Drawbacks ({sp?.drawbacks.length ?? 0})</h3>
+            <ul className="space-y-1">
+              {(sp?.drawbacks.length ?? 0) === 0 && <li className="text-xs text-muted-foreground">None.</li>}
+              {sp?.drawbacks.map((d, i) => (
+                <li
+                  key={i}
+                  className="flex items-start justify-between gap-2 rounded-md border border-border/60 p-1.5 text-xs"
+                >
+                  <span className="min-w-0 break-words text-muted-foreground">{d}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove drawback"
+                    onClick={() => ensure((s) => s.drawbacks.splice(i, 1))}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="mb-1.5 text-sm font-semibold text-foreground">Boons ({sp?.boons.length ?? 0})</h3>
+            <ul className="space-y-1">
+              {(sp?.boons.length ?? 0) === 0 && <li className="text-xs text-muted-foreground">None.</li>}
+              {sp?.boons.map((b, i) => (
+                <li
+                  key={i}
+                  className="flex items-start justify-between gap-2 rounded-md border border-border/60 p-1.5 text-xs"
+                >
+                  <span className="min-w-0 break-words text-muted-foreground">{b}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove boon"
+                    onClick={() => ensure((s) => s.boons.splice(i, 1))}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
