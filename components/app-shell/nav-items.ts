@@ -1,4 +1,4 @@
-import { LayoutDashboard, ScrollText, Swords, Sparkles, Settings, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, ScrollText, Swords, Sparkles, Orbit, Settings, type LucideIcon } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -15,5 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/characters", label: "Characters", icon: ScrollText, mobile: true },
   { href: "/campaigns", label: "Campaigns", icon: Swords, mobile: true },
   { href: "/spells", label: "Spell Compendium", shortLabel: "Spells", icon: Sparkles, mobile: true },
+  { href: "/spheres", label: "Spheres Compendium", shortLabel: "Spheres", icon: Orbit },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

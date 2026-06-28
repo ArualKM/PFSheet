@@ -61,6 +61,24 @@ export type Database = {
           },
         ]
       }
+      api_rate_limits: {
+        Row: {
+          bucket: string
+          count: number
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          count?: number
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       audit_events: {
         Row: {
           actor_id: string | null
@@ -988,15 +1006,215 @@ export type Database = {
         }
         Relationships: []
       }
+      sphere_boons: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          search_vector: unknown
+          source: string | null
+          system: string | null
+          tradition: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          search_vector?: unknown
+          source?: string | null
+          system?: string | null
+          tradition?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          search_vector?: unknown
+          source?: string | null
+          system?: string | null
+          tradition?: string | null
+        }
+        Relationships: []
+      }
+      sphere_compendium: {
+        Row: {
+          base_description: string | null
+          created_at: string | null
+          id: string
+          name: string
+          search_vector: unknown
+          system: string
+        }
+        Insert: {
+          base_description?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          search_vector?: unknown
+          system?: string
+        }
+        Update: {
+          base_description?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          search_vector?: unknown
+          system?: string
+        }
+        Relationships: []
+      }
+      sphere_drawbacks: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          prerequisites: string | null
+          search_vector: unknown
+          source: string | null
+          sphere: string | null
+          system: string | null
+          tradition: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          prerequisites?: string | null
+          search_vector?: unknown
+          source?: string | null
+          sphere?: string | null
+          system?: string | null
+          tradition?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          prerequisites?: string | null
+          search_vector?: unknown
+          source?: string | null
+          sphere?: string | null
+          system?: string | null
+          tradition?: string | null
+        }
+        Relationships: []
+      }
+      sphere_rules_tables: {
+        Row: {
+          created_at: string | null
+          id: string
+          json_data: Json
+          table_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          json_data?: Json
+          table_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          json_data?: Json
+          table_name?: string
+        }
+        Relationships: []
+      }
+      sphere_talents: {
+        Row: {
+          augments: string | null
+          base_cost: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          prerequisites: string | null
+          search_vector: unknown
+          source: string | null
+          sphere_name: string
+          subcategory: string | null
+          tags: string | null
+          talent_category: string | null
+          talent_name: string
+        }
+        Insert: {
+          augments?: string | null
+          base_cost?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          prerequisites?: string | null
+          search_vector?: unknown
+          source?: string | null
+          sphere_name: string
+          subcategory?: string | null
+          tags?: string | null
+          talent_category?: string | null
+          talent_name: string
+        }
+        Update: {
+          augments?: string | null
+          base_cost?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          prerequisites?: string | null
+          search_vector?: unknown
+          source?: string | null
+          sphere_name?: string
+          subcategory?: string | null
+          tags?: string | null
+          talent_category?: string | null
+          talent_name?: string
+        }
+        Relationships: []
+      }
+      sphere_traditions: {
+        Row: {
+          boons_gained: string | null
+          created_at: string | null
+          description: string | null
+          drawbacks_gained: string | null
+          id: string
+          name: string
+          search_vector: unknown
+          source: string | null
+          type: string | null
+        }
+        Insert: {
+          boons_gained?: string | null
+          created_at?: string | null
+          description?: string | null
+          drawbacks_gained?: string | null
+          id?: string
+          name: string
+          search_vector?: unknown
+          source?: string | null
+          type?: string | null
+        }
+        Update: {
+          boons_gained?: string | null
+          created_at?: string | null
+          description?: string | null
+          drawbacks_gained?: string | null
+          id?: string
+          name?: string
+          search_vector?: unknown
+          source?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      check_rate_limit: {
-        Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
-        Returns: boolean
-      }
       can_edit_character: {
         Args: { p_character_id: string; p_user_id: string }
         Returns: boolean
@@ -1011,6 +1229,10 @@ export type Database = {
       }
       can_view_character: {
         Args: { p_character_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      check_rate_limit: {
+        Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
         Returns: boolean
       }
       has_campaign_role: {
