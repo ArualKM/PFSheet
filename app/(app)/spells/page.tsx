@@ -58,23 +58,42 @@ export default async function SpellsPage({
   const from = (pageNum - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
-  let query = supabase
-    .from("spell_compendium")
-    .select(
-      "id,name,school,subschool,descriptor,class_levels,casting_time,components,range,duration,saving_throw,spell_resistance,source,description",
-      { count: "exact" },
-    );
-
-  if (q.trim()) query = query.textSearch("search_vector", q.trim(), { type: "websearch" });
-  if (school) query = query.eq("school", school);
-
-  const { data, count, error } = await query
-    .order("name", { ascending: true })
-    .range(from, from + PAGE_SIZE - 1);
-
-  const spells = (data ?? []) as SpellRow[];
-  const total = count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const RANKED_LIMIT = 50;
+  let spells: SpellRow[] = [];
+  let total = 0;
+  let ranked = false;
+  let error: { message: string } | null = null;
+  if (q.trim()) {
+    // Searching → ranked relevance (name → school → descriptor → description) via the compendium RPC
+    // with no class filter; top results only. School filter applied client-side (the RPC has none).
+    const res = await supabase.rpc("search_spell_compendium", {
+      p_query: q.trim(),
+      p_classes: {},
+      p_only_class_list: false,
+      p_only_castable: false,
+      p_limit: RANKED_LIMIT,
+    });
+    let rows = (res.data ?? []) as unknown as SpellRow[];
+    if (school) rows = rows.filter((r) => r.school === school);
+    spells = rows;
+    total = spells.length;
+    ranked = true;
+    error = res.error;
+  } else {
+    // Browsing → alphabetical, paginated.
+    let query = supabase
+      .from("spell_compendium")
+      .select(
+        "id,name,school,subschool,descriptor,class_levels,casting_time,components,range,duration,saving_throw,spell_resistance,source,description",
+        { count: "exact" },
+      );
+    if (school) query = query.eq("school", school);
+    const res = await query.order("name", { ascending: true }).range(from, from + PAGE_SIZE - 1);
+    spells = (res.data ?? []) as SpellRow[];
+    total = res.count ?? 0;
+    error = res.error;
+  }
+  const totalPages = ranked ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const pageHref = (p: number) => {
     const sp = new URLSearchParams();
@@ -178,7 +197,9 @@ export default async function SpellsPage({
 
           <div className="flex items-center justify-between pt-2 text-sm">
             <span className="text-muted-foreground">
-              Page {pageNum} of {totalPages}
+              {ranked
+                ? `${total}${total >= RANKED_LIMIT ? "+" : ""} result${total === 1 ? "" : "s"} · ranked by relevance`
+                : `Page ${pageNum} of ${totalPages}`}
             </span>
             <div className="flex gap-2">
               {pageNum > 1 && (

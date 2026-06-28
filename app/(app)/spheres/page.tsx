@@ -54,24 +54,43 @@ export default async function SpheresPage({
     spheresBySystem.set(r.system, list);
   }
 
-  let query = supabase
-    .from("sphere_talents")
-    .select(
-      "id,sphere_name,talent_name,talent_category,subcategory,source,tags,prerequisites,base_cost,description",
-      { count: "exact" },
-    );
-  if (q.trim()) query = query.textSearch("search_vector", q.trim(), { type: "websearch" });
-  if (sphere) query = query.eq("sphere_name", sphere);
-  if (category) query = query.eq("talent_category", category);
-
-  const { data, count, error } = await query
-    .order("sphere_name", { ascending: true })
-    .order("talent_name", { ascending: true })
-    .range(from, from + PAGE_SIZE - 1);
-
-  const talents = (data ?? []) as TalentRow[];
-  const total = count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const RANKED_LIMIT = 50;
+  let talents: TalentRow[] = [];
+  let total = 0;
+  let ranked = false;
+  let error: { message: string } | null = null;
+  if (q.trim()) {
+    // Searching → ranked relevance (exact → prefix → contains → sphere → tags → description) so the
+    // best match is first and isn't truncated; top results only (no pagination).
+    const res = await supabase.rpc("search_sphere_talents", {
+      p_query: q.trim(),
+      p_sphere: sphere,
+      p_category: category,
+      p_limit: RANKED_LIMIT,
+    });
+    talents = (res.data ?? []) as TalentRow[];
+    total = talents.length;
+    ranked = true;
+    error = res.error;
+  } else {
+    // Browsing → alphabetical, paginated.
+    let query = supabase
+      .from("sphere_talents")
+      .select(
+        "id,sphere_name,talent_name,talent_category,subcategory,source,tags,prerequisites,base_cost,description",
+        { count: "exact" },
+      );
+    if (sphere) query = query.eq("sphere_name", sphere);
+    if (category) query = query.eq("talent_category", category);
+    const res = await query
+      .order("sphere_name", { ascending: true })
+      .order("talent_name", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    talents = (res.data ?? []) as TalentRow[];
+    total = res.count ?? 0;
+    error = res.error;
+  }
+  const totalPages = ranked ? 1 : Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const pageHref = (p: number) => {
     const sp = new URLSearchParams();
@@ -182,7 +201,9 @@ export default async function SpheresPage({
 
           <div className="flex items-center justify-between pt-2 text-sm">
             <span className="text-muted-foreground">
-              Page {pageNum} of {totalPages} · {total.toLocaleString()} talents
+              {ranked
+                ? `${total}${total >= RANKED_LIMIT ? "+" : ""} result${total === 1 ? "" : "s"} · ranked by relevance`
+                : `Page ${pageNum} of ${totalPages} · ${total.toLocaleString()} talents`}
             </span>
             <div className="flex gap-2">
               {pageNum > 1 && (
