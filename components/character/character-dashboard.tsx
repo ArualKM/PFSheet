@@ -265,96 +265,7 @@ export function CharacterDashboard({
 
           {vm.spheres && (
             <SectionCard title="Spheres" icon={Wand2}>
-              <div className="space-y-1 text-sm">
-                {vm.spheres.systems.power && (
-                  <>
-                    <div className="text-muted-foreground">
-                      Spell points{" "}
-                      <span className="tnum font-semibold text-rune">
-                        {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                      <span>CL {vm.spheres.casterLevel}</span>
-                      <span>MSB +{vm.spheres.magicSkillBonus}</span>
-                      <span>MSD {vm.spheres.magicSkillDefense}</span>
-                      <span>DC {vm.spheres.saveDc}</span>
-                    </div>
-                  </>
-                )}
-                {vm.spheres.systems.might && (
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    <span>
-                      Combat talents{" "}
-                      <span className="font-semibold text-foreground">
-                        {vm.spheres.combatTalentsSpent}/{vm.spheres.combatTalentsKnown}
-                      </span>
-                    </span>
-                    {vm.spheres.combatSphereCount > 0 && <span>{vm.spheres.combatSphereCount} spheres</span>}
-                    <span>
-                      Martial focus:{" "}
-                      <span className={vm.spheres.martialFocus ? "text-gold" : "text-foreground"}>
-                        {vm.spheres.martialFocus ? "focused" : "unfocused"}
-                      </span>
-                    </span>
-                  </div>
-                )}
-                {vm.spheres.systems.guile && (
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    <span>
-                      Skill talents{" "}
-                      <span className="font-semibold text-foreground">
-                        {vm.spheres.skillTalentsSpent}/{vm.spheres.skillTalentsKnown}
-                      </span>
-                    </span>
-                    {vm.spheres.skillSphereCount > 0 && <span>{vm.spheres.skillSphereCount} spheres</span>}
-                  </div>
-                )}
-                {vm.spheres.traditions.length > 0 && (
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                    {vm.spheres.traditions.map((t) => (
-                      <span key={t.system}>
-                        {t.label} tradition: <span className="text-foreground">{t.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {vm.spheres.spheresList.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {vm.spheres.spheresList.map((s, i) => (
-                      <Badge
-                        key={i}
-                        variant="outline"
-                        className={cn("gap-1", s.targetedBy.length > 0 && "border-danger/50 text-danger")}
-                        title={s.targetedBy.length > 0 ? `Affected by: ${s.targetedBy.join(", ")}` : undefined}
-                      >
-                        {s.name}
-                        {s.targetedBy.length > 0 && (
-                          <>
-                            <TriangleAlert className="size-3" aria-hidden />
-                            <span className="sr-only">Affected by: {s.targetedBy.join(", ")}</span>
-                          </>
-                        )}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {vm.spheres.talentsList.length > 0 && (
-                  <ShowMore cap={10} noun="talents" className="space-y-1 pt-1">
-                    {[...vm.spheres.talentsList]
-                      .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
-                      .map((t, i) => (
-                        <TalentRow
-                          key={i}
-                          name={t.name}
-                          sphere={t.sphere}
-                          compendiumId={t.compendiumId}
-                          targetedBy={t.targetedBy}
-                        />
-                      ))}
-                  </ShowMore>
-                )}
-              </div>
+              <SpheresCard spheres={vm.spheres} />
             </SectionCard>
           )}
 
@@ -758,6 +669,125 @@ function WealthLines({ wealth }: { wealth: NonNullable<CharacterViewModel["wealt
       </div>
       <p className="mt-1 text-xs text-muted-foreground">≈ {wealth.totalGp} gp total</p>
     </>
+  );
+}
+
+type SpheresVM = NonNullable<CharacterViewModel["spheres"]>;
+
+/** One color-coded subsystem block per enabled Spheres system, each grouping its spheres + talents
+ * (talents nested under their sphere). Literal accent classes so Tailwind can see them. */
+const SPHERE_SUBSYSTEMS = [
+  { key: "Magic", systemsKey: "power", label: "Power", Icon: Sparkles, iconClass: "text-rune", boxClass: "border-rune/30 bg-rune/5" },
+  { key: "Combat", systemsKey: "might", label: "Might", Icon: Swords, iconClass: "text-gold", boxClass: "border-gold/30 bg-gold/5" },
+  { key: "Skill", systemsKey: "guile", label: "Guile", Icon: Eye, iconClass: "text-success", boxClass: "border-success/30 bg-success/5" },
+] as const;
+
+function SpheresCard({ spheres }: { spheres: SpheresVM }) {
+  // Show a subsystem if its module is on OR it already holds data — so a sphere/talent never silently
+  // disappears from the read view just because the module toggle is off.
+  const hasData = (key: (typeof SPHERE_SUBSYSTEMS)[number]["key"]) =>
+    spheres.spheresList.some((s) => s.system === key) ||
+    spheres.talentsList.some((t) => t.system === key) ||
+    spheres.traditions.some((t) => t.system === key);
+  const active = SPHERE_SUBSYSTEMS.filter((d) => spheres.systems[d.systemsKey] || hasData(d.key));
+  if (active.length === 0) return null;
+  return (
+    <div className="space-y-3 text-sm">
+      {active.map((d) => {
+        const sysSpheres = spheres.spheresList.filter((s) => s.system === d.key);
+        const sysTalents = spheres.talentsList.filter((t) => t.system === d.key);
+        const trad = spheres.traditions.find((t) => t.system === d.key);
+        const names = Array.from(
+          new Set([...sysSpheres.map((s) => s.name), ...sysTalents.map((t) => t.sphere)].filter(Boolean)),
+        ).sort((a, b) => a.localeCompare(b));
+        const groups = names.map((name) => ({
+          name,
+          sphere: sysSpheres.find((s) => s.name === name),
+          talents: sysTalents.filter((t) => t.sphere === name),
+        }));
+        const looseTalents = sysTalents.filter((t) => !t.sphere);
+        const Icon = d.Icon;
+        return (
+          <div key={d.key} className={cn("rounded-lg border p-3", d.boxClass)}>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                <Icon className={cn("size-4", d.iconClass)} /> {d.label}
+              </span>
+              {d.key === "Magic" && (
+                <span className="text-xs text-muted-foreground">
+                  SP{" "}
+                  <span className="tnum font-semibold text-foreground">
+                    {spheres.spellPoints.current}/{spheres.spellPoints.max}
+                  </span>{" "}
+                  · CL {spheres.casterLevel} · MSB +{spheres.magicSkillBonus} · MSD {spheres.magicSkillDefense} · DC{" "}
+                  {spheres.saveDc}
+                </span>
+              )}
+              {d.key === "Combat" && (
+                <span className="text-xs text-muted-foreground">
+                  Talents{" "}
+                  <span className="tnum font-semibold text-foreground">
+                    {spheres.combatTalentsSpent}/{spheres.combatTalentsKnown}
+                  </span>{" "}
+                  · <span className={spheres.martialFocus ? "text-gold" : ""}>{spheres.martialFocus ? "focused" : "unfocused"}</span>
+                </span>
+              )}
+              {d.key === "Skill" && (
+                <span className="text-xs text-muted-foreground">
+                  Talents{" "}
+                  <span className="tnum font-semibold text-foreground">
+                    {spheres.skillTalentsSpent}/{spheres.skillTalentsKnown}
+                  </span>
+                </span>
+              )}
+            </div>
+            {trad && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                Tradition: <span className="text-foreground">{trad.name}</span>
+              </div>
+            )}
+            {groups.length === 0 && looseTalents.length === 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">No spheres or talents recorded.</p>
+            )}
+            <div className="mt-2 space-y-2">
+              {groups.map((g) => (
+                <div key={g.name}>
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
+                    {g.name}
+                    {g.sphere && g.sphere.targetedBy.length > 0 && (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-danger"
+                        title={`Affected by: ${g.sphere.targetedBy.join(", ")}`}
+                      >
+                        <TriangleAlert className="size-3" aria-hidden />
+                        <span className="sr-only">Affected by: {g.sphere.targetedBy.join(", ")}</span>
+                      </span>
+                    )}
+                  </div>
+                  {g.talents.length > 0 && (
+                    <div className="space-y-1">
+                      {g.talents.map((t, i) => (
+                        <TalentRow key={i} name={t.name} sphere="" compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {looseTalents.length > 0 && (
+                <div>
+                  <div className="mb-1 text-xs font-medium text-foreground">Other talents</div>
+                  <div className="space-y-1">
+                    {looseTalents.map((t, i) => (
+                      <TalentRow key={i} name={t.name} sphere={t.sphere} compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

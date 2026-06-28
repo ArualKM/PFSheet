@@ -1,5 +1,5 @@
 import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef, SphereSystem } from "@pathforge/schema";
-import { ABILITY_KEYS, grantsTargeting, systemTradition } from "@pathforge/schema";
+import { ABILITY_KEYS, grantsTargeting, systemTradition, talentSystem } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 import { languageBudget, type LanguageBudget } from "./languages";
 import { iterativeAttackBonuses } from "./combat";
@@ -239,7 +239,8 @@ export type CharacterViewModel = {
       sphere: string;
       name: string;
       category?: string;
-      system?: string;
+      /** Resolved effective system (always set by buildCharacterViewModel via talentSystem). */
+      system: string;
       compendiumId?: string;
       targetedBy: string[];
     }>;
@@ -705,7 +706,9 @@ export function buildCharacterViewModel(
               sphere: t.sphereName,
               name: t.talentName,
               category: t.category,
-              system: t.system,
+              // Resolved effective system (explicit tag, else inferred from the sphere) so the read view
+              // can group talents under their subsystem.
+              system: talentSystem(t, character.spheres?.spheres ?? []),
               compendiumId: t.compendiumId,
               targetedBy: [...tg.drawbacks, ...tg.boons],
             };
