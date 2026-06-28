@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Nested build output + agent worktrees (a full repo copy + its .next) must never be linted —
+    // the root-relative ".next/**" above misses e.g. .claude/worktrees/<id>/.next/.
+    "**/.next/**",
+    ".claude/**",
   ]),
 ]);
 

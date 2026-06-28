@@ -1,5 +1,5 @@
-import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef } from "@pathforge/schema";
-import { ABILITY_KEYS, grantsTargeting } from "@pathforge/schema";
+import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef, SphereSystem } from "@pathforge/schema";
+import { ABILITY_KEYS, grantsTargeting, systemTradition } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 import { languageBudget, type LanguageBudget } from "./languages";
 import { iterativeAttackBonuses } from "./combat";
@@ -227,7 +227,10 @@ export type CharacterViewModel = {
     saveDc: number;
     sphereCount: number;
     talentCount: number;
+    /** Primary (first set) tradition name; kept for compact summaries. */
     tradition: string;
+    /** Per-system traditions (Power/Might/Guile) — only systems that have one set. */
+    traditions: Array<{ system: SphereSystem; label: string; name: string }>;
     martialFocus: boolean;
     /** Chosen spheres + talents (build choices, shown like spells). `targetedBy` = names of the
      * drawbacks/boons flagged to that specific option (the "drawback applies here" note). */
@@ -508,6 +511,12 @@ export function buildCharacterViewModel(
     ),
   });
 
+  // Per-system traditions (only systems that actually have one set), for the read view.
+  const SPHERE_SYSTEM_LABELS: Record<SphereSystem, string> = { Magic: "Power", Combat: "Might", Skill: "Guile" };
+  const spheresTraditions = (["Magic", "Combat", "Skill"] as const)
+    .map((sys) => ({ system: sys, label: SPHERE_SYSTEM_LABELS[sys], name: character.spheres ? (systemTradition(character.spheres, sys)?.name ?? "") : "" }))
+    .filter((t) => t.name);
+
   return {
     viewer,
     isOwnerView,
@@ -683,7 +692,8 @@ export function buildCharacterViewModel(
           saveDc: computed.summary.spheres.saveDc,
           sphereCount: computed.summary.spheres.sphereCount,
           talentCount: computed.summary.spheres.talentCount,
-          tradition: computed.summary.spheres.tradition,
+          tradition: spheresTraditions[0]?.name ?? "",
+          traditions: spheresTraditions,
           martialFocus: computed.summary.spheres.martialFocus,
           spheresList: (character.spheres?.spheres ?? []).map((s) => {
             const tg = grantsTargeting(character.spheres!, "sphere", s.id);

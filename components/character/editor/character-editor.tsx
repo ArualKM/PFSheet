@@ -69,6 +69,8 @@ import {
   SPHERE_CASTER_TYPES,
   talentSystem,
   grantSystem,
+  systemTradition,
+  setSystemTraditionFields,
   type MilestoneLevelingBlock,
   type MilestoneDifficulty,
   MILESTONE_DIFFICULTIES,
@@ -1037,8 +1039,6 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
   const power = isModuleKeyEnabled(ed.draft, "spheres_of_power");
   const might = isModuleKeyEnabled(ed.draft, "spheres_of_might");
   const guile = isModuleKeyEnabled(ed.draft, "spheres_of_guile");
-  const tradition = sp?.tradition ?? "";
-  const isCustomTradition = !!sp?.traditionCustom;
   const systemEnabled = (sys: SphereSystem) => (sys === "Magic" ? power : sys === "Combat" ? might : guile);
   // Show a card for any system that's enabled OR already holds data, so existing spheres/talents/classes
   // can never be hidden + orphaned just because their module isn't toggled on.
@@ -1066,53 +1066,24 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
     }
   };
 
-  const tiles: { label: string; value: ReactNode }[] = [];
-  if (summary) {
-    if (power) {
-      tiles.push({ label: "Caster level", value: summary.casterLevel });
-      tiles.push({
-        label: "Spell points",
-        value: (
-          <>
-            {current}
-            <span className="text-base font-normal text-muted-foreground">/{max}</span>
-          </>
-        ),
-      });
-      tiles.push({
-        label: "MSB / MSD",
-        value: (
-          <>
-            +{summary.magicSkillBonus}
-            <span className="text-base font-normal text-muted-foreground"> / {summary.magicSkillDefense}</span>
-          </>
-        ),
-      });
-      tiles.push({ label: "Save DC", value: summary.saveDc });
-    }
-    if (might) {
-      tiles.push({
-        label: "Combat talents",
-        value: (
-          <>
-            {summary.combatTalentsSpent}
-            <span className="text-base font-normal text-muted-foreground">/{summary.combatTalentsKnown}</span>
-          </>
-        ),
-      });
-    }
-    if (guile) {
-      tiles.push({
-        label: "Skill talents",
-        value: (
-          <>
-            {summary.skillTalentsSpent}
-            <span className="text-base font-normal text-muted-foreground">/{summary.skillTalentsKnown}</span>
-          </>
-        ),
-      });
-    }
-  }
+  // Stat tiles for ONE system — each card shows only its own (Power: CL/SP/MSB/MSD/DC; Might: combat
+  // talents; Guile: skill talents).
+  const sub = (n: ReactNode) => <span className="text-base font-normal text-muted-foreground">{n}</span>;
+  const tilesFor = (sys: SphereSystem): { label: string; value: ReactNode }[] => {
+    if (!summary) return [];
+    if (sys === "Magic")
+      return [
+        { label: "Caster level", value: summary.casterLevel },
+        { label: "Spell points", value: (<>{current}{sub(<>/{max}</>)}</>) },
+        { label: "MSB / MSD", value: (<>+{summary.magicSkillBonus}{sub(<> / {summary.magicSkillDefense}</>)}</>) },
+        { label: "Save DC", value: summary.saveDc },
+      ];
+    if (sys === "Combat")
+      return [{ label: "Combat talents", value: (<>{summary.combatTalentsSpent}{sub(<>/{summary.combatTalentsKnown}</>)}</>) }];
+    return [{ label: "Skill talents", value: (<>{summary.skillTalentsSpent}{sub(<>/{summary.skillTalentsKnown}</>)}</>) }];
+  };
+  const setSystemTradition = (sys: SphereSystem, fields: { name?: string; custom?: boolean }) =>
+    ensure((s) => setSystemTraditionFields(s, sys, fields));
 
   return (
     <div className="space-y-4">
@@ -1136,102 +1107,8 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
         ))}
       </div>
 
-      {tiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {tiles.map((t) => (
-            <div key={t.label} className="rounded-lg border border-border bg-surface-raised p-2.5">
-              <div className="text-[11px] text-muted-foreground">{t.label}</div>
-              <div className="tnum text-xl font-semibold text-foreground">{t.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {power && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm">
-          <Zap className="size-4 text-rune" />
-          <span className="font-medium text-foreground">Spell points</span>
-          <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
-            − Spend
-          </Button>
-          <span className="tnum text-lg font-semibold text-rune">
-            {current}
-            <span className="text-sm text-muted-foreground">/{max}</span>
-          </span>
-          <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
-            +
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
-            Rest
-          </Button>
-          <div className="w-full sm:ml-auto sm:w-auto">
-            <NumberField
-              label="Bonus SP"
-              value={sp?.bonusSpellPoints ?? 0}
-              onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
-              className="w-24"
-            />
-          </div>
-        </div>
-      )}
-
-      {might && (
-        <label className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm text-foreground">
-          <input
-            type="checkbox"
-            className="size-4 accent-[var(--pf-gold)]"
-            checked={!!sp?.martialFocus}
-            onChange={(e) => ensure((s) => (s.martialFocus = e.target.checked || undefined))}
-          />
-          <Swords className="size-4 text-gold" /> Martial focus — currently focused (expended to fuel some martial
-          talents)
-        </label>
-      )}
-
-      <section className="rounded-xl border border-rune/30 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <ScrollText className="size-4 shrink-0 text-rune" />
-            <span className="text-sm font-semibold text-foreground">Tradition</span>
-            {tradition ? (
-              <span className="truncate text-sm text-rune">
-                {isCustomTradition ? `Custom · ${tradition}` : tradition}
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">none chosen</span>
-            )}
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => openPicker("traditions")}>
-            <Plus className="size-4" /> Browse traditions
-          </Button>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-end gap-3">
-          <TextField
-            label="Tradition name"
-            value={tradition}
-            onChange={(v) => ensure((s) => (s.tradition = v || undefined))}
-            className="min-w-[10rem] flex-1"
-          />
-          <label className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              className="size-4 accent-[var(--pf-gold)]"
-              checked={isCustomTradition}
-              onChange={(e) => ensure((s) => (s.traditionCustom = e.target.checked || undefined))}
-            />
-            Custom build
-          </label>
-        </div>
-
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Drawbacks &amp; boons are managed per system below — add each to the system it belongs to, and flag
-          one to a specific sphere or talent it affects.
-        </p>
-        {renderPicker("")}
-      </section>
-
-      {/* One card per enabled system — its own practitioner classes, spheres, talents + scoped picker. */}
+      {/* One card per enabled system — its own stat tiles, tradition, practitioner classes, spheres,
+          talents, drawbacks + boons, with a system-scoped compendium picker. */}
       {SYSTEM_CARDS.filter((d) => systemEnabled(d.sys) || hasSystemData(d.sys)).map((d) => {
         const classes = (sp?.casterClasses ?? [])
           .map((cc, i) => ({ cc, i }))
@@ -1253,6 +1130,8 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           ...talentsOf.filter(({ t }) => t.talentName).map(({ t }) => ({ value: `talent:${t.id}`, label: `Talent: ${t.talentName}` })),
         ];
         const Icon = d.Icon;
+        const trad = sp ? systemTradition(sp, d.sys) : undefined;
+        const cardTiles = tilesFor(d.sys);
         return (
           <section key={d.sys} className="rounded-xl border border-border p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -1263,6 +1142,95 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                 <Plus className="size-4" /> Browse {d.label}
               </Button>
             </div>
+
+            {/* This system's stat tiles */}
+            {cardTiles.length > 0 && (
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {cardTiles.map((t) => (
+                  <div key={t.label} className="rounded-lg border border-border bg-surface-raised p-2.5">
+                    <div className="text-[11px] text-muted-foreground">{t.label}</div>
+                    <div className="tnum text-xl font-semibold text-foreground">{t.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Spell-point control (Power) */}
+            {d.sys === "Magic" && power && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm">
+                <Zap className="size-4 text-rune" />
+                <span className="font-medium text-foreground">Spell points</span>
+                <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendSP(-1)}>
+                  − Spend
+                </Button>
+                <span className="tnum text-lg font-semibold text-rune">
+                  {current}
+                  <span className="text-sm text-muted-foreground">/{max}</span>
+                </span>
+                <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendSP(1)}>
+                  +
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.spellPointsCurrent = max))}>
+                  Rest
+                </Button>
+                <div className="w-full sm:ml-auto sm:w-auto">
+                  <NumberField
+                    label="Bonus SP"
+                    value={sp?.bonusSpellPoints ?? 0}
+                    onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
+                    className="w-24"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Martial focus (Might) */}
+            {d.sys === "Combat" && might && (
+              <label className="mb-3 flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--pf-gold)]"
+                  checked={!!sp?.martialFocus}
+                  onChange={(e) => ensure((s) => (s.martialFocus = e.target.checked || undefined))}
+                />
+                <Swords className="size-4 text-gold" /> Martial focus — currently focused
+              </label>
+            )}
+
+            {/* Tradition (this system) */}
+            <div className="mb-3 rounded-lg border border-border p-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ScrollText className="size-3.5" /> Tradition
+                  {trad?.name && (
+                    <span className="truncate text-xs font-medium normal-case text-rune">
+                      {trad.custom ? `Custom · ${trad.name}` : trad.name}
+                    </span>
+                  )}
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => openPicker("traditions", d.sys)}>
+                  <Plus className="size-3.5" /> Browse
+                </Button>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-end gap-3">
+                <TextField
+                  label="Tradition name"
+                  value={trad?.name ?? ""}
+                  onChange={(v) => setSystemTradition(d.sys, { name: v })}
+                  className="min-w-[10rem] flex-1"
+                />
+                <label className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-[var(--pf-gold)]"
+                    checked={!!trad?.custom}
+                    onChange={(e) => setSystemTradition(d.sys, { custom: e.target.checked })}
+                  />
+                  Custom build
+                </label>
+              </div>
+            </div>
+
             {renderPicker(d.sys)}
 
             <div className="mt-1 space-y-3">

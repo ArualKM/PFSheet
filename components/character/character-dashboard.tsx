@@ -263,6 +263,101 @@ export function CharacterDashboard({
             </SectionCard>
           )}
 
+          {vm.spheres && (
+            <SectionCard title="Spheres" icon={Wand2}>
+              <div className="space-y-1 text-sm">
+                {vm.spheres.systems.power && (
+                  <>
+                    <div className="text-muted-foreground">
+                      Spell points{" "}
+                      <span className="tnum font-semibold text-rune">
+                        {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                      <span>CL {vm.spheres.casterLevel}</span>
+                      <span>MSB +{vm.spheres.magicSkillBonus}</span>
+                      <span>MSD {vm.spheres.magicSkillDefense}</span>
+                      <span>DC {vm.spheres.saveDc}</span>
+                    </div>
+                  </>
+                )}
+                {vm.spheres.systems.might && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    <span>
+                      Combat talents{" "}
+                      <span className="font-semibold text-foreground">
+                        {vm.spheres.combatTalentsSpent}/{vm.spheres.combatTalentsKnown}
+                      </span>
+                    </span>
+                    {vm.spheres.combatSphereCount > 0 && <span>{vm.spheres.combatSphereCount} spheres</span>}
+                    <span>
+                      Martial focus:{" "}
+                      <span className={vm.spheres.martialFocus ? "text-gold" : "text-foreground"}>
+                        {vm.spheres.martialFocus ? "focused" : "unfocused"}
+                      </span>
+                    </span>
+                  </div>
+                )}
+                {vm.spheres.systems.guile && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    <span>
+                      Skill talents{" "}
+                      <span className="font-semibold text-foreground">
+                        {vm.spheres.skillTalentsSpent}/{vm.spheres.skillTalentsKnown}
+                      </span>
+                    </span>
+                    {vm.spheres.skillSphereCount > 0 && <span>{vm.spheres.skillSphereCount} spheres</span>}
+                  </div>
+                )}
+                {vm.spheres.traditions.length > 0 && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    {vm.spheres.traditions.map((t) => (
+                      <span key={t.system}>
+                        {t.label} tradition: <span className="text-foreground">{t.name}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {vm.spheres.spheresList.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {vm.spheres.spheresList.map((s, i) => (
+                      <Badge
+                        key={i}
+                        variant="outline"
+                        className={cn("gap-1", s.targetedBy.length > 0 && "border-danger/50 text-danger")}
+                        title={s.targetedBy.length > 0 ? `Affected by: ${s.targetedBy.join(", ")}` : undefined}
+                      >
+                        {s.name}
+                        {s.targetedBy.length > 0 && (
+                          <>
+                            <TriangleAlert className="size-3" aria-hidden />
+                            <span className="sr-only">Affected by: {s.targetedBy.join(", ")}</span>
+                          </>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {vm.spheres.talentsList.length > 0 && (
+                  <ShowMore cap={10} noun="talents" className="space-y-1 pt-1">
+                    {[...vm.spheres.talentsList]
+                      .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
+                      .map((t, i) => (
+                        <TalentRow
+                          key={i}
+                          name={t.name}
+                          sphere={t.sphere}
+                          compendiumId={t.compendiumId}
+                          targetedBy={t.targetedBy}
+                        />
+                      ))}
+                  </ShowMore>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
           {vm.feats && vm.feats.length > 0 && (
             <SectionCard title="Feats" icon={Sparkles}>
               <ShowMore cap={12} noun="feats" className="flex flex-wrap gap-1.5">
@@ -488,94 +583,6 @@ export function CharacterDashboard({
                             {p.ppCost != null ? ` · ${p.ppCost} PP` : ""}
                           </span>
                         </div>
-                      ))}
-                  </ShowMore>
-                )}
-              </div>
-            </SectionCard>
-          )}
-          {vm.spheres && (
-            <SectionCard title="Spheres" icon={Wand2}>
-              <div className="space-y-1 text-sm">
-                {vm.spheres.systems.power && (
-                  <>
-                    <div className="text-muted-foreground">
-                      Spell points{" "}
-                      <span className="tnum font-semibold text-rune">
-                        {vm.spheres.spellPoints.current}/{vm.spheres.spellPoints.max}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                      <span>CL {vm.spheres.casterLevel}</span>
-                      <span>MSB +{vm.spheres.magicSkillBonus}</span>
-                      <span>MSD {vm.spheres.magicSkillDefense}</span>
-                      <span>DC {vm.spheres.saveDc}</span>
-                    </div>
-                  </>
-                )}
-                {vm.spheres.systems.might && (
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    <span>
-                      Combat talents{" "}
-                      <span className="font-semibold text-foreground">
-                        {vm.spheres.combatTalentsSpent}/{vm.spheres.combatTalentsKnown}
-                      </span>
-                    </span>
-                    {vm.spheres.combatSphereCount > 0 && <span>{vm.spheres.combatSphereCount} spheres</span>}
-                    <span>
-                      Martial focus:{" "}
-                      <span className={vm.spheres.martialFocus ? "text-gold" : "text-foreground"}>
-                        {vm.spheres.martialFocus ? "focused" : "unfocused"}
-                      </span>
-                    </span>
-                  </div>
-                )}
-                {vm.spheres.systems.guile && (
-                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                    <span>
-                      Skill talents{" "}
-                      <span className="font-semibold text-foreground">
-                        {vm.spheres.skillTalentsSpent}/{vm.spheres.skillTalentsKnown}
-                      </span>
-                    </span>
-                    {vm.spheres.skillSphereCount > 0 && <span>{vm.spheres.skillSphereCount} spheres</span>}
-                  </div>
-                )}
-                {vm.spheres.tradition && (
-                  <div className="text-xs text-muted-foreground">Tradition: {vm.spheres.tradition}</div>
-                )}
-                {vm.spheres.spheresList.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {vm.spheres.spheresList.map((s, i) => (
-                      <Badge
-                        key={i}
-                        variant="outline"
-                        className={cn("gap-1", s.targetedBy.length > 0 && "border-danger/50 text-danger")}
-                        title={s.targetedBy.length > 0 ? `Affected by: ${s.targetedBy.join(", ")}` : undefined}
-                      >
-                        {s.name}
-                        {s.targetedBy.length > 0 && (
-                          <>
-                            <TriangleAlert className="size-3" aria-hidden />
-                            <span className="sr-only">Affected by: {s.targetedBy.join(", ")}</span>
-                          </>
-                        )}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                {vm.spheres.talentsList.length > 0 && (
-                  <ShowMore cap={10} noun="talents" className="space-y-1 pt-1">
-                    {[...vm.spheres.talentsList]
-                      .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
-                      .map((t, i) => (
-                        <TalentRow
-                          key={i}
-                          name={t.name}
-                          sphere={t.sphere}
-                          compendiumId={t.compendiumId}
-                          targetedBy={t.targetedBy}
-                        />
                       ))}
                   </ShowMore>
                 )}

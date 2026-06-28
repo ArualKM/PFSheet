@@ -100,13 +100,26 @@ export const sphereGrantMetaSchema = z.object({
 });
 export type SphereGrantMeta = z.infer<typeof sphereGrantMetaSchema>;
 
+/** One system's tradition (Spheres of Power has casting traditions; Might/Guile use the same slot for
+ * their practice). `grants` is the provenance of the drawback/boon NAMES this tradition contributed, so
+ * switching A→B replaces them. Per-system so a caster's casting tradition ≠ their martial practice. */
+export const sphereTraditionEntrySchema = z.object({
+  name: z.string().default(""),
+  custom: z.boolean().optional(),
+  grants: z.object({ drawbacks: z.array(z.string()), boons: z.array(z.string()) }).optional(),
+});
+export type SphereTraditionEntry = z.infer<typeof sphereTraditionEntrySchema>;
+
 export const spheresBlockSchema = z.object({
   casterClasses: z.array(sphereCasterClassSchema).default([]),
   spheres: z.array(sphereChoiceSchema).default([]),
   talents: z.array(sphereTalentRefSchema).default([]),
+  /** @deprecated legacy single (casting) tradition — read via systemTradition() as the Magic fallback
+   * until migrated; new edits write `traditions` per system. Kept for back-compat with old sheets. */
   tradition: z.string().optional(),
-  /** True when the tradition was assembled by the player (name + hand-picked drawbacks/boons/talents)
-   * rather than applied from a compendium preset — drives the "Custom" framing in the editor. */
+  /** Per-system traditions (Magic/Combat/Skill). The source of truth going forward. */
+  traditions: z.record(z.enum(["Magic", "Combat", "Skill"]), sphereTraditionEntrySchema).optional(),
+  /** True when the (legacy Magic) tradition was hand-built rather than applied from a preset. */
   traditionCustom: z.boolean().optional(),
   drawbacks: z.array(z.string()).default([]),
   boons: z.array(z.string()).default([]),
@@ -152,4 +165,80 @@ export function applyTraditionGrants(
   for (const d of tradition.drawbacks) if (!block.drawbacks.includes(d)) block.drawbacks.push(d);
   for (const b of tradition.boons) if (!block.boons.includes(b)) block.boons.push(b);
   block.traditionGrants = { drawbacks: [...tradition.drawbacks], boons: [...tradition.boons] };
+}
+
+/** One system's tradition: the per-system entry if set, else (for Magic only) the legacy single-tradition
+ * fields as a fallback so old sheets keep showing their casting tradition under Power. */
+export function systemTradition(
+  block: Pick<SpheresBlock, "traditions" | "tradition" | "traditionCustom" | "traditionGrants">,
+  sys: SphereSystem,
+): SphereTraditionEntry | undefined {
+  const t = block.traditions?.[sys];
+  if (t) return t;
+  if (sys === "Magic" && block.tradition) {
+    return { name: block.tradition, custom: block.traditionCustom, grants: block.traditionGrants };
+  }
+  return undefined;
+}
+
+/** Set ONE system's tradition + apply its granted drawbacks/boons (tagged to that system via the meta
+ * side-table), REPLACING that system's prior grants so A→B doesn't stack. Other systems' traditions +
+ * grants are untouched. Clears the legacy Magic fields so the per-system entry is authoritative. Mutates. */
+export function applySystemTradition(
+  block: SpheresBlock,
+  sys: SphereSystem,
+  tradition: { name: string; drawbacks: string[]; boons: string[] },
+): void {
+  const prev = systemTradition(block, sys)?.grants;
+  if (prev) {
+    block.drawbacks = block.drawbacks.filter((d) => !prev.drawbacks.includes(d));
+    block.boons = block.boons.filter((b) => !prev.boons.includes(b));
+    if (block.drawbackMeta) for (const d of prev.drawbacks) delete block.drawbackMeta[d];
+    if (block.boonMeta) for (const b of prev.boons) delete block.boonMeta[b];
+  }
+  for (const d of tradition.drawbacks) if (!block.drawbacks.includes(d)) block.drawbacks.push(d);
+  for (const b of tradition.boons) if (!block.boons.includes(b)) block.boons.push(b);
+  // Tag each grant to this system — but don't STEAL a same-named grant already tagged to another
+  // system (a shared name stays in the card that first claimed it).
+  const dMeta = { ...(block.drawbackMeta ?? {}) };
+  for (const d of tradition.drawbacks) if (!dMeta[d] || dMeta[d].system === sys) dMeta[d] = { ...dMeta[d], system: sys };
+  block.drawbackMeta = dMeta;
+  const bMeta = { ...(block.boonMeta ?? {}) };
+  for (const b of tradition.boons) if (!bMeta[b] || bMeta[b].system === sys) bMeta[b] = { ...bMeta[b], system: sys };
+  block.boonMeta = bMeta;
+  block.traditions = {
+    ...block.traditions,
+    [sys]: { name: tradition.name, custom: false, grants: { drawbacks: [...tradition.drawbacks], boons: [...tradition.boons] } },
+  };
+  if (sys === "Magic") {
+    block.tradition = undefined;
+    block.traditionCustom = undefined;
+    block.traditionGrants = undefined;
+  }
+}
+
+/** Set a system's tradition name/custom flag without touching grants (manual edits in the editor). */
+export function setSystemTraditionFields(
+  block: SpheresBlock,
+  sys: SphereSystem,
+  fields: { name?: string; custom?: boolean },
+): void {
+  const hadEntry = !!block.traditions?.[sys];
+  const cur = systemTradition(block, sys) ?? { name: "" };
+  block.traditions = {
+    ...block.traditions,
+    [sys]: {
+      ...cur,
+      ...(fields.name !== undefined ? { name: fields.name } : {}),
+      ...(fields.custom !== undefined ? { custom: fields.custom } : {}),
+    },
+  };
+  // Clear the legacy Magic fields only on the FIRST migration (when no per-system entry existed yet) —
+  // `cur` has just carried their value into traditions.Magic. Clearing unconditionally could orphan a
+  // legacy value the other side of a concurrent edit still holds.
+  if (sys === "Magic" && !hadEntry) {
+    block.tradition = undefined;
+    block.traditionCustom = undefined;
+    block.traditionGrants = undefined;
+  }
 }

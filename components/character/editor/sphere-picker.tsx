@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus, Check, X, Loader2 } from "lucide-react";
-import { applyTraditionGrants, type SphereSystem } from "@pathforge/schema";
+import { applySystemTradition, systemTradition, type SphereSystem } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -212,7 +212,7 @@ export function SpherePicker({
   );
   const addedDrawbacks = useMemo(() => new Set(ed.draft.spheres?.drawbacks ?? []), [ed.draft.spheres?.drawbacks]);
   const addedBoons = useMemo(() => new Set(ed.draft.spheres?.boons ?? []), [ed.draft.spheres?.boons]);
-  const currentTradition = ed.draft.spheres?.tradition ?? "";
+  const currentTradition = ed.draft.spheres ? (systemTradition(ed.draft.spheres, system ?? "Magic")?.name ?? "") : "";
 
   const ensure = (mut: (s: NonNullable<typeof ed.draft.spheres>) => void) =>
     ed.update((c) => {
@@ -247,14 +247,14 @@ export function SpherePicker({
   // Selecting a tradition sets it and applies its granted drawbacks/boons (prose → editable lines the
   // player can trim). Provenance-tracked, so switching A→B REPLACES the old grants instead of stacking.
   const applyTradition = (r: TraditionResult) =>
-    ensure((s) => {
-      applyTraditionGrants(s, {
+    ensure((s) =>
+      // Apply to the scoped system (each system card opens the picker scoped); default Magic when unscoped.
+      applySystemTradition(s, system ?? "Magic", {
         name: r.name,
         drawbacks: grantLines(r.drawbacks_gained),
         boons: grantLines(r.boons_gained),
-      });
-      s.traditionCustom = undefined; // applied a preset → not a hand-built tradition
-    });
+      }),
+    );
   const grantSys = (resultSystem: string | null): SphereSystem | undefined =>
     system ??
     (resultSystem === "Magic" || resultSystem === "Combat" || resultSystem === "Skill" ? resultSystem : undefined);

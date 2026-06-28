@@ -6,6 +6,8 @@ import {
   talentSystem,
   grantSystem,
   grantsTargeting,
+  systemTradition,
+  applySystemTradition,
 } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 
@@ -229,6 +231,52 @@ describe("spheres", () => {
     expect(onTalent.drawbacks).toEqual(["Draining Casting"]);
     expect(onTalent.boons).toEqual([]);
     expect(grantsTargeting(block, "sphere", "sph_x").drawbacks).toEqual([]); // nothing targets this
+  });
+
+  it("per-system traditions: replace one system without touching others; legacy Magic fallback + tagging", () => {
+    const block = {
+      casterClasses: [],
+      spheres: [],
+      talents: [],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+      tradition: "Old Casting", // legacy single field
+    } as Parameters<typeof applySystemTradition>[0];
+
+    expect(systemTradition(block, "Magic")?.name).toBe("Old Casting"); // legacy fallback
+    expect(systemTradition(block, "Combat")).toBeUndefined();
+
+    applySystemTradition(block, "Magic", { name: "Tradition A", drawbacks: ["A1"], boons: [] });
+    expect(systemTradition(block, "Magic")?.name).toBe("Tradition A");
+    expect(block.tradition).toBeUndefined(); // legacy cleared once a per-system entry exists
+    expect(block.drawbacks).toContain("A1");
+    expect(block.drawbackMeta?.["A1"]?.system).toBe("Magic"); // grant tagged to its system
+
+    applySystemTradition(block, "Combat", { name: "Iron Practice", drawbacks: ["C1"], boons: [] });
+    expect(systemTradition(block, "Combat")?.name).toBe("Iron Practice");
+    expect(systemTradition(block, "Magic")?.name).toBe("Tradition A"); // untouched
+
+    // Magic A→B replaces A1 but leaves the Combat grant alone
+    applySystemTradition(block, "Magic", { name: "Tradition B", drawbacks: ["B1"], boons: [] });
+    expect(block.drawbacks).not.toContain("A1");
+    expect(block.drawbacks).toEqual(expect.arrayContaining(["B1", "C1"]));
+  });
+
+  it("applySystemTradition shares (does not steal) a grant name already tagged to another system", () => {
+    const block = {
+      casterClasses: [],
+      spheres: [],
+      talents: [],
+      drawbacks: [],
+      boons: [],
+      bonusSpellPoints: 0,
+    } as Parameters<typeof applySystemTradition>[0];
+    applySystemTradition(block, "Magic", { name: "Casting Trad", drawbacks: ["Shared"], boons: [] });
+    expect(grantSystem("Shared", block.drawbackMeta)).toBe("Magic");
+    applySystemTradition(block, "Combat", { name: "Martial Trad", drawbacks: ["Shared"], boons: [] });
+    expect(grantSystem("Shared", block.drawbackMeta)).toBe("Magic"); // stays in Power's card, not stolen
+    expect(block.drawbacks.filter((d) => d === "Shared")).toHaveLength(1); // one entry, deduped
   });
 
   it("absent unless a spheres module is enabled", () => {
