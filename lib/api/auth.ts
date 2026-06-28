@@ -1,7 +1,8 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getServerEnv } from "@/lib/env";
 
 /** §21.4 API scopes. */
 export const API_SCOPES = [
@@ -22,9 +23,13 @@ export type ApiAccess = {
   keyId?: string;
 };
 
-/** API keys are stored as a SHA-256 hash; the plaintext is shown once at creation. */
+/**
+ * API keys are stored as a peppered hash (HMAC-SHA256 keyed by PATHFORGE_API_KEY_PEPPER); the
+ * plaintext is shown once at creation. The pepper means a leaked api_keys table is useless without
+ * the server-side secret. Same function for create + verify, so it's the single source of truth.
+ */
 export function hashApiKey(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return createHmac("sha256", getServerEnv().apiKeyPepper).update(token).digest("hex");
 }
 
 function getBearer(request: Request): string | null {
