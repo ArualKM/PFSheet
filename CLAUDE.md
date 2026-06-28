@@ -316,10 +316,15 @@ row carries a `source` citation). Regenerated `lib/supabase/types.ts`. **`/spher
 (talent search + sphere/category filters, mirrors `/spells`; sidebar nav, Orbit icon). The raw scraped
 wiki HTML is gitignored; the TSVs are the versioned import source. **Migrations now run through `0018`.**
 Data note: sphere `base_description` is the full wiki page (verbose, TOC prefix) — trim is future polish.
-**Next — Spheres Phase 2 (character system):** `character.spheres` + `computeSpheres` (caster level ≠
-class level, spell points, MSB/MSD) + dashboard card + an editor panel with a search RPC + `<OptionPicker>`
-(deferred from Phase 1 — build it with the picker), un-gating the `spheres_of_power/might/guile` toggles.
-Path of War + Akashic still need their datasets sourced like Spheres was. See [[pathforge-modularity-roadmap]].
+**Spheres Phase 2 (POWER character system) — SHIPPED** (migration-free; commit 535f4b6): `spheres.ts`
+(`character.spheres`) → `computeSpheres` (`summary.spheres`) → dashboard Spheres card → `SpheresEditor`
+(Optional section, manual entry + SP tracker). **`spheres_of_power` toggle is now LIVE.** Caster level
+(High=level/Mid=⌊3L/4⌋/Low=⌊L/2⌋) drives effect scaling + save DC (10+½CL+ability); SP = class level +
+casting ability mod; **MSB = total casting-CLASS levels (NOT caster level — a separate quantity like
+BAB), MSD = 11+MSB** (a review caught this RAW bug; locked with a multiclass test). 8 tests, 290 total.
+**Next — Spheres Phase 2b:** the search RPC + `<OptionPicker>` (add spheres/talents from the compendium
+instead of by hand) → **Spheres of Might / Guile** math (un-gate those toggles). Path of War + Akashic
+still need their datasets sourced like Spheres was. See [[pathforge-modularity-roadmap]].
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
