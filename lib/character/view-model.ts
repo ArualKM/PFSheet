@@ -1,5 +1,5 @@
 import type { PathForgeCharacterV1, ViewerContext, PrivacyLevel, SpellRef, SphereSystem } from "@pathforge/schema";
-import { ABILITY_KEYS, grantsTargeting, systemTradition, talentSystem } from "@pathforge/schema";
+import { ABILITY_KEYS, grantsTargeting, grantSystem, systemTradition, talentSystem } from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 import { languageBudget, type LanguageBudget } from "./languages";
 import { iterativeAttackBonuses } from "./combat";
@@ -242,8 +242,12 @@ export type CharacterViewModel = {
       /** Resolved effective system (always set by buildCharacterViewModel via talentSystem). */
       system: string;
       compendiumId?: string;
+      /** A bonus (free) talent — shown in the tradition area, not in its sphere group. */
+      bonus: boolean;
       targetedBy: string[];
     }>;
+    /** Drawbacks + boons per system, with the optional chip annotation. */
+    grants: Array<{ kind: "drawback" | "boon"; name: string; system: string; note?: string }>;
   } | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
@@ -710,9 +714,24 @@ export function buildCharacterViewModel(
               // can group talents under their subsystem.
               system: talentSystem(t, character.spheres?.spheres ?? []),
               compendiumId: t.compendiumId,
+              bonus: !!t.bonus,
               targetedBy: [...tg.drawbacks, ...tg.boons],
             };
           }),
+          grants: [
+            ...(character.spheres?.drawbacks ?? []).map((name) => ({
+              kind: "drawback" as const,
+              name,
+              system: grantSystem(name, character.spheres?.drawbackMeta),
+              note: character.spheres?.drawbackMeta?.[name]?.note,
+            })),
+            ...(character.spheres?.boons ?? []).map((name) => ({
+              kind: "boon" as const,
+              name,
+              system: grantSystem(name, character.spheres?.boonMeta),
+              note: character.spheres?.boonMeta?.[name]?.note,
+            })),
+          ],
         })
       : null,
     advancement:

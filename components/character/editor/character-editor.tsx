@@ -1019,21 +1019,22 @@ function SphereChip({
   return (
     <span className={cn("inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs", tone)}>
       {leading}
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        disabled={!onClick}
-        className={cn("min-w-0 truncate text-left", onClick && "hover:underline")}
-      >
-        {label}
-        {note ? <span className="opacity-75"> → {note}</span> : null}
-      </button>
+      {onClick ? (
+        <button type="button" onClick={onClick} title={title} className="min-w-0 truncate text-left hover:underline">
+          {label}
+          {note ? <span className="opacity-90"> → {note}</span> : null}
+        </button>
+      ) : (
+        <span className="min-w-0 truncate">
+          {label}
+          {note ? <span className="opacity-90"> → {note}</span> : null}
+        </span>
+      )}
       <button
         type="button"
         aria-label={`Remove ${label}`}
         onClick={onRemove}
-        className="-mr-0.5 shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+        className="-mr-1 shrink-0 rounded-full p-1 text-muted-foreground hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
       >
         <X className="size-3" />
       </button>
@@ -1044,15 +1045,22 @@ function SphereChip({
 /** A small "add by name" inline input — manual entry alongside the compendium Browse, for the chip lists. */
 function AddByName({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
   const [v, setV] = useState("");
+  // A synchronous ref mirrors the value so commit() is race-free: after Enter clears it, a following
+  // blur reads the empty ref (not a stale closure of `v`), so it never double-adds.
+  const valueRef = useRef("");
   const commit = () => {
-    const name = v.trim();
-    if (name) onAdd(name);
+    const name = valueRef.current.trim();
+    valueRef.current = "";
     setV("");
+    if (name) onAdd(name);
   };
   return (
     <input
       value={v}
-      onChange={(e) => setV(e.target.value)}
+      onChange={(e) => {
+        valueRef.current = e.target.value;
+        setV(e.target.value);
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -1061,7 +1069,7 @@ function AddByName({ placeholder, onAdd }: { placeholder: string; onAdd: (name: 
       }}
       onBlur={commit}
       placeholder={placeholder}
-      className="h-7 w-32 rounded-full border border-dashed border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground"
+      className="h-7 w-full rounded-full border border-dashed border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground sm:w-36"
     />
   );
 }
@@ -1409,10 +1417,10 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       leading={
                         <button
                           type="button"
-                          aria-label="Unmark bonus"
+                          aria-label={`${tal.talentName || "Talent"} is a bonus talent — make it a normal talent`}
                           title="Make a normal talent"
                           onClick={() => ensure((s) => { const t = s.talents[i]; if (t) t.bonus = undefined; })}
-                          className="shrink-0 text-rune"
+                          className="-ml-0.5 shrink-0 rounded-full p-0.5 text-rune"
                         >
                           <Star className="size-3 fill-current" />
                         </button>
@@ -1578,10 +1586,10 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       leading={
                         <button
                           type="button"
-                          aria-label="Mark as a bonus talent"
+                          aria-label={`Mark ${tal.talentName || "talent"} as a bonus (free) talent`}
                           title="Mark as a bonus (free) talent"
                           onClick={() => ensure((s) => { const t = s.talents[i]; if (t) t.bonus = true; })}
-                          className="shrink-0 text-muted-foreground hover:text-rune"
+                          className="-ml-0.5 shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-rune"
                         >
                           <Star className="size-3" />
                         </button>

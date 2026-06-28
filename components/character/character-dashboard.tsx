@@ -689,14 +689,17 @@ function SpheresCard({ spheres }: { spheres: SpheresVM }) {
   const hasData = (key: (typeof SPHERE_SUBSYSTEMS)[number]["key"]) =>
     spheres.spheresList.some((s) => s.system === key) ||
     spheres.talentsList.some((t) => t.system === key) ||
-    spheres.traditions.some((t) => t.system === key);
+    spheres.traditions.some((t) => t.system === key) ||
+    spheres.grants.some((g) => g.system === key);
   const active = SPHERE_SUBSYSTEMS.filter((d) => spheres.systems[d.systemsKey] || hasData(d.key));
   if (active.length === 0) return null;
   return (
     <div className="space-y-3 text-sm">
       {active.map((d) => {
         const sysSpheres = spheres.spheresList.filter((s) => s.system === d.key);
-        const sysTalents = spheres.talentsList.filter((t) => t.system === d.key);
+        const sysTalents = spheres.talentsList.filter((t) => t.system === d.key && !t.bonus);
+        const bonusTalents = spheres.talentsList.filter((t) => t.system === d.key && t.bonus);
+        const sysGrants = spheres.grants.filter((g) => g.system === d.key);
         const trad = spheres.traditions.find((t) => t.system === d.key);
         const names = Array.from(
           new Set([...sysSpheres.map((s) => s.name), ...sysTalents.map((t) => t.sphere)].filter(Boolean)),
@@ -745,6 +748,35 @@ function SpheresCard({ spheres }: { spheres: SpheresVM }) {
             {trad && (
               <div className="mt-1 text-xs text-muted-foreground">
                 Tradition: <span className="text-foreground">{trad.name}</span>
+              </div>
+            )}
+            {sysGrants.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {sysGrants.map((g, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs text-foreground",
+                      g.kind === "drawback" ? "border-danger/30 bg-danger/10" : "border-success/35 bg-success/10",
+                    )}
+                  >
+                    {g.name}
+                    {g.note ? <span className="opacity-90"> → {g.note}</span> : null}
+                  </span>
+                ))}
+              </div>
+            )}
+            {bonusTalents.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Bonus talents:</span>
+                {bonusTalents.map((t, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center rounded-full border border-rune/40 bg-rune/15 px-2 py-0.5 text-xs text-foreground"
+                  >
+                    {t.name}
+                  </span>
+                ))}
               </div>
             )}
             {groups.length === 0 && looseTalents.length === 0 && (
