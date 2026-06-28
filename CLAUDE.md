@@ -288,6 +288,25 @@ each pass shipped after an adversarial Workflow review, gate-green, prod clean.
   tables (cumulative per-level requirement ladder + 4-difficulty job-reward matrix); `summary.milestoneLeveling`
   guards `readyToLevel` on `nextThreshold > currentThreshold` (kills the L1–2 false positive).
 
+**Road to v1 (2026-06-28).** A grounded 7-domain readiness assessment → **`docs/V1_ROADMAP.md`** (the
+authoritative plan to 1.0; **native apps shelved, the PWA is the mobile story**). The core is
+essentially v1-complete; remaining = **V1·1** launch-blockers → **V1·2** polish/trust → **V1·3** sheet
+depth → **V1·4** campaign writes → **V1·5** QA gate → **V1·6** printable-PDF. **The S4 flagship 3pp
+(Spheres/PoW/Akashic + compendium infra) is now post-1.0.** Also shipped this session: the **game-icon
+foundation** (`components/ui/game-icons.tsx` — `<GameIcon>` renders game-icons.net glyphs as a CSS mask
+over `currentColor` so they theme correctly; drop-in wrappers swap lucide 1:1; applied to the read-view
+dashboard + inventory category icons — finishing the swap across the other thematic surfaces is V1·2)
+and the **inventory Equipped/Carried split** (`InventoryList`).
+- **V1·1 COMPLETE:** password-reset flow (`lib/actions/auth.ts` request/update + `/reset-password[/update]`
+  + a "Forgot password?" link; anti-enumeration; the update is recovery-session-gated), styled
+  `app/not-found.tsx`, error boundaries for the public/auth/share groups (`components/route-error.tsx`)
+  + `app/global-error.tsx`, **"Coming soon" gating** of the ~11 un-built optional-rule toggles
+  (`isModuleComingSoon` / `IMPLEMENTED_MODULE_KEYS` in `optional-rules.ts` — locked unless already on),
+  the **API-key pepper** (HMAC-SHA256 via `getServerEnv().apiKeyPepper`; **invalidated the old key
+  hashes — existing keys must be regenerated**), and **migration `0017`** (pin `bump_sheet_version`
+  search_path; advisor WARN cleared). Each shipped after an adversarial Workflow review (0 confirmed
+  defects). **Migrations now run through `0017`.**
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

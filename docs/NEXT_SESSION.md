@@ -42,12 +42,13 @@ is now **post-1.0** (the XL flagship systems are deferred past v1)._
 ## Immediate next steps — the road to v1 (see [`V1_ROADMAP.md`](V1_ROADMAP.md))
 
 The 7-domain readiness assessment found the core (sheet math, campaigns/GM, imports/exports/API, QA
-architecture) **essentially v1-complete**. What's left is a tight, mostly-cheap set. **Start with V1·1.**
+architecture) **essentially v1-complete**. What's left is a tight, mostly-cheap set. **Next: V1·2.**
 
-1. **V1·1 — launch-blockers (MUST, cheap):** password-reset flow · styled `not-found.tsx` (+ `/c`) ·
-   `global-error.tsx` + public/auth error boundaries · gate the **~10 dead optional-rule toggles**
-   behind a `comingSoon` badge · **apply the API-key pepper** (`lib/api/auth.ts`) · pin
-   `bump_sheet_version` search_path (migration `0017`).
+1. **V1·1 — launch-blockers — ✅ DONE** (commits through `8a5403a`): password-reset flow · styled
+   `not-found.tsx` · `global-error.tsx` + public/auth/share error boundaries · "Coming soon" gating of
+   the ~11 dead optional-rule toggles · API-key pepper (HMAC) · migration `0017` (pin search_path).
+   **⚠ The pepper invalidated existing API-key hashes — the 1 prod key must be regenerated at
+   `/settings/api`.** Migrations now run through `0017`.
 2. **V1·2 — polish/trust:** finish the **icon overhaul** (GameIcon foundation shipped — extend to the
    remaining thematic surfaces + add CC-BY attribution) · PWA raster icons · robots/sitemap ·
    privacy+terms pages · security headers (CSP/HSTS).
