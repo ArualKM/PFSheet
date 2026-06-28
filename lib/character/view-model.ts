@@ -229,7 +229,7 @@ export type CharacterViewModel = {
     martialFocus: boolean;
     /** Chosen spheres + talents (build choices, shown like spells). */
     spheresList: Array<{ name: string; system: string }>;
-    talentsList: Array<{ sphere: string; name: string; category?: string }>;
+    talentsList: Array<{ sphere: string; name: string; category?: string; system?: string; compendiumId?: string }>;
   } | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
@@ -680,6 +680,8 @@ export function buildCharacterViewModel(
             sphere: t.sphereName,
             name: t.talentName,
             category: t.category,
+            system: t.system,
+            compendiumId: t.compendiumId,
           })),
         }
       : null,

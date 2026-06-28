@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/game-icons";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
+import { TalentRow } from "./talent-row";
 import { ShowMore } from "./show-more";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -552,14 +553,11 @@ export function CharacterDashboard({
                   </div>
                 )}
                 {vm.spheres.talentsList.length > 0 && (
-                  <ShowMore cap={10} noun="talents" className="space-y-0.5 pt-1">
+                  <ShowMore cap={10} noun="talents" className="space-y-1 pt-1">
                     {[...vm.spheres.talentsList]
                       .sort((a, b) => a.sphere.localeCompare(b.sphere) || a.name.localeCompare(b.name))
                       .map((t, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="min-w-0 truncate text-foreground">{t.name}</span>
-                          <span className="shrink-0 text-muted-foreground">{t.sphere}</span>
-                        </div>
+                        <TalentRow key={i} name={t.name} sphere={t.sphere} compendiumId={t.compendiumId} />
                       ))}
                   </ShowMore>
                 )}
