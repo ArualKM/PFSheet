@@ -114,6 +114,22 @@ export default function PrivacyPage() {
           </p>
         </section>
 
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-foreground">Acknowledgements</h2>
+          <p>
+            Some interface icons are from{" "}
+            <a
+              href="https://game-icons.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-rune hover:underline"
+            >
+              game-icons.net
+            </a>
+            , used under the Creative Commons BY 3.0 license (by Lorc, Delapouite, and contributors).
+          </p>
+        </section>
+
         <p className="border-t border-border/60 pt-6 text-xs text-muted-foreground/80">
           PathForge is a fan-made toolkit and is not affiliated with or endorsed by Paizo Inc.
         </p>

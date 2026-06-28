@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Authenticated app routes (redirect to /login for crawlers anyway) + the API + auth callbacks.
-      disallow: ["/api/", "/dashboard", "/characters", "/campaigns", "/settings", "/auth/"],
+      disallow: ["/api/", "/dashboard", "/characters", "/campaigns", "/settings", "/spells", "/auth/"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
     host: baseUrl,

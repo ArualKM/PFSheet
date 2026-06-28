@@ -50,6 +50,11 @@ function friendlyAuthError(error: { message?: string; code?: string; status?: nu
   if (code === "user_already_exists" || /already registered|user already/i.test(msg)) {
     return "An account with this email already exists. Try signing in instead.";
   }
+  // Leaked-password protection (HaveIBeenPwned) is enabled, so an 8+ char password that passes the
+  // client schema can still be rejected here — keep the actionable message instead of the catch-all.
+  if (code === "weak_password" || /weak|pwned|breach|easy to guess|known to be/i.test(msg)) {
+    return "That password is too weak or has appeared in a known data breach — please choose a different one.";
+  }
   if (error.status === 429 || /rate limit|too many/i.test(msg)) {
     return "Too many attempts — please wait a minute and try again.";
   }
