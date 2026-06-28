@@ -11,6 +11,8 @@ import {
   type ImportError,
 } from "@pathforge/importers";
 import { createClient } from "@/lib/supabase/server";
+import { loadCompendiumIndex } from "@/lib/character/compendium-index";
+import { huntCompendium } from "@/lib/character/compendium-hunt";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -141,6 +143,32 @@ export async function previewImportAction(input: {
       error:
         "That file doesn't look like a supported character export yet (PathForge, Myth-Weavers, or Foundry VTT JSON).",
     };
+  }
+
+  // Hunt the seeded compendiums to LINK sphere talents / spells the source dumped as free text
+  // (e.g. a Myth-Weavers "2[Monk]. Mass Teleport [mass]" slot → a structured sphere talent). Pure
+  // enrichment — wrapped so a compendium hiccup can never fail the import.
+  try {
+    const index = await loadCompendiumIndex(supabase);
+    // The adapter always returns a full createDefaultCharacter (the draft type is Partial only to
+    // allow lossy sources); the hunt needs the full shape and mutates it in place.
+    const hunt = huntCompendium(result.draft.character as PathForgeCharacterV1, index);
+    if (hunt.talentsLinked || hunt.spellsLinked || hunt.spheresAdded) {
+      const parts = [
+        hunt.talentsLinked ? `${hunt.talentsLinked} sphere talent${hunt.talentsLinked === 1 ? "" : "s"}` : "",
+        hunt.spellsLinked ? `${hunt.spellsLinked} spell${hunt.spellsLinked === 1 ? "" : "s"}` : "",
+      ].filter(Boolean);
+      result.draft.warnings.push({
+        code: "compendium_linked",
+        message:
+          `Linked ${parts.join(" and ")} to the compendium` +
+          (hunt.spheresAdded ? `; detected ${hunt.spheresAdded} sphere${hunt.spheresAdded === 1 ? "" : "s"}` : "") +
+          (hunt.modulesEnabled.length ? ` and enabled ${hunt.modulesEnabled.join(", ")}` : "") +
+          ". Review them in the Spheres section after importing.",
+      });
+    }
+  } catch {
+    // Enrichment only — leave the parsed draft as-is if the lookup fails.
   }
 
   const draft = sanitize(result.draft.character) as Partial<PathForgeCharacterV1>;
