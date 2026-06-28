@@ -28,6 +28,8 @@ import {
   Calculator,
   ChevronDown,
   ChevronsUpDown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import {
   ABILITY_KEYS,
@@ -171,6 +173,29 @@ export function CharacterEditor({
       // ignore quota/unavailable
     }
   }, [navKey, activeSection, activeSub]);
+
+  // Section rail collapse (md+): icons-only by default, hover/focus overlay-expands; pin to lock open.
+  const sectionsPinKey = "pf-sidebar-pinned:editor-sections";
+  const [sectionsPinned, setSectionsPinned] = useState(false);
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
+  useEffect(() => {
+    try {
+      setSectionsPinned(localStorage.getItem(sectionsPinKey) === "1");
+    } catch {
+      // ignore unreadable/absent storage
+    }
+  }, [sectionsPinKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const toggleSectionsPin = () =>
+    setSectionsPinned((p) => {
+      const next = !p;
+      try {
+        localStorage.setItem(sectionsPinKey, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
 
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
   // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
@@ -319,45 +344,76 @@ export function CharacterEditor({
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-[190px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)_300px]">
-      {/* Section rail — md+ only (the < md picker is a bottom sheet). Keeps the
-          tablist + roving-tabindex a11y intact. */}
-      <div className="hidden md:sticky md:top-20 md:block md:self-start">
+    <div
+      className={cn(
+        "grid gap-4",
+        sectionsPinned ? "md:grid-cols-[13rem_minmax(0,1fr)]" : "md:grid-cols-[3rem_minmax(0,1fr)]",
+      )}
+    >
+      {/* Section rail — md+ only (the < md picker is a bottom sheet). Collapsed to icons-only;
+          hover/keyboard-focus overlay-expands; pin to lock open. Keeps the tablist + roving-tabindex
+          a11y intact. */}
+      <div className="hidden md:block">
         <div
-          role="tablist"
-          aria-orientation="vertical"
-          aria-label="Sheet sections"
-          className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-1"
+          className={cn(
+            "group/sections sticky top-20 z-30 flex flex-col self-start overflow-hidden rounded-lg border border-border bg-surface transition-[width] duration-200",
+            sectionsPinned
+              ? "w-52"
+              : "w-12 hover:w-52 focus-within:w-52 hover:shadow-2xl focus-within:shadow-2xl",
+          )}
         >
-          {sections.map((s, idx) => {
-            const Icon = s.icon;
-            // Compare to the RESOLVED section so a stale stored key can't leave the rail
-            // with no selected tab (which would make every tab tabIndex=-1, unreachable).
-            const active = s.key === section.key;
-            return (
-              <button
-                key={s.key}
-                type="button"
-                role="tab"
-                id={`section-tab-${s.key}`}
-                aria-selected={active}
-                aria-controls="editor-panel"
-                tabIndex={active ? 0 : -1}
-                onClick={() => {
-                  setActiveSection(s.key);
-                  setActiveSub(s.items[0]!.key);
-                }}
-                onKeyDown={(e) => onSectionKeyDown(e, idx)}
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  active ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="whitespace-nowrap">{s.label}</span>
-              </button>
-            );
-          })}
+          <div
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="Sheet sections"
+            className="flex flex-col gap-1 p-1"
+          >
+            {sections.map((s, idx) => {
+              const Icon = s.icon;
+              // Compare to the RESOLVED section so a stale stored key can't leave the rail
+              // with no selected tab (which would make every tab tabIndex=-1, unreachable).
+              const active = s.key === section.key;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  role="tab"
+                  id={`section-tab-${s.key}`}
+                  title={s.label}
+                  aria-selected={active}
+                  aria-controls="editor-panel"
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => {
+                    setActiveSection(s.key);
+                    setActiveSub(s.items[0]!.key);
+                  }}
+                  onKeyDown={(e) => onSectionKeyDown(e, idx)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
+                    active ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="whitespace-nowrap">{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={toggleSectionsPin}
+            aria-pressed={sectionsPinned}
+            aria-label={sectionsPinned ? "Unpin section rail" : "Pin section rail open"}
+            className="m-1 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border-t border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+          >
+            {sectionsPinned ? (
+              <PanelLeftClose className="size-4 shrink-0" />
+            ) : (
+              <PanelLeftOpen className="size-4 shrink-0" />
+            )}
+            <span>{sectionsPinned ? "Unpin" : "Pin open"}</span>
+          </button>
         </div>
       </div>
 
@@ -374,7 +430,7 @@ export function CharacterEditor({
           />
         </div>
 
-        {/* Mobile/tablet live-preview stat bar (< lg) — sticky, expands inline. */}
+        {/* Live values — sticky top bar (all breakpoints), expands inline to the full preview. */}
         <LivePreviewBar ed={ed} characterId={characterId} advanced={advanced} />
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -393,6 +449,7 @@ export function CharacterEditor({
                   onKeyDown={(e) => onSubKeyDown(e, idx)}
                   className={cn(
                     "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
                     i.key === sub.key
                       ? "bg-surface-raised text-foreground"
                       : "text-muted-foreground hover:text-foreground",
@@ -465,10 +522,6 @@ export function CharacterEditor({
           </CardContent>
         </Card>
       </div>
-
-      <aside className="hidden h-fit lg:sticky lg:top-20 lg:block">
-        <LivePreview ed={ed} characterId={characterId} advanced={advanced} />
-      </aside>
     </div>
   );
 }
@@ -537,35 +590,41 @@ function SectionSheet({
   );
 }
 
-/** Mobile/tablet (< lg) live-preview: a sticky collapsed stat bar that expands inline
- *  to the full LivePreview — the "edit a field, watch the math" loop at the table. */
+/** Live values top bar (all breakpoints): a sticky collapsed stat row that expands inline to the full
+ *  LivePreview — the "edit a field, watch the math" loop, now across the top so the editor gets full
+ *  column width (replaces the old lg right-hand sidebar). */
 function LivePreviewBar({ ed, characterId, advanced }: { ed: EditorApi; characterId: string; advanced: boolean }) {
   const [open, setOpen] = useState(false);
   const s = ed.computed.summary;
   return (
-    <div className="sticky top-20 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur lg:hidden">
+    <div className="sticky top-20 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-controls="mobile-live-preview"
+        aria-controls="editor-live-preview"
         className="tap-target flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs"
       >
         <span className="tnum font-semibold text-foreground">
           HP {s.hp.current}/{s.hp.max}
         </span>
         <span className="tnum text-muted-foreground">AC {s.ac}</span>
+        <span className="tnum text-muted-foreground">Init {formatModifier(s.initiative)}</span>
         <span className="tnum text-muted-foreground">
           F {formatModifier(s.fortitude)} · R {formatModifier(s.reflex)} · W {formatModifier(s.will)}
         </span>
         <span className="ml-auto inline-flex items-center gap-1 text-rune">
-          {open ? "Hide" : "Stats"}
+          {open ? "Hide" : "Live values"}
           <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
         </span>
       </button>
       {/* Always render the region so aria-controls resolves; only mount the (heavier)
           preview when expanded. */}
-      <div id="mobile-live-preview" hidden={!open} className="border-t border-border p-2">
+      <div
+        id="editor-live-preview"
+        hidden={!open}
+        className="max-h-[70dvh] overflow-y-auto border-t border-border p-2"
+      >
         {open && <LivePreview ed={ed} characterId={characterId} advanced={advanced} />}
       </div>
     </div>
