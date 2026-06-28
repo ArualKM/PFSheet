@@ -941,6 +941,53 @@ const SYSTEM_CARDS: { sys: SphereSystem; label: string; Icon: typeof Sparkles; t
   { sys: "Skill", label: "Guile", Icon: Target, text: "text-success" },
 ];
 
+/** Sub-lists longer than this start collapsed, so a giant talent list doesn't bury the rest of the card. */
+const SPHERE_SUBSECTION_COLLAPSE_AT = 6;
+
+/** A collapsible sub-section inside a Spheres system card (count badge + chevron + Add). Keeps its own
+ * open state so the player can fold away big lists; large lists default collapsed to conserve space. */
+function SphereSubsection({
+  title,
+  count,
+  accent,
+  addLabel,
+  onAdd,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  count: number;
+  accent?: string;
+  addLabel: string;
+  onAdd: () => void;
+  defaultOpen: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-md border border-border/60">
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+        >
+          <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
+          <span className={cn("text-xs font-semibold uppercase tracking-wide", accent ?? "text-muted-foreground")}>
+            {title}
+          </span>
+          <span className="rounded-full bg-surface-raised px-1.5 text-[10px] font-medium text-muted-foreground">{count}</span>
+        </button>
+        <Button size="sm" variant="ghost" className="shrink-0" onClick={onAdd}>
+          <Plus className="size-3.5" /> {addLabel}
+        </Button>
+      </div>
+      {open && <div className="space-y-1.5 border-t border-border/50 p-2">{children}</div>}
+    </div>
+  );
+}
+
 /** Decode a "kind:id" target select value (e.g. "sphere:sph_x") back into a grant target, or undefined. */
 function decodeGrantTarget(v: string): SphereGrantTarget | undefined {
   if (!v) return undefined;
@@ -1220,33 +1267,26 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
 
             <div className="mt-1 space-y-3">
               {/* Practitioner classes */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Practitioner classes
-                  </h4>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      ensure((s) =>
-                        s.casterClasses.push({
-                          id: newId("sphcl"),
-                          className: "",
-                          system: d.sys,
-                          casterType: "high",
-                          classLevel: 1,
-                          castingAbility: "int",
-                        }),
-                      )
-                    }
-                  >
-                    <Plus className="size-3.5" /> Class
-                  </Button>
-                </div>
+              <SphereSubsection
+                title="Practitioner classes"
+                count={classes.length}
+                addLabel="Class"
+                defaultOpen={classes.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() =>
+                  ensure((s) =>
+                    s.casterClasses.push({
+                      id: newId("sphcl"),
+                      className: "",
+                      system: d.sys,
+                      casterType: "high",
+                      classLevel: 1,
+                      castingAbility: "int",
+                    }),
+                  )
+                }
+              >
                 {classes.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                <div className="space-y-2">
-                  {classes.map(({ cc, i }) => (
+                {classes.map(({ cc, i }) => (
                     <div key={cc.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
                       <TextField
                         label="Class"
@@ -1297,22 +1337,18 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       </Button>
                     </div>
                   ))}
-                </div>
-              </div>
+              </SphereSubsection>
 
               {/* Spheres */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Spheres ({spheresOf.length})
-                  </h4>
-                  <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: d.sys }))}>
-                    <Plus className="size-3.5" /> Sphere
-                  </Button>
-                </div>
+              <SphereSubsection
+                title="Spheres"
+                count={spheresOf.length}
+                addLabel="Sphere"
+                defaultOpen={spheresOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() => ensure((s) => s.spheres.push({ id: newId("sph"), name: "", system: d.sys }))}
+              >
                 {spheresOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                <div className="space-y-1.5">
-                  {spheresOf.map(({ x, i }) => (
+                {spheresOf.map(({ x, i }) => (
                     <div key={x.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
                       <TextField
                         label="Sphere"
@@ -1341,22 +1377,18 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       </Button>
                     </div>
                   ))}
-                </div>
-              </div>
+              </SphereSubsection>
 
               {/* Talents */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Talents ({talentsOf.length})
-                  </h4>
-                  <Button size="sm" variant="ghost" onClick={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "", system: d.sys }))}>
-                    <Plus className="size-3.5" /> Talent
-                  </Button>
-                </div>
+              <SphereSubsection
+                title="Talents"
+                count={talentsOf.length}
+                addLabel="Talent"
+                defaultOpen={talentsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() => ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: "", system: d.sys }))}
+              >
                 {talentsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                <div className="space-y-1.5">
-                  {talentsOf.map(({ t: tal, i }) => (
+                {talentsOf.map(({ t: tal, i }) => (
                     <div key={tal.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
                       <TextField
                         label="Talent"
@@ -1391,22 +1423,19 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       </Button>
                     </div>
                   ))}
-                </div>
-              </div>
+              </SphereSubsection>
 
               {/* Drawbacks (this system) — each can be flagged to a specific sphere/talent it affects. */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <h4 className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <CircleAlert className="size-3.5 text-danger" /> Drawbacks ({drawbacksOf.length})
-                  </h4>
-                  <Button size="sm" variant="ghost" onClick={() => openPicker("drawbacks", d.sys)}>
-                    <Plus className="size-3.5" /> Add
-                  </Button>
-                </div>
+              <SphereSubsection
+                title="Drawbacks"
+                count={drawbacksOf.length}
+                accent="text-danger"
+                addLabel="Add"
+                defaultOpen={drawbacksOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() => openPicker("drawbacks", d.sys)}
+              >
                 {drawbacksOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                <div className="space-y-1.5">
-                  {drawbacksOf.map(({ name, i }) => {
+                {drawbacksOf.map(({ name, i }) => {
                     const t = sp?.drawbackMeta?.[name]?.appliesTo;
                     return (
                       <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-danger/30 bg-danger/5 p-1.5">
@@ -1435,22 +1464,19 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       </div>
                     );
                   })}
-                </div>
-              </div>
+              </SphereSubsection>
 
               {/* Boons (this system) */}
-              <div>
-                <div className="mb-1.5 flex items-center justify-between">
-                  <h4 className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <Sparkles className="size-3.5 text-success" /> Boons ({boonsOf.length})
-                  </h4>
-                  <Button size="sm" variant="ghost" onClick={() => openPicker("boons", d.sys)}>
-                    <Plus className="size-3.5" /> Add
-                  </Button>
-                </div>
+              <SphereSubsection
+                title="Boons"
+                count={boonsOf.length}
+                accent="text-success"
+                addLabel="Add"
+                defaultOpen={boonsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
+                onAdd={() => openPicker("boons", d.sys)}
+              >
                 {boonsOf.length === 0 && <p className="text-xs text-muted-foreground">None yet.</p>}
-                <div className="space-y-1.5">
-                  {boonsOf.map(({ name, i }) => {
+                {boonsOf.map(({ name, i }) => {
                     const t = sp?.boonMeta?.[name]?.appliesTo;
                     return (
                       <div key={name} className="flex flex-wrap items-end gap-2 rounded-md border border-success/35 bg-success/5 p-1.5">
@@ -1478,8 +1504,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       </div>
                     );
                   })}
-                </div>
-              </div>
+              </SphereSubsection>
             </div>
           </section>
         );
