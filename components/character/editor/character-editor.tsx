@@ -80,6 +80,7 @@ import { BuffCenter } from "./buff-center";
 import { CombatEditor, SpeedEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
+import { SpherePicker } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -885,6 +886,7 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
     });
   const spendSP = (delta: number) =>
     ensure((s) => (s.spellPointsCurrent = Math.max(0, Math.min(max, current + delta))));
+  const [showPicker, setShowPicker] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -940,6 +942,17 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           onChange={(v) => ensure((s) => (s.bonusSpellPoints = v))}
           className="w-24"
         />
+      </div>
+
+      <div>
+        <Button size="sm" variant={showPicker ? "secondary" : "ghost"} onClick={() => setShowPicker((v) => !v)}>
+          <Plus className="size-4" /> Browse the Spheres compendium
+        </Button>
+        {showPicker && (
+          <div className="mt-2">
+            <SpherePicker ed={ed} onClose={() => setShowPicker(false)} />
+          </div>
+        )}
       </div>
 
       <section>
@@ -1042,8 +1055,8 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
           ))}
         </div>
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          A searchable sphere/talent picker (from the imported compendium) lands in the next pass — enter
-          names manually for now.
+          Add spheres &amp; talents from the compendium with &ldquo;Browse&rdquo; above, or type names
+          here manually.
         </p>
       </section>
 
