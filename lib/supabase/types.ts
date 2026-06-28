@@ -1284,6 +1284,26 @@ export type Database = {
           targets: string
         }[]
       }
+      search_sphere_talents: {
+        Args: {
+          p_query?: string
+          p_sphere?: string
+          p_category?: string
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          sphere_name: string
+          talent_name: string
+          talent_category: string
+          subcategory: string
+          source: string
+          tags: string
+          prerequisites: string
+          base_cost: string
+          description: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

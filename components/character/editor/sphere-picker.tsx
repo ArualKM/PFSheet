@@ -46,6 +46,22 @@ function grantLines(raw: string | null): string[] {
     .filter(Boolean);
 }
 
+/** Client-side hierarchical ranking by name: exact → starts-with → contains; drops non-matches.
+ * Used for the small sphere (68) + tradition (225) sets; talents use the ranked server RPC. */
+function rankByName<T extends { name: string }>(items: T[], term: string): T[] {
+  const q = term.trim().toLowerCase();
+  if (!q) return items;
+  const tier = (n: string): number => {
+    const l = n.toLowerCase();
+    return l === q ? 0 : l.startsWith(q) ? 1 : l.includes(q) ? 2 : 99;
+  };
+  return items
+    .map((i) => ({ i, t: tier(i.name) }))
+    .filter((x) => x.t < 99)
+    .sort((a, b) => a.t - b.t || a.i.name.localeCompare(b.i.name))
+    .map((x) => x.i);
+}
+
 /**
  * Compendium picker for the Spheres editor — searches sphere_talents / sphere_compendium /
  * sphere_traditions directly (public-read) and adds picks to character.spheres. Single-column results
@@ -58,79 +74,55 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
   const [q, setQ] = useState("");
   const [sphere, setSphere] = useState("");
   const [category, setCategory] = useState("");
-  const [sphereOptions, setSphereOptions] = useState<{ name: string; system: string }[]>([]);
+  const [allSpheres, setAllSpheres] = useState<SphereResult[]>([]);
+  const [allTraditions, setAllTraditions] = useState<TraditionResult[]>([]);
   const [talents, setTalents] = useState<TalentResult[]>([]);
-  const [spheres, setSpheres] = useState<SphereResult[]>([]);
-  const [traditions, setTraditions] = useState<TraditionResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sphere filter options (loaded once).
+  // Spheres (68) + traditions (225) are small — load once and rank client-side.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("sphere_compendium")
-        .select("name,system")
-        .order("system", { ascending: true })
-        .order("name", { ascending: true });
-      if (!cancelled && data) setSphereOptions(data);
+      const [sphereRes, tradRes] = await Promise.all([
+        supabase.from("sphere_compendium").select("id,name,system").order("name", { ascending: true }),
+        supabase
+          .from("sphere_traditions")
+          .select("id,name,type,drawbacks_gained,boons_gained,description")
+          .order("name", { ascending: true }),
+      ]);
+      if (cancelled) return;
+      if (sphereRes.data) setAllSpheres(sphereRes.data as SphereResult[]);
+      if (tradRes.data) setAllTraditions(tradRes.data as TraditionResult[]);
     })();
     return () => {
       cancelled = true;
     };
   }, [supabase]);
 
-  // Debounced search per mode. "" preloads; 1 char waits for more.
+  // Talents (3,938) use the ranked server RPC (exact → prefix → contains → sphere → tags →
+  // description) so the best match surfaces first and isn't truncated by the limit. Debounced;
+  // "" preloads, 1 char waits for more.
   useEffect(() => {
+    if (mode !== "talents") return; // spheres/traditions rank instantly client-side
     const term = q.trim();
     if (term.length === 1) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);
-      if (mode === "talents") {
-        let query = supabase
-          .from("sphere_talents")
-          .select("id,sphere_name,talent_name,talent_category,subcategory,base_cost,prerequisites,source,description");
-        if (term) query = query.textSearch("search_vector", term, { type: "websearch" });
-        if (sphere) query = query.eq("sphere_name", sphere);
-        if (category) query = query.eq("talent_category", category);
-        const { data, error } = await query
-          .order("sphere_name", { ascending: true })
-          .order("talent_name", { ascending: true })
-          .limit(40);
-        if (cancelled) return;
-        if (error) {
-          setError(error.message);
-          setTalents([]);
-        } else {
-          setError(null);
-          setTalents((data ?? []) as TalentResult[]);
-        }
-      } else if (mode === "spheres") {
-        let query = supabase.from("sphere_compendium").select("id,name,system");
-        if (term) query = query.textSearch("search_vector", term, { type: "websearch" });
-        const { data, error } = await query.order("system", { ascending: true }).order("name", { ascending: true }).limit(60);
-        if (cancelled) return;
-        if (error) {
-          setError(error.message);
-          setSpheres([]);
-        } else {
-          setError(null);
-          setSpheres((data ?? []) as SphereResult[]);
-        }
+      const { data, error } = await supabase.rpc("search_sphere_talents", {
+        p_query: term,
+        p_sphere: sphere,
+        p_category: category,
+        p_limit: 40,
+      });
+      if (cancelled) return;
+      if (error) {
+        setError(error.message);
+        setTalents([]);
       } else {
-        let query = supabase.from("sphere_traditions").select("id,name,type,drawbacks_gained,boons_gained,description");
-        if (term) query = query.textSearch("search_vector", term, { type: "websearch" });
-        const { data, error } = await query.order("name", { ascending: true }).limit(60);
-        if (cancelled) return;
-        if (error) {
-          setError(error.message);
-          setTraditions([]);
-        } else {
-          setError(null);
-          setTraditions((data ?? []) as TraditionResult[]);
-        }
+        setError(null);
+        setTalents((data ?? []) as TalentResult[]);
       }
       setLoading(false);
     }, 250);
@@ -139,6 +131,16 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
       clearTimeout(timer);
     };
   }, [q, sphere, category, mode, supabase]);
+
+  const sphereOptions = useMemo(
+    () => allSpheres.map((s) => ({ name: s.name, system: s.system })),
+    [allSpheres],
+  );
+  const spheres = useMemo(() => rankByName(allSpheres, mode === "spheres" ? q : ""), [allSpheres, q, mode]);
+  const traditions = useMemo(
+    () => rankByName(allTraditions, mode === "traditions" ? q : ""),
+    [allTraditions, q, mode],
+  );
 
   const addedTalents = useMemo(
     () => new Set((ed.draft.spheres?.talents ?? []).map((t) => t.compendiumId).filter(Boolean)),
@@ -235,7 +237,7 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
           aria-label="Search the Spheres compendium"
           className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
         />
-        {loading && (
+        {mode === "talents" && loading && (
           <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
       </div>
@@ -279,7 +281,7 @@ export function SpherePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose:
         </div>
       )}
 
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      {mode === "talents" && error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
       <ul className="mt-2 flex max-h-[65vh] flex-col gap-1 overflow-y-auto sm:max-h-96">
         {mode === "talents" &&
