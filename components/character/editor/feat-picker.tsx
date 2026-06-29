@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Check, X, Loader2 } from "lucide-react";
 import { ABILITY_KEYS } from "@pathforge/schema";
 import {
-  computeCharacter,
   evaluatePrerequisites,
   prereqSummary,
   type CompendiumPrereq,
@@ -30,34 +29,33 @@ function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-/** Build the prerequisite-checking context from the live draft + its computed values. */
+/** Build the prerequisite-checking context from the live draft + the editor's cached computed values. */
 function usePrereqContext(ed: CharacterEditorApi): PrereqContext {
+  const computed = ed.computed;
   return useMemo(() => {
-    let computed;
-    try {
-      computed = computeCharacter(ed.draft);
-    } catch {
-      computed = null;
+    const casterLevel = Math.max(0, ...computed.spellcasting.map((s) => s.casterLevel ?? 0));
+    // Skill ranks keyed by paren-stripped name (the prereq parser strips "(alchemy)" etc.), taking the
+    // best across specializations so "Craft 3 ranks" / "Craft (poison) 3 ranks" both resolve correctly.
+    const skillRanks: Record<string, number> = {};
+    for (const s of ed.draft.skills.list) {
+      const total = (s.ranks ?? 0) + (s.backgroundRanks ?? 0);
+      const base = s.label.toLowerCase().replace(/\s*\(.*\)\s*$/, "").trim();
+      skillRanks[base] = Math.max(skillRanks[base] ?? 0, total);
     }
-    const casterLevel = Math.max(0, 0, ...(computed?.spellcasting ?? []).map((s) => s.casterLevel ?? 0));
     return {
       featNames: new Set([
         ...ed.draft.feats.list.map((f) => f.name.toLowerCase()),
         ...ed.draft.features.list.map((f) => f.name.toLowerCase()),
       ]),
       featureNames: new Set(ed.draft.features.list.map((f) => f.name.toLowerCase())),
-      abilityScores: Object.fromEntries(
-        ABILITY_KEYS.map((k) => [k, computed?.abilities[k]?.effectiveScore ?? ed.draft.abilities.primary[k]?.score ?? 10]),
-      ),
+      abilityScores: Object.fromEntries(ABILITY_KEYS.map((k) => [k, computed.abilities[k]?.effectiveScore ?? 10])),
       // bab.total is a number once the class system sets it (a hand-entered formula is the rare exception).
       bab: typeof ed.draft.combat.bab.total === "number" ? ed.draft.combat.bab.total : 0,
       totalLevel: ed.draft.identity.totalLevel ?? 0,
       casterLevel,
-      skillRanks: Object.fromEntries(
-        ed.draft.skills.list.map((s) => [s.label.toLowerCase(), (s.ranks ?? 0) + (s.backgroundRanks ?? 0)]),
-      ),
+      skillRanks,
     };
-  }, [ed.draft]);
+  }, [ed.draft, computed]);
 }
 
 /**
@@ -183,7 +181,7 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                   </div>
                   <Button
                     size="sm"
-                    variant={isAdded ? "ghost" : sum.unmet > 0 ? "secondary" : "secondary"}
+                    variant={isAdded ? "ghost" : "secondary"}
                     disabled={isAdded}
                     onClick={() => addFeat(r)}
                     aria-label={`Add ${r.name}`}
@@ -203,19 +201,29 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                 {checks.length > 0 && (
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {checks.map((c, ci) => (
+                      // Requirement text stays `text-foreground` (high contrast on all 3 themes); the
+                      // met/unmet/manual state is carried by the border tint + the coloured ✓/✗ glyph.
                       <span
                         key={ci}
                         title={c.note ? `${c.reqValue} — ${c.note}` : c.reqValue}
                         className={
-                          "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] " +
+                          "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] text-foreground " +
                           (c.status === "met"
-                            ? "border-success/40 bg-success/10 text-success"
+                            ? "border-success/50 bg-success/10"
                             : c.status === "unmet"
-                              ? "border-gold/40 bg-gold/10 text-gold"
+                              ? "border-gold/60 bg-gold/15"
                               : "border-border text-muted-foreground")
                         }
                       >
-                        {c.status === "met" ? "✓ " : c.status === "unmet" ? "✗ " : ""}
+                        {c.status === "met" ? (
+                          <span className="font-semibold text-success" aria-hidden>
+                            ✓
+                          </span>
+                        ) : c.status === "unmet" ? (
+                          <span className="font-semibold text-gold" aria-hidden>
+                            ✗
+                          </span>
+                        ) : null}
                         {c.reqValue}
                       </span>
                     ))}
