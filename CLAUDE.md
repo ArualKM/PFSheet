@@ -509,12 +509,25 @@ first**.
   an adversarial review (15 confirmed → fixed chip WCAG contrast on parchment, reused `ed.computed` instead
   of recomputing, paren-stripped skill-rank matching). **Migrations now through `0024`; 364 unit tests.**
 
-**Next — Phase 3 (automation hooks):** when an applied feat/feature has a `feat_effect`/`feature_effect`
-seed (already authored in our `@{…}` DSL, e.g. Toughness → `hp.max add @{max(3,level)}`), the picker
-pre-fills the entry's `automation[]` so HP/AC/attack actually change. Then the keystone **Phase 4 class
-builder** (progression-driven), and archetypes/prestige/races/mythic/companions (Phases 5–9); the
-class-option/race/archetype/prestige **pickers fold into those builder phases** (they apply more than one
-entry). See [[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
+- **Phase 3 — automation hooks:** applying a compendium feat now pre-fills its `automation[]` from the
+  `feat_effect` seeds so the mechanics compute. The mapper `packages/pathforge-rules-pf1e/src/effect-seeds.ts`
+  (`seedsToAutomationEffects`, exported) bridges the seed DSL onto the engine: **target normalization**
+  (`saves.fort`→`saves.fortitude`/`saves.ref`→`saves.reflex` — `classifyTarget`, now exported, substring-
+  matches the full save name); **formula normalization** (`normalizeFormula` rewrites the author's
+  `@{whole-expr}` convention → our `func(@{path})` DSL — `@{max(3,level)}`→`max(3,@{level})`,
+  `@{wis.mod}`→`@{abilities.wis.mod}`; handles dice/uppercase-fns/bare-wraps); **conditional gating**
+  (toggle/choice/situational + `damage.*` [no engine domain] come in with a `condition` so they're recorded
+  but excluded from base totals — only clean unconditional effects auto-compute). The feat picker fetches
+  `feat_effect` alongside prereqs + shows a ⚡ auto badge. **Verified live: Toughness raised a L20 char's Max
+  HP 900→920.** Two adversarial reviews (15 + 11 confirmed → fixed); 375 tests incl. 2 end-to-end compute
+  tests. **The thin slice (Phases 0→3, the owner-signed "ship first" target) is COMPLETE.**
+
+**Next — Phase 4 (the keystone): the progression-driven class builder.** Pick a class + level → the engine
+applies its `class_progression` (BAB/saves/casting) + grants `class_feature`/`class_option` rows at each
+level (with their `feature_effect` automation via the same mapper). Then archetypes/prestige/races/mythic/
+companions (Phases 5–9); the class-option/race/archetype/prestige **pickers fold into those builder phases**
+(they apply more than one entry). The plan says *reassess before Phase 4*. See [[pathforge-pfcore-epic]] +
+`docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
