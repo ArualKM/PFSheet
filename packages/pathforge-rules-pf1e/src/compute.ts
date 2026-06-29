@@ -17,6 +17,7 @@ import {
   mythicSurgeDie,
   isGestalt,
   bonusPowerPoints,
+  computeProwessBonuses,
   sphereCasterLevel,
   talentSystem,
   milestoneRequirementForLevel,
@@ -165,8 +166,8 @@ function modifierEntryToMod(source: string, m: ModifierEntry): IndexedMod | null
  * Automatic Bonus Progression (Pathfinder Unchained): the deterministic "big six" enhancement bonuses
  * a character gains by level instead of from magic items. Each returns the cumulative bonus at a given
  * character level (the single-item-concentrated value for attunement). Mental/Physical Prowess (the
- * player-assigned ability enhancements) are intentionally NOT auto-applied — they are entered via the
- * ability enhancement fields. Source: Pathfinder Unchained, Automatic Bonus Progression.
+ * player-assigned ability enhancements) are driven separately by `character.abp` via
+ * `computeProwessBonuses` below. Source: Pathfinder Unchained, Automatic Bonus Progression.
  */
 function abpResistance(level: number): number {
   if (level >= 14) return 5;
@@ -341,6 +342,20 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
           enabled: true,
         }),
       );
+    }
+
+    // Mental/Physical Prowess: player-assigned enhancement bonuses to ability scores. Pushed as a single
+    // summed enhancement mod per ability (NOT one +2 per increment — same-type bonuses don't stack, so two
+    // separate +2 enhancement mods would collapse to +2). computeAbilities reads `ability.<key>`.
+    for (const [key, bonus] of Object.entries(computeProwessBonuses(character.abp, lvl))) {
+      if (bonus <= 0) continue;
+      push(`ability.${key}`, {
+        id: `abp-prowess-${key}`,
+        label: "ABP prowess",
+        source: "Automatic Bonus Progression",
+        value: bonus,
+        bonusType: "enhancement",
+      });
     }
   }
 

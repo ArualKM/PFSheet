@@ -18,6 +18,7 @@ import { heroPointsBlockSchema } from "./hero-points";
 import { honorBlockSchema } from "./honor";
 import { staminaBlockSchema } from "./stamina";
 import { mythicBlockSchema } from "./mythic";
+import { abpBlockSchema } from "./abp";
 import { psionicsBlockSchema } from "./psionics";
 import { spheresBlockSchema } from "./spheres";
 import { milestoneLevelingBlockSchema } from "./milestone-leveling";
@@ -63,6 +64,8 @@ export const pathForgeCharacterV1Schema = z.object({
   honor: honorBlockSchema.optional(),
   stamina: staminaBlockSchema.optional(),
   mythic: mythicBlockSchema.optional(),
+  /** ABP Mental/Physical Prowess assignments — present only when ABP is enabled and prowess is assigned. */
+  abp: abpBlockSchema.optional(),
   psionics: psionicsBlockSchema.optional(),
   spheres: spheresBlockSchema.optional(),
   milestoneLeveling: milestoneLevelingBlockSchema.optional(),
