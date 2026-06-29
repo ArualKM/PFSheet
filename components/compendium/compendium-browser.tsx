@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,7 +46,7 @@ export async function CompendiumBrowser({
   config: CompendiumConfig;
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  await requireUser();
+  // Auth is enforced by the /(app) layout (requireUser + proxy.ts); no per-page recheck needed.
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const PAGE = config.pageSize ?? 30;
@@ -64,13 +63,17 @@ export async function CompendiumBrowser({
   let rows: Record<string, unknown>[] = [];
   let total = 0;
   let ranked = false;
+  let hasMore = false;
   let error: { message: string } | null = null;
 
   if (q && activeFilters.length === 0) {
-    const res = await sb.rpc(config.rpc, { p_query: q, p_limit: RANKED });
-    rows = (res.data ?? []) as Record<string, unknown>[];
-    total = rows.length;
+    // Fetch one extra row to know whether there are MORE than RANKED matches (accurate "60+" badge).
+    const res = await sb.rpc(config.rpc, { p_query: q, p_limit: RANKED + 1 });
+    const all = (res.data ?? []) as Record<string, unknown>[];
     ranked = true;
+    hasMore = all.length > RANKED;
+    rows = hasMore ? all.slice(0, RANKED) : all;
+    total = rows.length;
     error = res.error;
   } else {
     let query = sb.from(config.table).select(config.selectCols, { count: "exact" });
@@ -141,7 +144,7 @@ export async function CompendiumBrowser({
           <div className="flex items-center justify-between pt-2 text-sm">
             <span className="text-muted-foreground">
               {ranked
-                ? `${total}${total >= RANKED ? "+" : ""} result${total === 1 ? "" : "s"} · ranked by relevance`
+                ? `${total}${hasMore ? "+" : ""} result${total === 1 ? "" : "s"} · ranked by relevance`
                 : `Page ${pageNum} of ${totalPages} · ${total.toLocaleString()} entries`}
             </span>
             <div className="flex gap-2">

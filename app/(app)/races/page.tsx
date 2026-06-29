@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import { User } from "@/components/ui/game-icons";
 import { Badge } from "@/components/ui/badge";
-import { CompendiumBrowser, plain, type CompendiumConfig } from "@/components/compendium/compendium-browser";
+import {
+  CompendiumBrowser,
+  distinctValues,
+  plain,
+  type CompendiumConfig,
+} from "@/components/compendium/compendium-browser";
 
 export const metadata: Metadata = { title: "Races" };
 
-const config: CompendiumConfig = {
+const base: Omit<CompendiumConfig, "filters"> = {
   title: "Races",
   describe: (n) => `Browse ${n ? n.toLocaleString() : "all"} Pathfinder races — core and uncommon.`,
   icon: <User />,
@@ -15,17 +20,6 @@ const config: CompendiumConfig = {
   selectCols: "slug,name,category,source,details",
   placeholder: "Search races — e.g. Dwarf, Aasimar, Tiefling…",
   basePath: "/races",
-  filters: [
-    {
-      param: "category",
-      label: "All categories",
-      col: "category",
-      options: [
-        { value: "Core", label: "Core" },
-        { value: "Other", label: "Other" },
-      ],
-    },
-  ],
   rowKey: (r) => String(r.slug),
   renderRow: (r) => (
     <>
@@ -40,5 +34,7 @@ const config: CompendiumConfig = {
 };
 
 export default async function RacesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const categories = await distinctValues("race_compendium", "category");
+  const config: CompendiumConfig = { ...base, filters: [{ param: "category", label: "All categories", col: "category", options: categories }] };
   return <CompendiumBrowser config={config} searchParams={searchParams} />;
 }
