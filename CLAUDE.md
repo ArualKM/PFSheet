@@ -487,8 +487,34 @@ mirror is **gitignored**; TSVs are versioned. Plan: **`docs/PFcore Update/PFCORE
 progression class builder [keystone] → archetypes → prestige → races → mythic depth → linked-subsheet
 companions), each table following the spell/sphere **compendium contract**. **Owner-signed:** companions =
 **linked character rows** (`parent_character_id` + `companion_type`); ship the **thin slice (Phase 0→3)
-first**. **Phase 0 (data load) needs DB sign-off** (new migrations after 0020 + a bulk `\copy`). See
-[[pathforge-pfcore-epic]].
+first**.
+**SHIPPED (2026-06-29, Ultracode):**
+- **Phase 0 — data layer:** migrations `0021`–`0024` = 25 compendium tables on the spell/sphere **contract**
+  (public-read RLS · service-role write · generated tsvector `search` + GIN · ranked `search_<t>(p_query,
+  p_limit)` RPC · `compendium_distinct(table,col)` for filter dropdowns · explicit anon/auth grants).
+  **25,924 rows loaded to prod** via the config-driven loader `docs/PFcore Update/csv/loader/pfcore.mjs`
+  (`ddl`/`rpc`/`grants`/`load`/`counts`). `lib/supabase/types.ts` regenerated. Advisors clean.
+- **Phase 1 — browse:** shared async-server `<CompendiumBrowser>` (`components/compendium/`) + thin config
+  pages `/feats /traits /races /archetypes /prestige /class-options` + a `/compendium` hub; nav collapsed
+  `/spells`+`/spheres` into one **Compendium** entry. Ranked-RPC when a query is present, alpha+paginated
+  when browsing; `distinctValues` → `compendium_distinct` (un-truncated filter options). Reviewed+fixed.
+- **Phase 2 — pickers + prereq engine:** the pure **prereq engine** `packages/pathforge-rules-pf1e/src/
+  prerequisites.ts` (`evaluatePrerequisites` → met/unmet/manual; feat/ability/skill/bab/level/caster_level,
+  7 tests). The **feat picker** (`components/character/editor/feat-picker.tsx`): a Browse button in the
+  Feats editor → ranked `search_feat_compendium` + per-result `feat_prerequisite` rows evaluated against
+  the live `ed.computed` → green ✓ / amber ✗ / muted-manual chips; "Add anyway" never blocks. A reusable
+  **`<EntryPicker>`** (`entry-picker.tsx`, search→list→add, no prereqs) drives the **trait picker**.
+  `FeatEntry`/`FeatureEntry`/`TraitEntry` gained an additive optional `compendiumId` (links the sheet entry
+  back to the compendium row; dedup key). Both verified live in the editor; the feat picker shipped after
+  an adversarial review (15 confirmed → fixed chip WCAG contrast on parchment, reused `ed.computed` instead
+  of recomputing, paren-stripped skill-rank matching). **Migrations now through `0024`; 364 unit tests.**
+
+**Next — Phase 3 (automation hooks):** when an applied feat/feature has a `feat_effect`/`feature_effect`
+seed (already authored in our `@{…}` DSL, e.g. Toughness → `hp.max add @{max(3,level)}`), the picker
+pre-fills the entry's `automation[]` so HP/AC/attack actually change. Then the keystone **Phase 4 class
+builder** (progression-driven), and archetypes/prestige/races/mythic/companions (Phases 5–9); the
+class-option/race/archetype/prestige **pickers fold into those builder phases** (they apply more than one
+entry). See [[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
