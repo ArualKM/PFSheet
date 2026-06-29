@@ -69,6 +69,8 @@ export const traitEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.string().optional(),
+  /** Stable slug of the compendium trait this was applied from (links back to trait_compendium). */
+  compendiumId: z.string().optional(),
   source: sourceRefSchema.optional(),
   description: z.string().optional(),
   automation: z.array(automationEffectSchema).default([]),

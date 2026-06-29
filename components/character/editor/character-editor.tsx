@@ -110,6 +110,7 @@ import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { FeatPicker } from "./feat-picker";
+import { EntryPicker } from "./entry-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -4189,6 +4190,8 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
   const feats = ed.draft.feats.list;
   const features = ed.draft.features.list;
   const [featPickerOpen, setFeatPickerOpen] = useState(false);
+  const [traitPickerOpen, setTraitPickerOpen] = useState(false);
+  const addedTraitIds = new Set(ed.draft.traits.list.map((t) => t.compendiumId).filter(Boolean) as string[]);
 
   const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
   const featureRemaining = (f: (typeof features)[number]) => f.uses?.current ?? featureMax(f);
@@ -4444,24 +4447,63 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
       </section>
 
       <section>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">Traits &amp; drawbacks</h3>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              ed.update((c) =>
-                c.traits.list.push({
-                  id: newId("trait"),
-                  name: "New Trait",
-                  automation: [],
-                }),
-              )
-            }
-          >
-            <Plus className="size-4" /> Add trait
-          </Button>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant={traitPickerOpen ? "default" : "secondary"}
+              onClick={() => setTraitPickerOpen((o) => !o)}
+            >
+              <Search className="size-4" /> Browse
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                ed.update((c) =>
+                  c.traits.list.push({
+                    id: newId("trait"),
+                    name: "New Trait",
+                    automation: [],
+                  }),
+                )
+              }
+            >
+              <Plus className="size-4" /> Add trait
+            </Button>
+          </div>
         </div>
+        {traitPickerOpen && (
+          <div className="mb-3">
+            <EntryPicker
+              title="Trait compendium"
+              rpc="search_trait_compendium"
+              placeholder="Search traits — e.g. Reactionary, Magical Knack…"
+              addedIds={addedTraitIds}
+              onClose={() => setTraitPickerOpen(false)}
+              renderMeta={(r) =>
+                [r.category || r.type, r.requirements ? `req: ${String(r.requirements).replace(/<br>/g, " ")}` : null]
+                  .filter(Boolean)
+                  .map(String)
+                  .join(" · ")
+              }
+              onAdd={(r) =>
+                ed.update((c) => {
+                  if (c.traits.list.some((t) => t.compendiumId === String(r.slug))) return;
+                  c.traits.list.push({
+                    id: newId("trait"),
+                    name: String(r.name),
+                    type: r.type ? String(r.type) : r.category ? String(r.category) : undefined,
+                    compendiumId: String(r.slug),
+                    description: r.description ? String(r.description).replace(/<br>/g, " ") : undefined,
+                    automation: [],
+                  });
+                })
+              }
+            />
+          </div>
+        )}
         {ed.draft.traits.list.length === 0 && (
           <p className="text-sm text-muted-foreground">No traits yet (most characters take two).</p>
         )}
