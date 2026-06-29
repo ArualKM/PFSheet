@@ -476,6 +476,20 @@ branch-test (Supabase dev branch). **Migration `0020` → migrations now run thr
   **Pending** badge (GM gets Cancel). Pending-campaign names resolved via the admin client, gated by the
   viewer holding the invitation row. `decline` rides the existing `members_delete_gm` self-delete grant.
 
+**PFcore / M12 — compendium-driven builder (planned 2026-06-29).** v1 + all spawned follow-ups are DONE;
+the next major epic is the **compendium-driven builder** — tap to apply official PF1e content and the engine
+auto-fills the mechanics. The owner supplied a complete normalized AoN dataset (`docs/PFcore Update/csv/` —
+**25 TSVs / ~25.9k rows**: classes/progression/features/options, archetypes + 6k features *with `replaces`*,
+feats + 7.6k normalized prereqs + automation-effect seeds in our `@{…}` DSL, traits/drawbacks, races + alt
+traits + FCB, prestige + progression, mythic, animal-companions/familiars/eidolons). The raw ~11k-page HTML
+mirror is **gitignored**; TSVs are versioned. Plan: **`docs/PFcore Update/PFCORE_MASTER_PLAN.md`** — a
+10-phase, **additive-only** build (data load → browse → pickers + shared prereq engine → automation hooks →
+progression class builder [keystone] → archetypes → prestige → races → mythic depth → linked-subsheet
+companions), each table following the spell/sphere **compendium contract**. **Owner-signed:** companions =
+**linked character rows** (`parent_character_id` + `companion_type`); ship the **thin slice (Phase 0→3)
+first**. **Phase 0 (data load) needs DB sign-off** (new migrations after 0020 + a bulk `\copy`). See
+[[pathforge-pfcore-epic]].
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

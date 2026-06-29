@@ -11,9 +11,13 @@ plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
 - **Milestones M0–M11 complete.** Secondary: **S1, S2, S3, S5a** done; **S5b** web side done (Phases
   0–2); the **full sheet audit** done. **S4:** ~11 optional systems shipped; **Spheres of Power / Might /
   Guile are all LIVE** (the rest of S4 — Path of War, Akashic — is post-1.0, gated on sourcing datasets).
-- **Health:** lint + **338 unit tests** + typecheck + production build all green. Migrations at **0018**.
-- **Plan to 1.0:** **V1·1–V1·6 essentially DONE** (the 2026-06-29 blitz — 8 commits, see CLAUDE.md). The
-  web app + PWA is v1-complete. Remaining = the spawned follow-up tasks (below) + the post-1.0 S4 3pp flagship.
+- **Health:** lint + **338 unit tests** + typecheck + production build all green. Migrations at **0020**.
+- **Plan to 1.0:** **V1·1–V1·6 DONE** + all four spawned follow-ups merged (campaign invite-consent
+  [`497a9b2`, migration `0020`], ABP prowess [`7cd435b`], inventory automation [`342e2d1`], effect-row DRY
+  [`f826f3e`]). The web app + PWA is **v1-complete**.
+- **🚀 NEXT MAJOR WORK — PFcore (M12, compendium-driven builder):** the owner dropped a complete normalized
+  PF1e dataset (`docs/PFcore Update/csv/`, 25 TSVs / ~25.9k rows) + a hyper-detailed plan
+  → **[`docs/PFcore Update/PFCORE_MASTER_PLAN.md`](PFcore%20Update/PFCORE_MASTER_PLAN.md)**. See "What's next" below.
 
 ## What shipped THIS session (chip redesign + privacy + sidebar)
 
@@ -30,25 +34,39 @@ plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
    Fixed peeking label text via **container queries**; **4-state** rail (auto / open / closed-with-tooltips /
    hidden-with-reopen); same on the editor section rail; **mobile drawer** now shows labels (`compact` mode).
 
-## ✅ V1·2 → V1·6 SHIPPED (2026-06-29 blitz) — what's next
+## 🚀 What's next — PFcore (M12, the compendium-driven builder)
 
-All of V1·2–V1·6 landed in 8 gate-green commits — full per-item detail in **CLAUDE.md** ("V1 roadmap
-blitz"). The web app + PWA is v1-complete. **Next session = the spawned background-task follow-ups:**
+v1 + all follow-ups are done. The next major epic turns PathForge from hand-entered into a **compendium-
+driven builder**: tap to apply official PF1e content and the engine auto-fills the mechanics. The data is
+loaded (`docs/PFcore Update/csv/` — 25 TSVs), the plan is written, and the key decisions are owner-signed.
 
-1. **Campaign invitation-consent flow** (the deferred V1·4 item) — `inviteMemberAction` force-adds members
-   as `active`; add invited→accept/decline. Needs an RLS migration (self-accept/decline) + a cross-app
-   audit that "invited" members get NO access until accepting (check `is_campaign_member`/`has_campaign_role`).
-   The meatiest; branch-test the RLS.
-2. **ABP ability-prowess** — add the player-chosen Mental/Physical Prowess +2s (a `character.abp` field +
-   an editor + the level table) on top of the shipped deterministic ABP bonuses in `compute.ts`.
-3. **Inventory-item automation editor** — reuse `<AutomationEffectsEditor>` on `item.automation` in
-   `inventory-editor.tsx` (the engine already consumes equipped-item automation).
-4. **DRY the effect-row UI** — share one target-options constant + an `<EffectRow>` between
-   `buff-center.tsx` and `automation-effects-editor.tsx`.
-5. **Post-1.0:** the S4 3pp flagship (Spheres compendium `<OptionPicker>` → Path of War → Akashic) + RLS
-   integration tests + printable-PDF "classic" variant / multi-page polish.
+**START HERE → [`docs/PFcore Update/PFCORE_MASTER_PLAN.md`](PFcore%20Update/PFCORE_MASTER_PLAN.md)** (the
+full 10-phase plan, grounded in a 4-agent code assessment; the data-side spec is
+`docs/PFcore Update/csv/INSTRUCTIONS_FOR_CLAUDE_ULTRACODE.md`).
 
-The detailed pre-blitz plan below is kept as the record of what shipped.
+**Owner-signed decisions:** companions = **linked character rows** (Option A) · ship the **thin slice
+(Phase 0→3) first** · gitignore the HTML / version the TSVs (done).
+
+**The thin slice (do in this order):**
+1. **Phase 0 — DATA LOAD** ⚠ needs owner DB sign-off. 25 TSVs → ~24 Supabase compendium tables (spell/sphere
+   contract: public-read · service-write · tsvector · `search_*` RPC · GIN), new migrations after `0020`.
+   Recommended bulk load: owner-run `psql \copy … FORMAT csv, DELIMITER E'\t', HEADER true` (INSTRUCTIONS §8.2).
+   Regenerate `lib/supabase/types.ts` + `get_advisors`. **Blocks everything below.**
+2. **Phase 1 — Browse pages** (`/feats`, `/traits`, `/races`, `/archetypes`, `/prestige`, `/class-options`) —
+   clone the `/spells` + `/spheres` pattern. Low risk.
+3. **Phase 2 — Pickers + the shared prereq engine** — tap-to-apply into the existing `FeatEntry`/`FeatureEntry`/
+   `TraitEntry`; flag unmet prereqs (ranger/monk waivers; "force-take / ignore prerequisites" setting).
+4. **Phase 3 — Automation hooks** — applied feats/features auto-apply their seeded `automation[]` effects
+   (the `feats_effects`/`features_effects` seeds already speak our DSL); expand the seed for common feats.
+
+Then reassess before the keystone **Phase 4 — progression-driven class builder** (level-by-level auto-features
++ choice prompts + good/bad-save/BAB/skill progressions + gestalt), and the breadth phases (5 archetypes ·
+6 prestige · 7 races · 8 mythic depth · 9 linked-subsheet companions).
+
+**Still post-1.0 (unchanged):** S4 3pp flagship (Spheres `<OptionPicker>` → Path of War → Akashic) · RLS
+integration tests · printable-PDF "classic"/multi-page polish.
+
+The detailed pre-blitz V1 plan below is kept as the record of what shipped.
 
 ---
 
