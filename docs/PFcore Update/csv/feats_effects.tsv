@@ -1,0 +1,12 @@
+feat	target	op	value_or_formula	bonus_type	notes
+Toughness	hp.max	add	@{max(3, level)}	untyped	+3 hp; +1 per HD beyond 3
+Dodge	ac	add	1	dodge	
+Improved Initiative	initiative	add	4	untyped	
+Weapon Focus	attack	add	1	untyped	chosen weapon only
+Great Fortitude	saves.fort	add	2	untyped	
+Iron Will	saves.will	add	2	untyped	
+Lightning Reflexes	saves.ref	add	2	untyped	
+Skill Focus	skill	add	3	untyped	chosen skill; +6 at 10 ranks
+Combat Expertise	ac	add	1	dodge	toggle; trades attack for AC, scales with BAB
+Power Attack	damage.melee	add	2	untyped	toggle; trades attack for damage, scales with BAB
+Point-Blank Shot	attack.ranged	add	1	untyped	within 30 ft; also +1 damage

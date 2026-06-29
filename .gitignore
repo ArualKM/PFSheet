@@ -55,3 +55,8 @@ next-env.d.ts
 # The 6 normalized TSVs ARE versioned (the compendium import source); the raw pages are not.
 **/downloaded source web pages/
 **/*_SAMPLE.tsv
+
+# PFcore source research — the ~11k-page Archives of Nethys HTML mirror (bulky, not app code).
+# The 25 normalized TSVs + parsers + docs in csv/ ARE versioned (the compendium import source).
+docs/PFcore Update/**/*.html
+**/__pycache__/

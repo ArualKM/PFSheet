@@ -1,0 +1,4 @@
+class	feature	target	op	value_or_formula	bonus_type	notes
+Monk	AC Bonus	ac	add	@{wis.mod}	untyped	when unarmored/unencumbered
+Barbarian	Fast Movement	speed	add	10	untyped	
+Rogue	Trap Sense	saves.ref	add	@{floor(level/3)}	untyped	vs traps; +AC vs traps too
