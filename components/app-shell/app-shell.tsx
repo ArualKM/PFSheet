@@ -23,22 +23,23 @@ export function AppShell({
       >
         Skip to content
       </a>
-      {/* Desktop sidebar — collapsed icons-only, expands on hover/focus (overlay), pin to lock open. */}
-      <CollapsibleSidebar storageKey="app-nav" ariaLabel="Sidebar">
-        <div className="flex h-14 shrink-0 items-center px-3.5">
-          <Logo href="/dashboard" />
-        </div>
+      {/* Desktop sidebar — collapsed icons-only, hover/focus overlay-expands, pin open or pin closed. */}
+      <CollapsibleSidebar
+        storageKey="app-nav"
+        ariaLabel="Sidebar"
+        header={<Logo href="/dashboard" wordmarkClassName="hidden @min-[8rem]/sb:inline" />}
+      >
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
           <SidebarNav />
         </div>
-        <div className="shrink-0 space-y-2 border-t border-border p-3">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="shrink-0 space-y-2 border-t border-border p-3 @max-[8rem]/sb:px-1.5">
+          <div className="flex items-center justify-center gap-2 px-1 @min-[8rem]/sb:justify-between">
+            <span className="whitespace-nowrap text-xs font-medium uppercase tracking-wide text-muted-foreground @max-[8rem]/sb:hidden">
               Theme
             </span>
             <ThemeToggle />
           </div>
-          <UserMenu email={user.email} displayName={user.displayName} />
+          <UserMenu email={user.email} displayName={user.displayName} collapsible />
         </div>
       </CollapsibleSidebar>
 

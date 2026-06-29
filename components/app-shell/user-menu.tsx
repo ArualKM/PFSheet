@@ -1,14 +1,26 @@
 import { LogOut } from "lucide-react";
 import { signOutAction } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function UserMenu({ email, displayName }: { email?: string; displayName?: string }) {
+/** `collapsible` ties the avatar + name to the sidebar container query (`@container/sb`): when the rail
+ * is collapsed only the sign-out button shows, centered; expanded shows avatar + name + sign-out. Used
+ * outside the rail (mobile drawer) without the prop, it always shows everything. */
+export function UserMenu({
+  email,
+  displayName,
+  collapsible,
+}: {
+  email?: string;
+  displayName?: string;
+  collapsible?: boolean;
+}) {
   const label = displayName || email || "Adventurer";
   const initial = label.charAt(0).toUpperCase();
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex min-w-0 items-center gap-2.5">
+    <div className={cn("flex items-center gap-2", collapsible && "justify-center @min-[8rem]/sb:justify-between")}>
+      <div className={cn("flex min-w-0 items-center gap-2.5", collapsible && "hidden @min-[8rem]/sb:flex")}>
         <span
           aria-hidden="true"
           title={label}
@@ -18,8 +30,16 @@ export function UserMenu({ email, displayName }: { email?: string; displayName?:
         </span>
         <span className="min-w-0 truncate text-sm text-muted-foreground">{label}</span>
       </div>
-      <form action={signOutAction} className="ml-auto">
-        <Button variant="ghost" size="icon" type="submit" aria-label="Sign out" title="Sign out">
+      <form action={signOutAction} className={cn(!collapsible && "ml-auto")}>
+        {/* When collapsed the avatar + name are hidden, so carry the identity on the sign-out control
+            for screen readers (the only thing announced in the icons-only rail). */}
+        <Button
+          variant="ghost"
+          size="icon"
+          type="submit"
+          aria-label={collapsible ? `Sign out — signed in as ${label}` : "Sign out"}
+          title="Sign out"
+        >
           <LogOut className="size-4" />
         </Button>
       </form>

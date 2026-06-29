@@ -19,6 +19,7 @@ import {
   Calculator,
   ChevronDown,
   ChevronsUpDown,
+  ChevronsLeft,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -185,23 +186,27 @@ export function CharacterEditor({
     }
   }, [navKey, activeSection, activeSub]);
 
-  // Section rail collapse (md+): icons-only by default, hover/focus overlay-expands; pin to lock open.
-  const sectionsPinKey = "pf-sidebar-pinned:editor-sections";
-  const [sectionsPinned, setSectionsPinned] = useState(false);
+  // Section rail collapse (md+): "auto" icons-only + hover/focus overlay-expand; "open" pinned wide
+  // (reflows the grid); "closed" pinned icons-only (no hover-expand).
+  const sectionsModeKey = "pf-sidebar-mode:editor-sections";
+  const [sectionsMode, setSectionsMode] = useState<"auto" | "open" | "closed">("auto");
   /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
   useEffect(() => {
     try {
-      setSectionsPinned(localStorage.getItem(sectionsPinKey) === "1");
+      const raw =
+        localStorage.getItem(sectionsModeKey) ?? localStorage.getItem("pf-sidebar-pinned:editor-sections");
+      if (raw === "open" || raw === "closed" || raw === "auto") setSectionsMode(raw);
+      else if (raw === "1") setSectionsMode("open"); // migrate the old boolean-pin value
     } catch {
       // ignore unreadable/absent storage
     }
-  }, [sectionsPinKey]);
+  }, [sectionsModeKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
-  const toggleSectionsPin = () =>
-    setSectionsPinned((p) => {
-      const next = !p;
+  const chooseSectionsMode = (target: "auto" | "open" | "closed") =>
+    setSectionsMode((m) => {
+      const next = m === target ? "auto" : target;
       try {
-        localStorage.setItem(sectionsPinKey, next ? "1" : "0");
+        localStorage.setItem(sectionsModeKey, next);
       } catch {
         // ignore
       }
@@ -358,7 +363,7 @@ export function CharacterEditor({
     <div
       className={cn(
         "grid gap-4",
-        sectionsPinned ? "md:grid-cols-[13rem_minmax(0,1fr)]" : "md:grid-cols-[3rem_minmax(0,1fr)]",
+        sectionsMode === "open" ? "md:grid-cols-[13rem_minmax(0,1fr)]" : "md:grid-cols-[3rem_minmax(0,1fr)]",
       )}
     >
       {/* Section rail — md+ only (the < md picker is a bottom sheet). Collapsed to icons-only;
@@ -367,12 +372,27 @@ export function CharacterEditor({
       <div className="hidden md:block">
         <div
           className={cn(
-            "group/sections sticky top-20 z-30 flex flex-col self-start overflow-hidden rounded-lg border border-border bg-surface transition-[width] duration-200",
-            sectionsPinned
+            "group/sections sticky top-20 z-30 flex flex-col self-start overflow-hidden rounded-lg border border-border bg-surface transition-[width] duration-200 @container/sections",
+            sectionsMode === "open"
               ? "w-52"
-              : "w-12 hover:w-52 focus-within:w-52 hover:shadow-2xl focus-within:shadow-2xl",
+              : sectionsMode === "closed"
+                ? "w-12"
+                : "w-12 hover:w-52 focus-within:w-52 hover:shadow-2xl focus-within:shadow-2xl",
           )}
         >
+          {/* `<<` keep-collapsed toggle — appears only while the rail is expanded (no empty bar when collapsed). */}
+          <div className="hidden shrink-0 items-center justify-end border-b border-border px-1 py-1 @min-[8rem]/sections:flex">
+            <button
+              type="button"
+              onClick={() => chooseSectionsMode("closed")}
+              aria-pressed={sectionsMode === "closed"}
+              aria-label="Keep section rail collapsed"
+              title="Keep collapsed"
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+            >
+              <ChevronsLeft className="size-4" />
+            </button>
+          </div>
           <div
             role="tablist"
             aria-orientation="vertical"
@@ -391,6 +411,7 @@ export function CharacterEditor({
                   role="tab"
                   id={`section-tab-${s.key}`}
                   title={s.label}
+                  aria-label={s.label}
                   aria-selected={active}
                   aria-controls="editor-panel"
                   tabIndex={active ? 0 : -1}
@@ -400,30 +421,31 @@ export function CharacterEditor({
                   }}
                   onKeyDown={(e) => onSectionKeyDown(e, idx)}
                   className={cn(
-                    "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors @min-[8rem]/sections:justify-start",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
                     active ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
-                  <span className="whitespace-nowrap">{s.label}</span>
+                  <span className="hidden whitespace-nowrap @min-[8rem]/sections:inline">{s.label}</span>
                 </button>
               );
             })}
           </div>
           <button
             type="button"
-            onClick={toggleSectionsPin}
-            aria-pressed={sectionsPinned}
-            aria-label={sectionsPinned ? "Unpin section rail" : "Pin section rail open"}
-            className="m-1 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border-t border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
+            onClick={() => chooseSectionsMode("open")}
+            aria-pressed={sectionsMode === "open"}
+            aria-label={sectionsMode === "open" ? "Unpin section rail" : "Pin section rail open"}
+            title={sectionsMode === "open" ? "Unpin" : "Pin open"}
+            className="m-1 flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border-t border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold @min-[8rem]/sections:justify-start"
           >
-            {sectionsPinned ? (
+            {sectionsMode === "open" ? (
               <PanelLeftClose className="size-4 shrink-0" />
             ) : (
               <PanelLeftOpen className="size-4 shrink-0" />
             )}
-            <span>{sectionsPinned ? "Unpin" : "Pin open"}</span>
+            <span className="hidden @min-[8rem]/sections:inline">{sectionsMode === "open" ? "Unpin" : "Pin open"}</span>
           </button>
         </div>
       </div>

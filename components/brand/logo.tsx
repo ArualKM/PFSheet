@@ -28,14 +28,18 @@ export function Logo({
   href = "/",
   showWordmark = true,
   className,
+  wordmarkClassName,
 }: {
   href?: string;
   showWordmark?: boolean;
   className?: string;
+  /** Extra classes on the wordmark — e.g. a container query so it hides when the sidebar collapses. */
+  wordmarkClassName?: string;
 }) {
   return (
     <Link
       href={href}
+      aria-label="PathForge"
       className={cn(
         "inline-flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
@@ -43,7 +47,12 @@ export function Logo({
     >
       <ForgeMark />
       {showWordmark && (
-        <span className="font-display text-lg font-semibold tracking-tight text-foreground">
+        <span
+          className={cn(
+            "font-display text-lg font-semibold tracking-tight text-foreground",
+            wordmarkClassName,
+          )}
+        >
           PathForge
         </span>
       )}

@@ -18,9 +18,10 @@ export function SidebarNav() {
             key={item.href}
             href={item.href}
             title={item.label}
+            aria-label={item.label}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors @min-[8rem]/sb:justify-start",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
               active
                 ? "bg-surface-raised text-foreground"
@@ -30,7 +31,7 @@ export function SidebarNav() {
             <Icon
               className={cn("size-4 shrink-0", active ? "text-gold" : "text-muted-foreground")}
             />
-            <span className="truncate whitespace-nowrap">{item.label}</span>
+            <span className="hidden truncate whitespace-nowrap @min-[8rem]/sb:block">{item.label}</span>
           </Link>
         );
       })}
