@@ -2,11 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS } from "./nav-items";
+import { useState, type FocusEvent, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
+import { NAV_ITEMS, type NavItem } from "./nav-items";
+import { useRailMode } from "./collapsible-sidebar";
 import { cn } from "@/lib/utils";
+
+const TOOLTIP_ID = "pf-nav-tooltip";
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const mode = useRailMode();
+  // A single fixed-positioned tooltip for whichever item is hovered/focused — only while the rail is
+  // pinned "closed" ("auto" hover-expands the rail, "open" already shows labels). position:fixed +
+  // a portal escapes the rail's overflow-hidden / scroll container.
+  const [tip, setTip] = useState<{ href: string; label: string; desc?: string; top: number; left: number } | null>(
+    null,
+  );
+
+  const show = (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>, item: NavItem) => {
+    if (mode !== "closed") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    // Clamp the vertical center so a near-edge item's tooltip stays on screen.
+    const top = Math.min(Math.max(r.top + r.height / 2, 28), window.innerHeight - 28);
+    setTip({ href: item.href, label: item.label, desc: item.description, top, left: r.right + 10 });
+  };
+  const hide = () => setTip(null);
 
   return (
     <nav className="flex flex-col gap-1" aria-label="Primary">
@@ -20,6 +41,11 @@ export function SidebarNav() {
             title={item.label}
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
+            aria-describedby={tip?.href === item.href ? TOOLTIP_ID : undefined}
+            onMouseEnter={(e) => show(e, item)}
+            onMouseLeave={hide}
+            onFocus={(e) => show(e, item)}
+            onBlur={hide}
             className={cn(
               "group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors @min-[8rem]/sb:justify-start",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
@@ -35,6 +61,20 @@ export function SidebarNav() {
           </Link>
         );
       })}
+      {tip &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            id={TOOLTIP_ID}
+            role="tooltip"
+            style={{ position: "fixed", top: tip.top, left: tip.left, transform: "translateY(-50%)" }}
+            className="pointer-events-none z-[100] max-w-xs rounded-md border border-border bg-surface-raised px-3 py-2 text-xs shadow-2xl"
+          >
+            <div className="font-semibold text-foreground">{tip.label}</div>
+            {tip.desc && <div className="mt-0.5 text-muted-foreground">{tip.desc}</div>}
+          </div>,
+          document.body,
+        )}
     </nav>
   );
 }

@@ -6,6 +6,8 @@ export type NavItem = {
   label: string;
   /** Short label for the mobile bottom nav (falls back to the first word of label). */
   shortLabel?: string;
+  /** One-line blurb shown in the collapsed-rail hover tooltip (beneath the label). */
+  description?: string;
   /** Any icon component taking `{ className }` — lucide icons + the game-icons wrappers both qualify. */
   icon: ComponentType<{ className?: string }>;
   /** Show in the mobile bottom navigation. */
@@ -13,10 +15,10 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: TreasureMap, mobile: true },
-  { href: "/characters", label: "Characters", icon: User, mobile: true },
-  { href: "/campaigns", label: "Campaigns", icon: Flag, mobile: true },
-  { href: "/spells", label: "Spell Compendium", shortLabel: "Spells", icon: Wand2, mobile: true },
-  { href: "/spheres", label: "Spheres Compendium", shortLabel: "Spheres", icon: ConcentrationOrb },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard", label: "Dashboard", description: "Your jumping-off point & recent activity", icon: TreasureMap, mobile: true },
+  { href: "/characters", label: "Characters", description: "Build, edit & share character sheets", icon: User, mobile: true },
+  { href: "/campaigns", label: "Campaigns", description: "Run tables, rosters & GM approvals", icon: Flag, mobile: true },
+  { href: "/spells", label: "Spell Compendium", shortLabel: "Spells", description: "Search 3,000+ Pathfinder spells", icon: Wand2, mobile: true },
+  { href: "/spheres", label: "Spheres Compendium", shortLabel: "Spheres", description: "Browse Spheres of Power / Might / Guile", icon: ConcentrationOrb },
+  { href: "/settings", label: "Settings", description: "Profile, API keys & preferences", icon: Settings },
 ];

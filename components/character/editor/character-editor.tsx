@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import {
@@ -212,6 +213,15 @@ export function CharacterEditor({
       }
       return next;
     });
+  // Hover tooltip for the force-collapsed ("closed") section rail — identifies each icon without expanding.
+  const [sectionTip, setSectionTip] = useState<{ key: string; label: string; top: number; left: number } | null>(null);
+  const showSectionTip = (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>, key: string, label: string) => {
+    if (sectionsMode !== "closed") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const top = Math.min(Math.max(r.top + r.height / 2, 28), window.innerHeight - 28);
+    setSectionTip({ key, label, top, left: r.right + 10 });
+  };
+  const hideSectionTip = () => setSectionTip(null);
 
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
   // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
@@ -420,6 +430,11 @@ export function CharacterEditor({
                     setActiveSub(s.items[0]!.key);
                   }}
                   onKeyDown={(e) => onSectionKeyDown(e, idx)}
+                  aria-describedby={sectionTip?.key === s.key ? "pf-section-tooltip" : undefined}
+                  onMouseEnter={(e) => showSectionTip(e, s.key, s.label)}
+                  onMouseLeave={hideSectionTip}
+                  onFocus={(e) => showSectionTip(e, s.key, s.label)}
+                  onBlur={hideSectionTip}
                   className={cn(
                     "inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors @min-[8rem]/sections:justify-start",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
@@ -448,6 +463,19 @@ export function CharacterEditor({
             <span className="hidden @min-[8rem]/sections:inline">{sectionsMode === "open" ? "Unpin" : "Pin open"}</span>
           </button>
         </div>
+        {sectionTip &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div
+              id="pf-section-tooltip"
+              role="tooltip"
+              style={{ position: "fixed", top: sectionTip.top, left: sectionTip.left, transform: "translateY(-50%)" }}
+              className="pointer-events-none z-[100] whitespace-nowrap rounded-md border border-border bg-surface-raised px-3 py-2 text-xs font-semibold text-foreground shadow-2xl"
+            >
+              {sectionTip.label}
+            </div>,
+            document.body,
+          )}
       </div>
 
       <div className="min-w-0">
