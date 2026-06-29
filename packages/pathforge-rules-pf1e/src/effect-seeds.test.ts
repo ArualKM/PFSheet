@@ -43,6 +43,17 @@ describe("effect-seed → automation mapping", () => {
     expect(normalizeFormula("1d6")).toBe("1d6");
   });
 
+  it("normalizeFormula handles dice, uppercase functions, and bare-number wraps (review edge cases)", () => {
+    // dice notation inside a @{wrapped} expr must survive (not become 1@{d6})
+    expect(normalizeFormula("@{1d6 + level}")).toBe("1d6 + @{level}");
+    // recognized function names canonicalize to lowercase (the evaluator only knows lowercase)
+    expect(normalizeFormula("@{MAX(3, level)}")).toBe("max(3, @{level})");
+    // a bare wrapped number collapses to the literal (would otherwise resolve to 0)
+    expect(normalizeFormula("@{3}")).toBe("3");
+    // a bare wrapped path round-trips (not turned into a literal)
+    expect(normalizeFormula("@{level}")).toBe("@{level}");
+  });
+
   it("Great Fortitude / Lightning Reflexes apply after save normalization", () => {
     const fort = seedToAutomationEffect(seed({ target: "saves.fort", valueOrFormula: "2", notes: "" }), "t2");
     expect(fort.target).toBe("saves.fortitude");

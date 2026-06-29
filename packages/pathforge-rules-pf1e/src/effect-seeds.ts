@@ -29,14 +29,18 @@ export type CompendiumEffectSeed = {
 const SAVE_ALIASES: Record<string, string> = {
   "saves.fort": "saves.fortitude",
   "save.fort": "save.fortitude",
+  fort: "saves.fortitude",
   "saves.ref": "saves.reflex",
   "save.ref": "save.reflex",
+  ref: "saves.reflex",
 };
 
 /** Notes that signal a choice-based / toggled / situational effect → recorded but not auto-applied. Kept
  * tight on purpose: "per"/"scales" appear in benign descriptions ("+1 per HD", "scales with level") that
  * the formula already handles, and `toggle` already catches the real toggle feats (Power Attack etc.). */
-const CONDITIONAL_RE = /\b(toggle|chosen|choose|select|within|range|vs\.?|only|when|while|situational|conditional)\b/i;
+// "within" carries the situational-distance cases (e.g. "within 30 ft"); "range" was dropped — it
+// false-positives on benign "range increment" descriptions for ranged-weapon feats.
+const CONDITIONAL_RE = /\b(toggle|chosen|choose|select|within|vs\.?|only|when|while|situational|conditional)\b/i;
 
 const OPERATIONS = new Set<AutomationOperation>(["add", "subtract", "set", "multiply", "append", "toggle", "note"]);
 
@@ -53,14 +57,17 @@ const ABILITY_ABBR = new Set(["str", "dex", "con", "int", "wis", "cha"]);
 export function normalizeFormula(raw: string): string {
   let s = (raw ?? "").trim();
   if (!s.includes("@{")) return s;
-  // 1) Unwrap a single, fully-wrapping @{ … } that is actually an expression (has a function/operator).
-  //    The [^{}] guard means a multi-path formula like "@{level} + @{str.mod}" is NOT mistaken for one.
+  // 1) Unwrap a single, fully-wrapping @{ … } — a path, a number, or an expression. The [^{}] guard means
+  //    a multi-path formula like "@{level} + @{str.mod}" is NOT mistaken for one. Step 2 re-wraps any bare
+  //    paths, so a plain "@{level}" round-trips and a bare "@{3}" collapses to the literal 3.
   const whole = s.match(/^@\{([^{}]+)\}$/);
-  if (whole && /[(),+\-*/]/.test(whole[1]!)) s = whole[1]!;
-  // 2) Wrap bare path identifiers (skip function names + anything already inside @{ … }).
-  s = s.replace(/@\{[^}]*\}|[A-Za-z_][A-Za-z0-9_.]*/g, (tok) => {
+  if (whole) s = whole[1]!;
+  // 2) Wrap bare path identifiers (skip function names, dice notation "1d6", + anything already in @{ … });
+  //    canonicalize recognized function names to lowercase (the evaluator only knows lowercase forms).
+  s = s.replace(/@\{[^}]*\}|\d+d\d+|[A-Za-z_][A-Za-z0-9_.]*/gi, (tok) => {
     if (tok.startsWith("@{")) return tok;
-    if (FORMULA_FUNCS.has(tok.toLowerCase())) return tok;
+    if (/^\d+d\d+$/i.test(tok)) return tok; // dice notation — not a path
+    if (FORMULA_FUNCS.has(tok.toLowerCase())) return tok.toLowerCase();
     return `@{${tok}}`;
   });
   // 3) Expand abbreviated ability paths: @{wis.mod} → @{abilities.wis.mod}.
