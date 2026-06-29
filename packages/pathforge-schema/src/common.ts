@@ -201,3 +201,32 @@ export type PrivacyLevel = z.infer<typeof privacyLevelSchema>;
 export const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 export const abilityKeySchema = z.enum(ABILITY_KEYS);
 export type AbilityKey = z.infer<typeof abilityKeySchema>;
+
+/** Class progression enums + the prebuilt/compendium ClassPreset shape. Lives here (the dependency-free
+ * base) so both class-catalog.ts (the hardcoded presets) and identity.ts (the per-row cached compendium
+ * preset) can share one source without an import cycle. */
+export const saveProgressionSchema = z.enum(["good", "poor"]);
+export type SaveProgression = z.infer<typeof saveProgressionSchema>;
+export const babProgressionSchema = z.enum(["full", "three_quarter", "half"]);
+export type BabProgression = z.infer<typeof babProgressionSchema>;
+export const casterTypeSchema = z.enum(["prepared", "spontaneous", "spellbook"]);
+export type CasterType = z.infer<typeof casterTypeSchema>;
+
+export const classPresetSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  hitDie: z.union([z.literal(6), z.literal(8), z.literal(10), z.literal(12)]),
+  bab: babProgressionSchema,
+  saves: z.object({ fortitude: saveProgressionSchema, reflex: saveProgressionSchema, will: saveProgressionSchema }),
+  skillRanksPerLevel: z.number(),
+  classSkillKeys: z.array(z.string()),
+  caster: z
+    .object({
+      casterType: casterTypeSchema,
+      castingAbility: abilityKeySchema,
+      /** CL vs this class's level: "full" = level, "minus_three" = paladin/ranger (starts at 4th). */
+      clProgression: z.enum(["full", "minus_three"]),
+    })
+    .optional(),
+});
+export type ClassPreset = z.infer<typeof classPresetSchema>;

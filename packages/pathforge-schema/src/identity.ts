@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sourceRefSchema } from "./common";
+import { sourceRefSchema, classPresetSchema } from "./common";
 
 /** §6.1 Identity */
 export const characterClassSchema = z.object({
@@ -13,6 +13,12 @@ export const characterClassSchema = z.object({
   track: z.enum(["a", "b"]).optional(),
   /** Links a row to its CLASS_CATALOG preset so BAB/saves/HP can recompute from classes. */
   presetKey: z.string().optional(),
+  /** Links a row to a compendium class (`class_compendium` key) for the progression-driven builder. */
+  compendiumId: z.string().optional(),
+  /** Cached synthetic preset derived from the compendium row's `class_progression`, so
+   * `recomputeClassDerived` stays self-contained + offline-safe (no session registry to prime). Resolved
+   * alongside `presetKey`. */
+  compendiumPreset: classPresetSchema.optional(),
   source: sourceRefSchema.optional(),
 });
 export type CharacterClass = z.infer<typeof characterClassSchema>;

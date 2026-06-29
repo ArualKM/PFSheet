@@ -23,6 +23,7 @@ export * from "./rules";
 export * from "./optional-rules";
 export * from "./spheres";
 export * from "./class-catalog";
+export * from "./class-compendium";
 export * from "./spell-tables";
 export * from "./metamagic-catalog";
 export * from "./hero-points";

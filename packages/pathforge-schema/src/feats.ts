@@ -50,6 +50,8 @@ export const featureEntrySchema = z.object({
   category: featureCategorySchema,
   /** Stable slug of the compendium entry this was applied from (class feature / racial trait / etc.). */
   compendiumId: z.string().optional(),
+  /** The class level at which this feature is gained (for per-level grouping in the class builder). */
+  level: z.number().int().optional(),
   source: sourceRefSchema.optional(),
   description: z.string().optional(),
   automation: z.array(automationEffectSchema).default([]),

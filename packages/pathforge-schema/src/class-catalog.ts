@@ -1,4 +1,4 @@
-import type { AbilityKey } from "./common";
+import type { BabProgression, ClassPreset, SaveProgression } from "./common";
 import type { PathForgeCharacterV1 } from "./character";
 import { DEFAULT_SKILLS } from "./skills";
 import { spellsPerDayTableFor } from "./spell-tables";
@@ -10,26 +10,10 @@ import { isGestalt, gestaltLevel } from "./gestalt";
  * class determines (BAB, saves, HP, class skills, caster entry) by WRITING the same
  * stored fields computeCharacter already reads — it never changes the engine.
  */
-export type SaveProgression = "good" | "poor";
-export type BabProgression = "full" | "three_quarter" | "half";
-export type CasterType = "prepared" | "spontaneous" | "spellbook";
+// ClassPreset + its progression enums now live in common.ts (shared with identity.ts's per-row cached
+// compendium preset, without an import cycle). Re-exported here so existing importers are unaffected.
+export type { SaveProgression, BabProgression, CasterType, ClassPreset } from "./common";
 export type HpMethod = "manual" | "average" | "max";
-
-export type ClassPreset = {
-  key: string;
-  name: string;
-  hitDie: 6 | 8 | 10 | 12;
-  bab: BabProgression;
-  saves: { fortitude: SaveProgression; reflex: SaveProgression; will: SaveProgression };
-  skillRanksPerLevel: number;
-  classSkillKeys: string[];
-  caster?: {
-    casterType: CasterType;
-    castingAbility: AbilityKey;
-    /** CL vs this class's level: "full" = level, "minus_three" = paladin/ranger (starts at 4th). */
-    clProgression: "full" | "minus_three";
-  };
-};
 
 const ALL_KNOWLEDGE = [
   "knowledge_arcana",
