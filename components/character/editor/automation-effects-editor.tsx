@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { BONUS_TYPES, type AutomationEffect, type BonusType } from "@pathforge/schema";
+import { BONUS_TYPES, type AutomationEffect, type AutomationOperation, type BonusType } from "@pathforge/schema";
 import { Button } from "@/components/ui/button";
 import { NumberField, TextField } from "./fields";
 import { cn } from "@/lib/utils";
@@ -36,8 +36,169 @@ export const AUTOMATION_TARGET_OPTIONS: { label: string; target: string }[] = [
 
 const CUSTOM_TARGET = "__custom__";
 
+/**
+ * Seed used when a row's value is toggled to ƒx (formula) mode. One shared, always-resolvable path so
+ * the Buff Center custom form and the feat/feature/trait editor start from the same formula instead of
+ * drifting (they previously seeded different paths). @{combat.bab.total}, @{abilities.str.mod}, … are
+ * equally valid — this is just the editable starting point.
+ */
+const FORMULA_SEED = "@{level.total}";
+
+/**
+ * The id-agnostic slice of an effect a row *writes*. The Buff Center's pre-submit draft uses this as
+ * its state shape, and it is the patch type a row emits — operations are narrowed to add/subtract (the
+ * only ones the passive modifier engine `effectToMod` honors) and value to number|string (the ƒx
+ * toggle only ever produces those). `Partial<EditableEffect>` is assignable to `Partial<AutomationEffect>`,
+ * so a persisted-effect editor can take a row's patch directly.
+ */
+export type EditableEffect = {
+  target: string;
+  operation: "add" | "subtract";
+  value: number | string;
+  bonusType: BonusType;
+};
+
+/**
+ * The wider shape a row *reads*. Both `AutomationEffect` (persisted — wider `operation`/`value`, a
+ * `boolean` value, optional `bonusType`) and `EditableEffect` (the draft) structurally satisfy it, so
+ * the one row renders either. Reads tolerate the extra cases (any non-add operation shows as "+", a
+ * boolean value falls through to the number field).
+ */
+type EffectRowValue = {
+  target: string;
+  operation: AutomationOperation;
+  value: number | string | boolean;
+  bonusType?: BonusType;
+};
+
 function newEffectId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * One effect row: target select (+ Custom… freeform) · operation · value (number or ƒx formula) ·
+ * bonus type · remove. Id-agnostic and controlled — the caller owns the list shape, the React key, and
+ * how a patch is applied; the row only reads/patches the four editable fields. Shared by
+ * `AutomationEffectsEditor` and the Buff Center custom-buff form so their target menus can't drift.
+ */
+export function EffectRow({
+  effect,
+  onChange,
+  onRemove,
+  hiddenTargets = [],
+}: {
+  effect: EffectRowValue;
+  onChange: (patch: Partial<EditableEffect>) => void;
+  onRemove: () => void;
+  /**
+   * Targets to omit from THIS row's dropdown (e.g. `attack*` on a weapon item, which would
+   * double-count the weapon's own Enhancement field). The effect's own saved target stays selectable
+   * so editing never silently rewrites it, and the Custom field still accepts it — a guard-rail, not
+   * a hard block. Mirrors the inventory `targetOptions()` carve-out.
+   */
+  hiddenTargets?: string[];
+}) {
+  const isFormula = typeof effect.value === "string";
+  const known = AUTOMATION_TARGET_OPTIONS.some((o) => o.target === effect.target);
+  const rowOptions = AUTOMATION_TARGET_OPTIONS.filter(
+    (o) => !hiddenTargets.includes(o.target) || o.target === effect.target,
+  );
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
+      <div className="space-y-1">
+        <span className="block text-[11px] text-muted-foreground">Target</span>
+        <select
+          value={known ? effect.target : CUSTOM_TARGET}
+          aria-label="Effect target"
+          onChange={(ev) => onChange({ target: ev.target.value === CUSTOM_TARGET ? "" : ev.target.value })}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+        >
+          {rowOptions.map((o) => (
+            <option key={o.target} value={o.target}>
+              {o.label}
+            </option>
+          ))}
+          <option value={CUSTOM_TARGET}>Custom…</option>
+        </select>
+      </div>
+
+      {!known && (
+        <TextField
+          label="Custom target"
+          value={effect.target}
+          onChange={(v) => onChange({ target: v })}
+          placeholder="skills.perception"
+          className="w-40 font-mono"
+        />
+      )}
+
+      <div className="space-y-1">
+        <span className="block text-[11px] text-muted-foreground">Op</span>
+        <select
+          value={effect.operation === "subtract" ? "subtract" : "add"}
+          aria-label="Effect operation"
+          onChange={(ev) => onChange({ operation: ev.target.value as "add" | "subtract" })}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+        >
+          <option value="add">+</option>
+          <option value="subtract">−</option>
+        </select>
+      </div>
+
+      {isFormula ? (
+        <TextField
+          label="Value (formula)"
+          value={String(effect.value)}
+          onChange={(v) => onChange({ value: v })}
+          placeholder="floor(@{level.total}/2)"
+          className="min-w-[12rem] flex-1 font-mono"
+        />
+      ) : (
+        <NumberField
+          label="Value"
+          value={typeof effect.value === "number" ? effect.value : 0}
+          onChange={(v) => onChange({ value: v })}
+          className="w-20"
+        />
+      )}
+
+      <button
+        type="button"
+        aria-pressed={isFormula}
+        aria-label="Toggle formula value"
+        title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
+        onClick={() => onChange({ value: isFormula ? 0 : FORMULA_SEED })}
+        className={cn(
+          "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
+          isFormula
+            ? "border-gold/40 bg-gold/10 text-gold"
+            : "border-border text-muted-foreground hover:text-foreground",
+        )}
+      >
+        ƒx
+      </button>
+
+      <div className="space-y-1">
+        <span className="block text-[11px] text-muted-foreground">Bonus type</span>
+        <select
+          value={effect.bonusType ?? "untyped"}
+          aria-label="Effect bonus type"
+          onChange={(ev) => onChange({ bonusType: ev.target.value as BonusType })}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+        >
+          {BONUS_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <Button variant="ghost" size="icon" aria-label="Remove effect" onClick={onRemove}>
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -97,111 +258,15 @@ export function AutomationEffectsEditor({
         </p>
       )}
 
-      {effects.map((e, i) => {
-        const isFormula = typeof e.value === "string";
-        const known = AUTOMATION_TARGET_OPTIONS.some((o) => o.target === e.target);
-        // Omit disallowed targets for this call site, but keep this effect's own saved target
-        // selectable so editing never silently rewrites it.
-        const rowOptions = AUTOMATION_TARGET_OPTIONS.filter(
-          (o) => !hiddenTargets.includes(o.target) || o.target === e.target,
-        );
-        return (
-          <div key={e.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Target</span>
-              <select
-                value={known ? e.target : CUSTOM_TARGET}
-                aria-label="Effect target"
-                onChange={(ev) => update(i, { target: ev.target.value === CUSTOM_TARGET ? "" : ev.target.value })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                {rowOptions.map((o) => (
-                  <option key={o.target} value={o.target}>
-                    {o.label}
-                  </option>
-                ))}
-                <option value={CUSTOM_TARGET}>Custom…</option>
-              </select>
-            </div>
-
-            {!known && (
-              <TextField
-                label="Custom target"
-                value={e.target}
-                onChange={(v) => update(i, { target: v })}
-                placeholder="skills.perception"
-                className="w-40 font-mono"
-              />
-            )}
-
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Op</span>
-              <select
-                value={e.operation === "subtract" ? "subtract" : "add"}
-                aria-label="Effect operation"
-                onChange={(ev) => update(i, { operation: ev.target.value as "add" | "subtract" })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                <option value="add">+</option>
-                <option value="subtract">−</option>
-              </select>
-            </div>
-
-            {isFormula ? (
-              <TextField
-                label="Value (formula)"
-                value={String(e.value)}
-                onChange={(v) => update(i, { value: v })}
-                placeholder="floor(@{level.total}/2)"
-                className="min-w-[12rem] flex-1 font-mono"
-              />
-            ) : (
-              <NumberField
-                label="Value"
-                value={typeof e.value === "number" ? e.value : 0}
-                onChange={(v) => update(i, { value: v })}
-                className="w-20"
-              />
-            )}
-
-            <button
-              type="button"
-              aria-pressed={isFormula}
-              aria-label="Toggle formula value"
-              title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
-              onClick={() => update(i, { value: isFormula ? 0 : "@{level.total}" })}
-              className={cn(
-                "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
-                isFormula
-                  ? "border-gold/40 bg-gold/10 text-gold"
-                  : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              ƒx
-            </button>
-
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Bonus type</span>
-              <select
-                value={e.bonusType ?? "untyped"}
-                aria-label="Effect bonus type"
-                onChange={(ev) => update(i, { bonusType: ev.target.value as BonusType })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                {BONUS_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button variant="ghost" size="icon" aria-label="Remove effect" onClick={() => remove(i)}>
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-        );
-      })}
+      {effects.map((e, i) => (
+        <EffectRow
+          key={e.id}
+          effect={e}
+          hiddenTargets={hiddenTargets}
+          onChange={(patch) => update(i, patch)}
+          onRemove={() => remove(i)}
+        />
+      ))}
     </div>
   );
 }

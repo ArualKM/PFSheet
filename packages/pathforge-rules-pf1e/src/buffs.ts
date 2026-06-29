@@ -109,17 +109,31 @@ export function detectStackingConflicts(character: PathForgeCharacterV1): Stacki
 
 export type BuffDeltaRow = { label: string; before: number; after: number; delta: number };
 
-function summaryValues(summary: ReturnType<typeof computeCharacter>["summary"]): Record<string, number> {
+type Computed = ReturnType<typeof computeCharacter>;
+
+/**
+ * The scalar stats the preview diffs. Reads the FULL computed result, not just `summary`, so the
+ * affected-value preview covers every target the Buff Center menu can set — including the attack
+ * sub-domains (Melee/Ranged/CMB live on `attackBonuses`, not `summary`) and Max HP. Without these a
+ * buff like Bless/Haste (attack) or Toughness (hp) would show an empty delta and the misleading
+ * "No net change" card even though the engine applies it. Skills are diffed separately (collapsing).
+ */
+function summaryValues(computed: Computed): Record<string, number> {
+  const { summary, attackBonuses } = computed;
   const out: Record<string, number> = {
     AC: summary.ac,
     Touch: summary.touch,
     "Flat-footed": summary.flatFooted,
     CMD: summary.cmd,
+    "Melee attack": attackBonuses.melee.value,
+    "Ranged attack": attackBonuses.ranged.value,
+    CMB: attackBonuses.cmb.value,
     Fortitude: summary.fortitude,
     Reflex: summary.reflex,
     Will: summary.will,
     Initiative: summary.initiative,
     Speed: summary.speed.total,
+    "Max HP": summary.hp.max,
   };
   for (const [k, v] of Object.entries(summary.abilityMods)) out[`${k.toUpperCase()} mod`] = v;
   return out;
@@ -135,6 +149,40 @@ function diffSummaries(before: Record<string, number>, after: Record<string, num
   return rows;
 }
 
+const skillTotals = (computed: Computed): Record<string, number> =>
+  Object.fromEntries(Object.entries(computed.skills).map(([key, cv]) => [key, cv.value]));
+
+function prettySkill(key: string): string {
+  return `${key.replace(/[:_]/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())} skill`;
+}
+
+/**
+ * Per-skill deltas, kept out of {@link summaryValues} so an `All skills` buff (which shifts every one
+ * of the ~35 skills by the same amount) collapses to a single "All skills" row instead of flooding the
+ * preview. A single-skill or few-skill buff lists each affected skill by name.
+ */
+function skillDeltaRows(before: Record<string, number>, after: Record<string, number>): BuffDeltaRow[] {
+  const changed = Object.keys(after)
+    .map((key) => ({ key, before: before[key] ?? 0, after: after[key] ?? 0 }))
+    .filter((c) => c.after !== c.before);
+  if (changed.length === 0) return [];
+  const deltas = new Set(changed.map((c) => c.after - c.before));
+  if (changed.length > 2 && deltas.size === 1) {
+    // Uniform shift across many skills → one summary row. before/after are nominal (skills have
+    // different bases); only `delta` is meaningful and it is what the UI renders.
+    const delta = changed[0]!.after - changed[0]!.before;
+    return [{ label: "All skills", before: 0, after: delta, delta }];
+  }
+  return changed.map((c) => ({ label: prettySkill(c.key), before: c.before, after: c.after, delta: c.after - c.before }));
+}
+
+function buffDelta(before: Computed, after: Computed): BuffDeltaRow[] {
+  return [
+    ...diffSummaries(summaryValues(before), summaryValues(after)),
+    ...skillDeltaRows(skillTotals(before), skillTotals(after)),
+  ];
+}
+
 /** The net stat change an already-active buff contributes (enabled vs disabled). */
 export function activeBuffDelta(character: PathForgeCharacterV1, buffId: string): BuffDeltaRow[] {
   const withEnabled = (enabled: boolean): PathForgeCharacterV1 => ({
@@ -144,9 +192,7 @@ export function activeBuffDelta(character: PathForgeCharacterV1, buffId: string)
       active: character.buffs.active.map((b) => (b.id === buffId ? { ...b, enabled } : b)),
     },
   });
-  const off = summaryValues(computeCharacter(withEnabled(false)).summary);
-  const on = summaryValues(computeCharacter(withEnabled(true)).summary);
-  return diffSummaries(off, on);
+  return buffDelta(computeCharacter(withEnabled(false)), computeCharacter(withEnabled(true)));
 }
 
 /** Preview the marginal effect of adding a set of effects on top of current buffs. */
@@ -155,7 +201,6 @@ export function previewBuffEffects(
   effects: AutomationEffect[],
   name = "Preview",
 ): BuffDeltaRow[] {
-  const base = summaryValues(computeCharacter(character).summary);
   const augmented: PathForgeCharacterV1 = {
     ...character,
     buffs: {
@@ -163,6 +208,5 @@ export function previewBuffEffects(
       active: [...character.buffs.active, { id: "__preview__", name, enabled: true, effects }],
     },
   };
-  const withBuff = summaryValues(computeCharacter(augmented).summary);
-  return diffSummaries(base, withBuff);
+  return buffDelta(computeCharacter(character), computeCharacter(augmented));
 }

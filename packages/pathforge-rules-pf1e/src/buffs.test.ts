@@ -104,6 +104,47 @@ describe("affected-values preview", () => {
     const rows = previewBuffEffects(base, haste.effects, "Haste");
     expect(rows.find((r) => r.label === "Speed")?.after).toBe(60);
     expect(rows.find((r) => r.label === "AC")?.delta).toBe(1);
+    // Haste also grants +1 to-hit — the attack sub-domains must surface (regression guard for the
+    // widened buff-target menu: these live on attackBonuses, not summary).
+    expect(rows.find((r) => r.label === "Melee attack")?.delta).toBe(1);
+    expect(rows.find((r) => r.label === "Ranged attack")?.delta).toBe(1);
+  });
+
+  // The shared effect-row menu lets the Buff Center target Melee/Ranged/CMB attack, Max HP, and skills.
+  // The engine applies them, so the preview/delta MUST surface them too (else the active-buff card
+  // wrongly reads "No net change"). These guard that contract.
+  it("previewBuffEffects surfaces a Max HP buff", () => {
+    const base = createDefaultCharacter({ name: "Tough" });
+    const rows = previewBuffEffects(base, [
+      { id: "fx", target: "hp", operation: "add", value: 5, bonusType: "untyped" },
+    ]);
+    expect(rows.find((r) => r.label === "Max HP")?.delta).toBe(5);
+  });
+
+  it("previewBuffEffects surfaces a CMB buff", () => {
+    const base = createDefaultCharacter({ name: "Grappler" });
+    const rows = previewBuffEffects(base, [
+      { id: "fx", target: "attack.cmb", operation: "add", value: 2, bonusType: "untyped" },
+    ]);
+    expect(rows.find((r) => r.label === "CMB")?.delta).toBe(2);
+  });
+
+  it("an All-skills buff collapses to a single row instead of flooding the preview", () => {
+    const base = createDefaultCharacter({ name: "Heroic" });
+    const rows = previewBuffEffects(base, [
+      { id: "fx", target: "skill.all", operation: "add", value: 2, bonusType: "untyped" },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ label: "All skills", delta: 2 });
+  });
+
+  it("a single-skill buff names the affected skill", () => {
+    const base = createDefaultCharacter({ name: "Sneaky" });
+    const rows = previewBuffEffects(base, [
+      { id: "fx", target: "skills.perception", operation: "add", value: 3, bonusType: "untyped" },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ label: "Perception skill", delta: 3 });
   });
 });
 

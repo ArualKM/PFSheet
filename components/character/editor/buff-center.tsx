@@ -15,16 +15,15 @@ import {
 import { Swords } from "@/components/ui/game-icons";
 import {
   BUFF_LIBRARY,
-  BONUS_TYPES,
   type ActiveBuff,
   type AutomationEffect,
-  type BonusType,
   type BuffCategory,
   type BuffTemplate,
   type DurationUnit,
 } from "@pathforge/schema";
 import { detectStackingConflicts, activeBuffDelta, previewBuffEffects, type BuffDeltaRow } from "@pathforge/rules-pf1e";
 import { NumberField, TextField } from "./fields";
+import { EffectRow, type EditableEffect } from "./automation-effects-editor";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,23 +39,6 @@ const DURATION_UNITS: DurationUnit[] = [
   "permanent",
   "concentration",
   "custom",
-];
-
-const TARGET_OPTIONS: { label: string; target: string }[] = [
-  { label: "AC", target: "defenses.armorClass" },
-  { label: "Attack", target: "attack" },
-  { label: "Fortitude", target: "saves.fortitude" },
-  { label: "Reflex", target: "saves.reflex" },
-  { label: "Will", target: "saves.will" },
-  { label: "Initiative", target: "combat.initiative" },
-  { label: "Speed", target: "speed" },
-  { label: "CMD", target: "cmd" },
-  { label: "Strength", target: "abilities.str" },
-  { label: "Dexterity", target: "abilities.dex" },
-  { label: "Constitution", target: "abilities.con" },
-  { label: "Intelligence", target: "abilities.int" },
-  { label: "Wisdom", target: "abilities.wis" },
-  { label: "Charisma", target: "abilities.cha" },
 ];
 
 const TARGET_LABEL: Record<string, string> = {
@@ -420,8 +402,6 @@ function ActiveBuffCard({
 
 /* -------------------------------------------------------------------------- */
 
-type DraftEffect = { target: string; operation: "add" | "subtract"; value: number | string; bonusType: BonusType };
-
 function CustomBuffForm({
   ed,
   onAdd,
@@ -435,11 +415,11 @@ function CustomBuffForm({
   const [category, setCategory] = useState<BuffCategory>("custom");
   const [unit, setUnit] = useState<DurationUnit>("rounds");
   const [amount, setAmount] = useState(0);
-  const [effects, setEffects] = useState<DraftEffect[]>([
+  const [effects, setEffects] = useState<EditableEffect[]>([
     { target: "defenses.armorClass", operation: "add", value: 1, bonusType: "untyped" },
   ]);
 
-  const updateEffect = (i: number, patch: Partial<DraftEffect>) =>
+  const updateEffect = (i: number, patch: Partial<EditableEffect>) =>
     setEffects((prev) => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
 
   // Live preview of what the effects resolve to (evaluates any formula values).
@@ -525,84 +505,12 @@ function CustomBuffForm({
           </Button>
         </div>
         {effects.map((e, i) => (
-          <div key={i} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Target</span>
-              <select
-                value={e.target}
-                aria-label="Effect target"
-                onChange={(ev) => updateEffect(i, { target: ev.target.value })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                {TARGET_OPTIONS.map((o) => (
-                  <option key={o.target} value={o.target}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Op</span>
-              <select
-                value={e.operation}
-                aria-label="Effect operation"
-                onChange={(ev) => updateEffect(i, { operation: ev.target.value as "add" | "subtract" })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                <option value="add">+</option>
-                <option value="subtract">−</option>
-              </select>
-            </div>
-            {typeof e.value === "string" ? (
-              <TextField
-                label="Value (formula)"
-                value={e.value}
-                onChange={(v) => updateEffect(i, { value: v })}
-                placeholder="floor(@{combat.bab.total} / 4)"
-                className="min-w-[12rem] flex-1 font-mono"
-              />
-            ) : (
-              <NumberField label="Value" value={e.value} onChange={(v) => updateEffect(i, { value: v })} className="w-20" />
-            )}
-            <button
-              type="button"
-              aria-pressed={typeof e.value === "string"}
-              aria-label="Toggle formula value"
-              title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
-              onClick={() => updateEffect(i, { value: typeof e.value === "string" ? 0 : "@{combat.bab.total}" })}
-              className={cn(
-                "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
-                typeof e.value === "string"
-                  ? "border-gold/40 bg-gold/10 text-gold"
-                  : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              ƒx
-            </button>
-            <div className="space-y-1">
-              <span className="block text-[11px] text-muted-foreground">Bonus type</span>
-              <select
-                value={e.bonusType}
-                aria-label="Effect bonus type"
-                onChange={(ev) => updateEffect(i, { bonusType: ev.target.value as BonusType })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
-              >
-                {BONUS_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Remove effect"
-              onClick={() => setEffects((prev) => prev.filter((_, idx) => idx !== i))}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
+          <EffectRow
+            key={i}
+            effect={e}
+            onChange={(patch) => updateEffect(i, patch)}
+            onRemove={() => setEffects((prev) => prev.filter((_, idx) => idx !== i))}
+          />
         ))}
       </div>
 
