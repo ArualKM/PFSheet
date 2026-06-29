@@ -25,13 +25,46 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  e2e-public:
+    name: e2e (public smoke + a11y)
+    # Always runs — no secrets, no test DB. The public routes + catalog API + axe a11y scan boot the
+    # app with PLACEHOLDER Supabase env: lib/env.ts validates presence only, the sitemap's DB query is
+    # try/caught, and the proxy.ts middleware's getUser() returns null on an unreachable Supabase. This
+    # exercises the REAL RSC server→client boundary (the 2026-06-27 character-view crash class) on every
+    # push — the highest-leverage QA guard — without needing a configured account. Validated locally:
+    # build + serve under these placeholders, all public.spec + accessibility.spec pass.
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      SUPABASE_SECRET_KEY: sb_secret_placeholder
+      PATHFORGE_API_KEY_PEPPER: placeholder-pepper
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # webServer runs `pnpm build && pnpm start` (CI=true) — the real RSC boundary, not jsdom.
+      - run: pnpm exec playwright test --project=chromium tests/e2e/public.spec.ts tests/e2e/accessibility.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-public
+          path: playwright-report/
+          retention-days: 7
+
   e2e:
     name: e2e (Playwright)
-    # Opt-in. The E2E suite needs the app to boot (Supabase env), so it stays skipped
-    # — and green, never red — until you set the repo variable RUN_E2E=true AND add the
-    # secrets below. Public smoke tests run with just the Supabase secrets; the
-    # authenticated character-view guard (the 2026-06-27 RSC-crash regression test) also
-    # runs when E2E_EMAIL + E2E_PASSWORD are present.
+    # Opt-in FULL suite against the REAL project DB (both browser projects, all specs incl. the
+    # authenticated character-view guard). The public smoke + a11y already run unconditionally in
+    # e2e-public above, so this exists for the authenticated sheet.spec.ts (the 2026-06-27 RSC-crash
+    # regression test) — it stays skipped (green, never red) until you set repo var RUN_E2E=true AND
+    # add the secrets below (E2E_EMAIL + E2E_PASSWORD = a confirmed account owning ≥1 character).
     if: ${{ vars.RUN_E2E == 'true' }}
     runs-on: ubuntu-latest
     env:

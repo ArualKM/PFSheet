@@ -25,7 +25,14 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function Block({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 text-sm">
+    // tabIndex + region/label so keyboard users can focus and scroll the overflow (axe
+    // scrollable-region-focusable); focus-visible ring gives the focus a visible indicator.
+    <pre
+      tabIndex={0}
+      role="region"
+      aria-label="Code sample"
+      className="overflow-x-auto rounded-lg border border-border bg-surface-sunken p-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <code className="font-mono text-foreground">{children}</code>
     </pre>
   );
