@@ -448,9 +448,33 @@ review. **Unit tests 314 → 338. No new DB migrations** (still 0018; all change
   a formula-valued BAB so the cell can't print "NaN"). Deferred: skills pagination past ~108 ranked skills
   (unreachable by real sheets) + a distinct "classic" layout.
 - **Spawned follow-ups** (background tasks): DRY the buff/automation effect-row UI · inventory-item
-  automation editor · ABP ability-prowess auto-apply · the campaign invitation-consent flow.
+  automation editor · ABP ability-prowess auto-apply · ~~the campaign invitation-consent flow~~ (DONE,
+  see below).
 - **Owner note:** the new `e2e-public` CI job runs on every push — glance at the first Actions run to
   confirm green (validated locally, but live CI couldn't be checked — `gh` not installed here).
+
+**Campaign invitation / consent flow (2026-06-29).** The V1·4 deferred item — `inviteMemberAction` used
+to force-add an invited player as `status: "active"` with no consent. Now a real pending → accept/decline
+flow, shipped after an adversarial Workflow review (2 confirmed findings, both fixed) + a 16/16 RLS
+branch-test (Supabase dev branch). **Migration `0020` → migrations now run through 0020.**
+- **`inviteMemberAction`** inserts `status: "invited"` (pending). New **`acceptInvitationAction`** (CAS
+  `invited`→`active`) + **`declineInvitationAction`** (deletes own `invited` row, scoped so it can't
+  silently leave an active campaign) in `lib/actions/campaigns.ts`.
+- **Migration `0020`**: `campaign_members.status` CHECK `in ('active','invited')`; **`members_accept_self`**
+  RLS UPDATE policy (USING own+invited, WITH CHECK own+active); **`protect_member_self_update`** BEFORE-UPDATE
+  trigger pinning `role`/`campaign_id`/`user_id` and requiring `invited→active` — the real escalation guard
+  (WITH CHECK can't see OLD, so a pure-RLS policy would let an invitee `SET campaign_id=…` to join an
+  arbitrary campaign). Trigger is **SECURITY INVOKER + no execute revoke** (matches `bump_sheet_version`
+  0016/0017) — the review caught that revoking EXECUTE from `authenticated` would silently break EVERY
+  `campaign_members` UPDATE, the exact 0003→0005 regression.
+- **Access-control invariant (the point):** `is_campaign_member`/`has_campaign_role` already require
+  `status='active'`, so an `invited` row grants ZERO access — the campaign isn't readable, no GM check
+  passes, it's absent from the campaigns list, and the dashboard `notFound()`s. The invitee reads only
+  their own pending row (`members_select`). Verified end-to-end on the branch (invited + non-member both
+  blocked from reading; accept grants access; escalation/campaign-hop/user-reassign all blocked).
+- **UI:** `PendingInvitations` (Accept/Decline) on `/campaigns`; campaign dashboard members list shows a
+  **Pending** badge (GM gets Cancel). Pending-campaign names resolved via the admin client, gated by the
+  viewer holding the invitation row. `decline` rides the existing `members_delete_gm` self-delete grant.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +

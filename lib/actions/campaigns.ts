@@ -206,7 +206,12 @@ export async function restoreRosterCharacterAction(
   return { ok: true };
 }
 
-/** Invite a member by their public handle. RLS requires the actor to be a GM. */
+/**
+ * Invite a member by their public handle. RLS requires the actor to be a GM. The
+ * row is inserted as `status: "invited"` (pending) — it grants NO access until the
+ * invitee accepts (see migration 0020): a pending member can't read the campaign,
+ * passes no GM check, and isn't on the roster. Consent is the invitee's to give.
+ */
 export async function inviteMemberAction(
   campaignId: string,
   handle: string,
@@ -226,12 +231,59 @@ export async function inviteMemberAction(
 
   const { error } = await supabase
     .from("campaign_members")
-    .insert({ campaign_id: campaignId, user_id: profile.id, role: "player", status: "active" });
+    .insert({ campaign_id: campaignId, user_id: profile.id, role: "player", status: "invited" });
   if (error) {
-    if (error.code === "23505") return { error: "That player is already in this campaign." };
+    // A unique (campaign_id, user_id) collision means there's already an active
+    // member OR an outstanding invitation for this player.
+    if (error.code === "23505") return { error: "That player is already invited or in this campaign." };
     return { error: error.message };
   }
   revalidatePath(`/campaigns/${campaignId}`);
+  return { ok: true };
+}
+
+/**
+ * Accept a pending invitation: flip the caller's OWN membership from `invited`
+ * to `active`. A compare-and-swap (`.eq("status","invited")`) makes this a no-op
+ * if the invitation was already accepted or withdrawn. RLS (`members_accept_self`)
+ * + the `protect_member_self_update` trigger guarantee this can ONLY ever be a
+ * clean accept — role/campaign are pinned, so no privilege escalation is possible.
+ */
+export async function acceptInvitationAction(campaignId: string): Promise<MutationState> {
+  const { supabase, user } = await authedClient();
+  const { data, error } = await supabase
+    .from("campaign_members")
+    .update({ status: "active" })
+    .eq("campaign_id", campaignId)
+    .eq("user_id", user.id)
+    .eq("status", "invited")
+    .select("campaign_id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "That invitation is no longer available." };
+  revalidatePath("/campaigns");
+  revalidatePath(`/campaigns/${campaignId}`);
+  return { ok: true };
+}
+
+/**
+ * Decline a pending invitation: delete the caller's OWN `invited` row. Scoped to
+ * `status: "invited"` so it can never silently remove an already-accepted (active)
+ * membership — leaving an active campaign is a separate, deliberate action.
+ */
+export async function declineInvitationAction(campaignId: string): Promise<MutationState> {
+  const { supabase, user } = await authedClient();
+  const { data, error } = await supabase
+    .from("campaign_members")
+    .delete()
+    .eq("campaign_id", campaignId)
+    .eq("user_id", user.id)
+    .eq("status", "invited")
+    .select("campaign_id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "That invitation is no longer available." };
+  revalidatePath("/campaigns");
   return { ok: true };
 }
 

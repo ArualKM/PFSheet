@@ -17,6 +17,8 @@ export type CampaignMember = {
   name: string;
   handle: string | null;
   role: string;
+  /** Pending invitation — the player has been invited but hasn't accepted yet. */
+  pending: boolean;
   isOwner: boolean;
   isSelf: boolean;
 };
@@ -43,7 +45,7 @@ export function CampaignMembers({
   const router = useRouter();
   const [handle, setHandle] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [busy, startTransition] = useTransition();
 
   const invite = () => {
     setError(null);
@@ -93,39 +95,55 @@ export function CampaignMembers({
               {m.handle && <div className="text-xs text-muted-foreground">@{m.handle}</div>}
             </div>
             <div className="flex items-center gap-2">
+              {m.pending && <Badge variant="warning">Pending</Badge>}
               {canManage && !m.isOwner ? (
-                <>
-                  <label className="sr-only" htmlFor={`role-${m.userId}`}>
-                    Role for {m.name}
-                  </label>
-                  <select
-                    id={`role-${m.userId}`}
-                    value={ASSIGNABLE_ROLES.includes(m.role as (typeof ASSIGNABLE_ROLES)[number]) ? m.role : "player"}
-                    disabled={pending}
-                    onChange={(e) => changeRole(m.userId, e.target.value)}
-                    className="h-11 rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60 md:h-10"
-                  >
-                    {ASSIGNABLE_ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </option>
-                    ))}
-                  </select>
+                m.pending ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    disabled={pending}
+                    disabled={busy}
                     onClick={() => remove(m.userId)}
-                    aria-label={`Remove ${m.name}`}
+                    aria-label={`Cancel invitation for ${m.name}`}
                   >
                     <Trash2 className="size-4 text-danger" />
                   </Button>
-                </>
+                ) : (
+                  <>
+                    <label className="sr-only" htmlFor={`role-${m.userId}`}>
+                      Role for {m.name}
+                    </label>
+                    <select
+                      id={`role-${m.userId}`}
+                      value={ASSIGNABLE_ROLES.includes(m.role as (typeof ASSIGNABLE_ROLES)[number]) ? m.role : "player"}
+                      disabled={busy}
+                      onChange={(e) => changeRole(m.userId, e.target.value)}
+                      className="h-11 rounded-lg border border-border bg-background px-2 text-xs text-foreground disabled:opacity-60 md:h-10"
+                    >
+                      {ASSIGNABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={busy}
+                      onClick={() => remove(m.userId)}
+                      aria-label={`Remove ${m.name}`}
+                    >
+                      <Trash2 className="size-4 text-danger" />
+                    </Button>
+                  </>
+                )
               ) : (
-                <Badge variant={m.isOwner ? "gold" : "default"}>
-                  {ROLE_LABELS[m.role] ?? m.role}
-                </Badge>
+                !m.pending && (
+                  <Badge variant={m.isOwner ? "gold" : "default"}>
+                    {ROLE_LABELS[m.role] ?? m.role}
+                  </Badge>
+                )
               )}
             </div>
           </li>
@@ -147,12 +165,13 @@ export function CampaignMembers({
                 }
               }}
             />
-            <Button type="button" size="sm" variant="secondary" onClick={invite} disabled={pending || !handle.trim()}>
+            <Button type="button" size="sm" variant="secondary" onClick={invite} disabled={busy || !handle.trim()}>
               <UserPlus className="size-4" /> Invite
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Players are found by the handle on their profile.
+            Players are found by the handle on their profile. They&rsquo;ll see the invitation under
+            Campaigns and join once they accept.
           </p>
         </div>
       )}

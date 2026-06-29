@@ -4,9 +4,11 @@ import { Users, ArrowRight } from "lucide-react";
 import { Swords } from "@/components/ui/game-icons";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CampaignsHeader } from "@/components/campaign/campaigns-header";
+import { PendingInvitations, type PendingInvitation } from "@/components/campaign/pending-invitations";
 
 export const metadata: Metadata = { title: "Campaigns" };
 
@@ -20,25 +22,60 @@ type CampaignRow = {
 
 const GM_ROLES = new Set(["owner", "gm", "assistant_gm"]);
 
+/**
+ * Resolve display details for the viewer's pending invitations. The viewer can't
+ * read these campaigns through RLS yet (they're not an active member), so the
+ * admin client fetches names + GM display names — gated by the caller having
+ * passed in only campaign ids the viewer actually holds an invitation row for.
+ */
+async function loadInvitations(campaignIds: string[]): Promise<PendingInvitation[]> {
+  if (campaignIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: camps } = await admin
+    .from("campaigns")
+    .select("id, name, description, owner_id")
+    .in("id", campaignIds);
+  if (!camps?.length) return [];
+  const ownerIds = [...new Set(camps.map((c) => c.owner_id))];
+  const { data: owners } = await admin.from("profiles").select("id, display_name").in("id", ownerIds);
+  const ownerName = new Map<string, string>();
+  for (const o of owners ?? []) ownerName.set(o.id, o.display_name ?? "Game Master");
+  return camps.map((c) => ({
+    campaignId: c.id,
+    name: c.name,
+    description: c.description,
+    gmName: ownerName.get(c.owner_id) ?? "Game Master",
+  }));
+}
+
 export default async function CampaignsPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: campaignData }, { data: membershipData }] = await Promise.all([
+  const [{ data: campaignData }, { data: membershipData }, { data: inviteRows }] = await Promise.all([
     supabase
       .from("campaigns")
       .select("id, name, description, updated_at, campaign_characters(count)")
       .order("updated_at", { ascending: false }),
     supabase.from("campaign_members").select("campaign_id, role").eq("user_id", user.id).eq("status", "active"),
+    // Pending invitations: rows the viewer can read via members_select (their own
+    // row), but whose campaigns RLS hides from them until they accept. The campaign
+    // names/owners are resolved with the admin client below — authorized by the fact
+    // that the viewer genuinely holds an invitation row for each one.
+    supabase.from("campaign_members").select("campaign_id").eq("user_id", user.id).eq("status", "invited"),
   ]);
 
   const campaigns = (campaignData ?? []) as CampaignRow[];
   const roleByCampaign = new Map<string, string>();
   for (const m of membershipData ?? []) roleByCampaign.set(m.campaign_id, m.role);
 
+  const invitations = await loadInvitations((inviteRows ?? []).map((r) => r.campaign_id));
+
   return (
     <div className="mx-auto max-w-5xl">
       <CampaignsHeader />
+
+      <PendingInvitations invitations={invitations} />
 
       {campaigns.length === 0 ? (
         <Card className="border-dashed">

@@ -52,7 +52,7 @@ export default async function CampaignDashboardPage({
         .from("campaign_characters")
         .select("character_id, gm_review_status, approved_snapshot_id, archived_at, archive_reason")
         .eq("campaign_id", campaignId),
-      supabase.from("campaign_members").select("user_id, role").eq("campaign_id", campaignId),
+      supabase.from("campaign_members").select("user_id, role, status").eq("campaign_id", campaignId),
       supabase
         .from("character_comments")
         .select("*", { count: "exact", head: true })
@@ -112,12 +112,17 @@ export default async function CampaignDashboardPage({
     name: nameByUser.get(m.user_id)?.display_name ?? "Player",
     handle: nameByUser.get(m.user_id)?.handle ?? null,
     role: m.role,
+    pending: m.status === "invited",
     isOwner: m.role === "owner" || m.user_id === campaign.owner_id,
     isSelf: m.user_id === user.id,
   }));
-  // Keep owner(s) first, then GMs, then everyone else.
+  // Active members first (by role: owner → GM → everyone else), pending invites last.
   const roleOrder: Record<string, number> = { owner: 0, gm: 1, assistant_gm: 2, player: 3, viewer: 4 };
-  members.sort((a, b) => (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9));
+  members.sort(
+    (a, b) =>
+      Number(a.pending) - Number(b.pending) ||
+      (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9),
+  );
 
   const candidates = (myChars ?? []).filter((c) => !rosterIds.includes(c.id));
   const moduleKeys = enabledModuleKeys(campaign.enabled_modules);
