@@ -1967,11 +1967,24 @@ const PRIVACY_EDIT_SECTIONS: Array<{ key: string; label: string }> = [
   { key: "features", label: "Features & traits" },
   { key: "buffs", label: "Active buffs" },
   { key: "spells", label: "Spellcasting" },
-  { key: "spheres", label: "Spheres" },
   { key: "inventory", label: "Inventory" },
   { key: "wealth", label: "Wealth" },
   { key: "backstory", label: "Background & profile" },
-  { key: "formulaDetails", label: "Show math (formulas)" },
+];
+
+// Optional-rules systems are privacy-gated like every core section. Their row appears when the system
+// is enabled (its card can only surface then) OR the owner has already set a non-default level for it
+// (so a setting is never trapped/unreachable after toggling the module off) — otherwise vanilla sheets
+// stay uncluttered. Spheres has three sibling toggles. Keys must match DEFAULT_SECTION_PRIVACY /
+// SECTION_LABELS in view-model.ts.
+const OPTIONAL_PRIVACY_SECTIONS: Array<{ key: string; label: string; moduleKeys: string[] }> = [
+  { key: "spheres", label: "Spheres", moduleKeys: ["spheres_of_power", "spheres_of_might", "spheres_of_guile"] },
+  { key: "heroPoints", label: "Hero Points", moduleKeys: ["hero_points"] },
+  { key: "honor", label: "Honor", moduleKeys: ["honor"] },
+  { key: "stamina", label: "Stamina pool", moduleKeys: ["stamina"] },
+  { key: "mythic", label: "Mythic", moduleKeys: ["mythic"] },
+  { key: "psionics", label: "Psionics", moduleKeys: ["psionics"] },
+  { key: "milestoneLeveling", label: "Milestone Leveling", moduleKeys: ["milestone_leveling"] },
 ];
 
 const PRIVACY_LEVEL_OPTIONS: Array<{ value: PrivacyLevel; label: string }> = [
@@ -2022,12 +2035,20 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
       <div>
         <h3 className="text-sm font-semibold text-foreground">Privacy &amp; sharing</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Who can see each section on shared / public views — you always see everything. Inventory and
-          Wealth default to <strong>Party</strong>, so they&rsquo;re hidden on a public share until you
-          set them to Public here.
+          Who can see each section on shared / public views — you always see everything. Most sections
+          are <strong>Public</strong> by default; set any to Party, GM-only, or Private here. Optional-rules
+          systems appear below once you enable them.
         </p>
         <div className="mt-3 space-y-1.5">
-          {PRIVACY_EDIT_SECTIONS.map((s) => (
+          {[
+            ...PRIVACY_EDIT_SECTIONS,
+            ...OPTIONAL_PRIVACY_SECTIONS.filter(
+              (s) =>
+                s.moduleKeys.some((k) => isModuleKeyEnabled(ed.draft, k)) ||
+                ed.draft.privacy.sections[s.key] !== undefined,
+            ),
+            { key: "formulaDetails", label: "Show math (formulas)" },
+          ].map((s) => (
             <div key={s.key} className="flex items-center justify-between gap-3">
               <span className="text-sm text-foreground">{s.label}</span>
               <select

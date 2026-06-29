@@ -52,6 +52,15 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   buffs: "public",
   spells: "public",
   spheres: "public",
+  // Optional-rules module sections — gated like every core section (§15) so they never leak on a
+  // public share or the API. Default public (matches the owner's "most things public" stance, and
+  // keeps existing shares unchanged); lock any down in the privacy editor.
+  heroPoints: "public",
+  honor: "public",
+  stamina: "public",
+  mythic: "public",
+  psionics: "public",
+  milestoneLeveling: "public",
   formulaDetails: "public",
   backstory: "public",
   // Public by default — a shared sheet is opt-in, so most owners want it all visible. Owners who want
@@ -80,6 +89,12 @@ const SECTION_LABELS: Record<string, string> = {
   buffs: "Active buffs",
   spells: "Spellcasting",
   spheres: "Spheres",
+  heroPoints: "Hero Points",
+  honor: "Honor",
+  stamina: "Stamina pool",
+  mythic: "Mythic",
+  psionics: "Psionics",
+  milestoneLeveling: "Milestone Leveling",
   backstory: "Backstory & profile",
   inventory: "Inventory",
   wealth: "Wealth",
@@ -648,25 +663,25 @@ export function buildCharacterViewModel(
           return { label: `${cd.bonus >= 0 ? "+" : ""}${cd.bonus} ${tgt}`, condition: cd.condition };
         }),
     },
-    heroPoints: computed.summary.heroPoints ?? null,
+    heroPoints: computed.summary.heroPoints ? gate("heroPoints", computed.summary.heroPoints) : null,
     honor: computed.summary.honor
-      ? {
+      ? gate("honor", {
           score: computed.summary.honor.score,
           tier: computed.summary.honor.tier,
           dishonored: computed.summary.honor.dishonored,
-        }
+        })
       : null,
-    stamina: computed.summary.stamina ?? null,
+    stamina: computed.summary.stamina ? gate("stamina", computed.summary.stamina) : null,
     mythic: computed.summary.mythic
-      ? {
+      ? gate("mythic", {
           tier: computed.summary.mythic.tier,
           path: computed.summary.mythic.path,
           surgeDie: computed.summary.mythic.surgeDie,
           power: computed.summary.mythic.power,
-        }
+        })
       : null,
     psionics: computed.summary.psionics
-      ? {
+      ? gate("psionics", {
           powerPoints: computed.summary.psionics.powerPoints,
           manifesterLevel: computed.summary.psionics.manifesterLevel,
           powersKnown: computed.summary.psionics.powersKnown,
@@ -679,7 +694,7 @@ export function buildCharacterViewModel(
             augment: isOwnerView ? p.augment : undefined,
             description: isOwnerView ? p.description : undefined,
           })),
-        }
+        })
       : null,
     spheres: computed.summary.spheres
       ? gate("spheres", {
@@ -753,7 +768,9 @@ export function buildCharacterViewModel(
       perception: computed.skills["perception"]?.value ?? null,
       notes: isOwnerView ? character.senses.notes : undefined,
     },
-    milestoneLeveling: computed.summary.milestoneLeveling ?? null,
+    milestoneLeveling: computed.summary.milestoneLeveling
+      ? gate("milestoneLeveling", computed.summary.milestoneLeveling)
+      : null,
     spellcasting,
     profile,
     inventory: inventoryView,

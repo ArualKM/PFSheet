@@ -119,6 +119,114 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(hidden.hiddenSections).toContain("Spheres");
   });
 
+  // Every optional-rules module that surfaces its own card must respect §15 like core sections —
+  // otherwise enabling Mythic/Psionics/etc. would leak on a public share or the API (both built here).
+  const OPTIONAL_SYSTEMS: Array<{
+    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "milestoneLeveling";
+    label: string;
+    setup: (c: ReturnType<typeof createDefaultCharacter>) => void;
+  }> = [
+    {
+      key: "heroPoints",
+      label: "Hero Points",
+      setup: (c) => {
+        c.rules.modules.push({ key: "hero_points", enabled: true, settings: {} });
+        c.heroPoints = { current: 2, bonusMax: 0, log: [] };
+      },
+    },
+    {
+      key: "honor",
+      label: "Honor",
+      setup: (c) => {
+        c.rules.modules.push({ key: "honor", enabled: true, settings: {} });
+        c.honor = { code: "general", events: [] };
+      },
+    },
+    {
+      key: "stamina",
+      label: "Stamina pool",
+      setup: (c) => {
+        c.rules.modules.push({ key: "stamina", enabled: true, settings: {} });
+        c.stamina = { current: 5, bonusMax: 0 };
+      },
+    },
+    {
+      key: "mythic",
+      label: "Mythic",
+      setup: (c) => {
+        c.rules.variants.mythic = true;
+        c.mythic = { tier: 2, path: "champion", abilityBoosts: [], pathAbilities: [] };
+      },
+    },
+    {
+      key: "psionics",
+      label: "Psionics",
+      setup: (c) => {
+        c.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+        c.abilities.primary.int.score = 18;
+        c.psionics = {
+          classes: [
+            { id: "p1", className: "Psion", manifesterLevel: 10, keyAbility: "int", basePowerPoints: 90, discipline: "telepathy" },
+          ],
+          powersKnown: [{ id: "pw1", name: "Energy Ray", level: 1 }],
+        };
+      },
+    },
+    {
+      key: "milestoneLeveling",
+      label: "Milestone Leveling",
+      setup: (c) => {
+        c.rules.modules.push({ key: "milestone_leveling", enabled: true, settings: {} });
+        c.milestoneLeveling = { current: 0, log: [] };
+      },
+    },
+  ];
+
+  for (const sys of OPTIONAL_SYSTEMS) {
+    it(`gates the ${sys.label} optional system behind §15 privacy`, () => {
+      // Public by default — present for an anonymous viewer (no behavior change for existing shares).
+      expect(build("anonymous", sys.setup)[sys.key]).not.toBeNull();
+      // Marked private — null for anonymous, named on the share, but the owner still sees it.
+      const lock = (c: ReturnType<typeof createDefaultCharacter>) => {
+        sys.setup(c);
+        c.privacy.sections[sys.key] = "private";
+      };
+      const hidden = build("anonymous", lock);
+      expect(hidden[sys.key]).toBeNull();
+      expect(hidden.hiddenSections).toContain(sys.label);
+      expect(build("owner", lock)[sys.key]).not.toBeNull();
+    });
+  }
+
+  // Invariants for the systems deliberately NOT section-gated, so a future change can't silently
+  // flip them: Wounds & Vigor is a dual-pool HP REPLACEMENT (same category as hp — always-public core
+  // vitals), senses is a core trait (only its notes are owner-only), and advancement/XP is owner-only.
+  it("does not section-gate Wounds & Vigor (it is core vitals, like hp)", () => {
+    const vm = build("anonymous", (c) => {
+      c.rules.variants.woundsVigor = true; // HP-replacement pool — stays visible like hp
+    });
+    expect(vm.vitals.woundsVigor).not.toBeNull();
+  });
+
+  it("shows senses to anonymous but keeps senses.notes owner-only", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.senses.vision = ["Darkvision 60 ft"];
+      c.senses.notes = "secret tremorsense quirk";
+    };
+    const anon = build("anonymous", mutate);
+    expect(anon.senses.vision).toContain("Darkvision 60 ft");
+    expect(anon.senses.notes).toBeUndefined();
+    expect(build("owner", mutate).senses.notes).toBe("secret tremorsense quirk");
+  });
+
+  it("keeps advancement (XP) owner-only", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.progression.currentXp = 1000;
+    };
+    expect(build("anonymous", mutate).advancement).toBeNull();
+    expect(build("owner", mutate).advancement).not.toBeNull();
+  });
+
   it("respects formulaDetails privacy for the show-math affordance", () => {
     const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
       c.privacy.sections.formulaDetails = "owner_only";
