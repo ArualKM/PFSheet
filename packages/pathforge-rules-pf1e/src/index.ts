@@ -66,3 +66,7 @@ export {
   pointBuyRemaining,
   composeAbilityScore,
 } from "./point-buy";
+
+// Compendium prerequisite evaluation (feats / prestige)
+export { evaluatePrerequisite, evaluatePrerequisites, prereqSummary } from "./prerequisites";
+export type { CompendiumPrereq, PrereqContext, PrereqStatus, PrereqCheck } from "./prerequisites";
