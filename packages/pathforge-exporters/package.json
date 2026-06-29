@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pathforge/schema": "workspace:*"
+    "@pathforge/schema": "workspace:*",
+    "@pathforge/rules-pf1e": "workspace:*",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

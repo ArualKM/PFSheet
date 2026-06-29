@@ -156,9 +156,15 @@ importers:
 
   packages/pathforge-exporters:
     dependencies:
+      '@pathforge/rules-pf1e':
+        specifier: workspace:*
+        version: link:../pathforge-rules-pf1e
       '@pathforge/schema':
         specifier: workspace:*
         version: link:../pathforge-schema
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
     devDependencies:
       typescript:
         specifier: ^5.7.2

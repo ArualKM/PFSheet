@@ -406,6 +406,52 @@ Zod-only).**
   left-aligned labels, short "Spells"/"Spheres" for the compendiums, aria-label dropped so the name matches
   the visible text — WCAG 2.5.3).
 
+**V1 roadmap blitz — V1·2 → V1·6 (2026-06-29).** Eight commits, each gate-green (lint + typecheck +
+unit + prod build) and pushed to `main`; the substantive ones shipped after an adversarial Workflow
+review. **Unit tests 314 → 338. No new DB migrations** (still 0018; all changes additive/Zod-only).
+- **V1·2·a** (`87b36e8`) — PWA raster icons: rasterized the brand mark → `icon-192/512.png` + full-bleed
+  maskable variants + `apple-touch-icon.png` (180); manifest + root `metadata.icons` wired. Sources
+  `icon-maskable.svg` / `icon-fullbleed.svg` kept for regen. Browser-verified.
+- **V1·2·b** (`d93f68c`) — CSP **enforced** in production (env-gated: Report-Only in dev so HMR's eval
+  isn't blocked). A grounded audit proved the directive string is already complete; **the Discord
+  `frame-ancestors` carve-out was REJECTED** (Discord unfurls via OG-meta scraping, never iframes — the
+  roadmap item was cargo-cult). Runtime-swept all public routes clean under enforcement.
+- **V1·3·1** (`4b93d0e`) — **feat/feature/trait automation editor**: reusable `<AutomationEffectsEditor>`
+  (target · add/subtract · value-or-ƒx · bonusType) wired into all three cards (was hardcoded
+  `automation:[]`). Closed an engine gap: **HP is now a `classifyTarget` domain** (`summary.hp.max` +
+  W&V vigor), so Toughness computes. Also widened the ability-target regex (custom keys >3 chars were
+  dropped). [[pathforge-automation-editor]]
+- **V1·3·2** (`754d25f`) — conditions engine 12 → 17: added blinded/deafened/pinned/squeezing/invisible
+  (clean numerics); documented why nauseated/paralyzed/helpless stay display-only.
+- **V1·3·3** (`f22ff81`) — **Mythic depth**: `mythic.abilityBoosts` now apply (+2 each, untyped/stacking)
+  → ability scores; **Hard to Kill** (tier 1+) doubles the death threshold in `hpStatus`; `summary.mythic`
+  + VM + dashboard gained boost/path-ability counts + a Hard-to-Kill chip. The `MythicEditor` got a real
+  ability-boost editor + path-ability list (was a "later pass" stub).
+- **V1·3·4** (`3c6f133`) — **Automatic Bonus Progression**: the deterministic big-six (resistance→saves,
+  armor/weapon attunement→AC/attack, deflection, toughening) keyed off `identity.totalLevel`, each a
+  distinct bonus type so they stack; **`abp` added to `IMPLEMENTED_MODULE_KEYS`** (un-gated). Prowess
+  (player-chosen ability +2s) deferred → spawned task.
+- **V1·4** (`ce58280`) — campaign GM writes: `updateCampaignModulesAction` (multi-select chip editor →
+  `enabled_modules`, unlocks §17.2 adopt) + `updateCampaignDetailsAction` (name/desc). Gated to owner/gm
+  (matches `campaigns_update_gm` RLS, excludes assistant_gm), `.select()` 0-row guard. **Invitation
+  consent flow (the 3rd item, needs an RLS migration) deferred → spawned task.**
+- **V1·5** (`fcfbcbb`) — **public E2E smoke + a11y now run on EVERY push**: new always-on `e2e-public` CI
+  job boots the app with **placeholder Supabase env** (env.ts presence-only, sitemap try/caught, proxy
+  `getUser()` null-on-failure) — no secrets/DB. Validated end-to-end locally. `accessibility.spec.ts`
+  (@axe-core, was unused) caught + fixed a real serious a11y bug (non-focusable scrollable `<pre>` on
+  `/developers`). The gated `e2e` job remains for authed `sheet.spec.ts`. Deferred: RLS integration tests.
+- **V1·6** — **printable PDF** (§13.3): `packages/pathforge-exporters/printable-pdf.ts` draws a clean
+  one-page (auto-flowing) reference sheet with **pdf-lib** (server-side, no headless browser); recomputes
+  via the rules engine. Gated to owner/editor (full export); binary returned as base64, decoded
+  client-side. `printable_pdf_modern`/`classic` both registered + offered in the export panel. Visually
+  verified via a render-to-PNG loop; shipped after an adversarial review (1 must-fix applied: finite-guard
+  a formula-valued BAB so the cell can't print "NaN"). Deferred: skills pagination past ~108 ranked skills
+  (unreachable by real sheets) + a distinct "classic" layout.
+- **Spawned follow-ups** (background tasks): DRY the buff/automation effect-row UI · inventory-item
+  automation editor · ABP ability-prowess auto-apply · the campaign invitation-consent flow.
+- **Owner note:** the new `e2e-public` CI job runs on every push — glance at the first Actions run to
+  confirm green (validated locally, but live CI couldn't be checked — `gh` not installed here).
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

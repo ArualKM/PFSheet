@@ -45,6 +45,7 @@ describe("exporters", () => {
 
   it("returns null for an unimplemented (planned) export type", async () => {
     const c = createDefaultCharacter({ name: "X" });
-    expect(await runExport("printable_pdf_modern", { character: c })).toBeNull();
+    // printable_pdf_* are now implemented; discord_embed_json is still planned.
+    expect(await runExport("discord_embed_json", { character: c })).toBeNull();
   });
 });

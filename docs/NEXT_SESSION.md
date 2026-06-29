@@ -11,9 +11,9 @@ plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
 - **Milestones M0–M11 complete.** Secondary: **S1, S2, S3, S5a** done; **S5b** web side done (Phases
   0–2); the **full sheet audit** done. **S4:** ~11 optional systems shipped; **Spheres of Power / Might /
   Guile are all LIVE** (the rest of S4 — Path of War, Akashic — is post-1.0, gated on sourcing datasets).
-- **Health:** lint + **314 unit tests** + typecheck + production build all green. Migrations at **0018**.
-- **Plan to 1.0:** V1·1 ✅ done. **V1·2 is ~80% done** (see below). Next chunks: finish V1·2 → V1·3 sheet
-  depth → V1·4 campaign writes → V1·5 QA gate → V1·6 printable PDF.
+- **Health:** lint + **338 unit tests** + typecheck + production build all green. Migrations at **0018**.
+- **Plan to 1.0:** **V1·1–V1·6 essentially DONE** (the 2026-06-29 blitz — 8 commits, see CLAUDE.md). The
+  web app + PWA is v1-complete. Remaining = the spawned follow-up tasks (below) + the post-1.0 S4 3pp flagship.
 
 ## What shipped THIS session (chip redesign + privacy + sidebar)
 
@@ -30,7 +30,29 @@ plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
    Fixed peeking label text via **container queries**; **4-state** rail (auto / open / closed-with-tooltips /
    hidden-with-reopen); same on the editor section rail; **mobile drawer** now shows labels (`compact` mode).
 
-## Immediate next steps — finish V1·2, then V1·3 (GROUNDED — `v1-remaining-audit` workflow, 2026-06-28)
+## ✅ V1·2 → V1·6 SHIPPED (2026-06-29 blitz) — what's next
+
+All of V1·2–V1·6 landed in 8 gate-green commits — full per-item detail in **CLAUDE.md** ("V1 roadmap
+blitz"). The web app + PWA is v1-complete. **Next session = the spawned background-task follow-ups:**
+
+1. **Campaign invitation-consent flow** (the deferred V1·4 item) — `inviteMemberAction` force-adds members
+   as `active`; add invited→accept/decline. Needs an RLS migration (self-accept/decline) + a cross-app
+   audit that "invited" members get NO access until accepting (check `is_campaign_member`/`has_campaign_role`).
+   The meatiest; branch-test the RLS.
+2. **ABP ability-prowess** — add the player-chosen Mental/Physical Prowess +2s (a `character.abp` field +
+   an editor + the level table) on top of the shipped deterministic ABP bonuses in `compute.ts`.
+3. **Inventory-item automation editor** — reuse `<AutomationEffectsEditor>` on `item.automation` in
+   `inventory-editor.tsx` (the engine already consumes equipped-item automation).
+4. **DRY the effect-row UI** — share one target-options constant + an `<EffectRow>` between
+   `buff-center.tsx` and `automation-effects-editor.tsx`.
+5. **Post-1.0:** the S4 3pp flagship (Spheres compendium `<OptionPicker>` → Path of War → Akashic) + RLS
+   integration tests + printable-PDF "classic" variant / multi-page polish.
+
+The detailed pre-blitz plan below is kept as the record of what shipped.
+
+---
+
+## (Historical) The V1·2→V1·6 plan as scoped before the blitz (GROUNDED — `v1-remaining-audit`, 2026-06-28)
 
 The audit found several V1·2 items already done (robots/sitemap, privacy+terms+footer, friendly auth
 errors, the icon overhaul). **V1·2 remaining is just two items + an optional one:**

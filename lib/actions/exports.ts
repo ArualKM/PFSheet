@@ -18,6 +18,7 @@ import type { Database } from "@/lib/supabase/types";
 type Json = Database["public"]["Tables"]["export_jobs"]["Insert"]["metadata"];
 
 const FULL_EXPORTS = new Set<ExportType>(["pathforge_json", "foundry_pf1_actor_json"]);
+const PDF_EXPORTS = new Set<ExportType>(["printable_pdf_modern", "printable_pdf_classic"]);
 
 async function authedClient() {
   const supabase = await createClient();
@@ -37,6 +38,8 @@ export type ExportResultState = {
   filename?: string;
   contentType?: string;
   text?: string;
+  /** base64-encoded binary payload (e.g. PDF); the client decodes it for download. */
+  base64?: string;
 };
 
 export async function exportCharacterAction(
@@ -59,7 +62,8 @@ export async function exportCharacterAction(
   const computed = computeCharacter(sheet);
   const exportedAt = new Date().toISOString();
 
-  let out: { filename: string; contentType: string; text: string };
+  const shareUrl = char.public_slug ? `${env.appUrl.replace(/\/$/, "")}/c/${char.public_slug}` : undefined;
+  let out: ExportResultState;
 
   if (exportType === "pathforge_public_json") {
     // Privacy-filtered public export — safe for any viewer that can see the sheet.
@@ -69,8 +73,8 @@ export async function exportCharacterAction(
       contentType: "application/json",
       text: JSON.stringify({ format: "pathforge-public", exportedAt, character: vm }, null, 2),
     };
-  } else if (FULL_EXPORTS.has(exportType as ExportType)) {
-    // Full exports include private sections → require edit rights.
+  } else if (FULL_EXPORTS.has(exportType as ExportType) || PDF_EXPORTS.has(exportType as ExportType)) {
+    // Full exports (canonical / Foundry / printable PDF) render every section → require edit rights.
     let canEdit = char.owner_id === user.id;
     if (!canEdit) {
       const { data: collab } = await supabase
@@ -83,7 +87,6 @@ export async function exportCharacterAction(
     }
     if (!canEdit) return { error: "Only the character's owner or an editor can export the full sheet." };
 
-    const shareUrl = char.public_slug ? `${env.appUrl.replace(/\/$/, "")}/c/${char.public_slug}` : undefined;
     const ex = await runExport(exportType as ExportType, {
       character: sheet,
       computedSummary: computed.summary as unknown as Record<string, unknown>,
@@ -91,8 +94,19 @@ export async function exportCharacterAction(
       characterId: char.id,
       shareUrl,
     });
-    if (!ex || ex.text === undefined) return { error: "That export format isn't available yet." };
-    out = { filename: ex.filename, contentType: ex.contentType, text: ex.text };
+    if (!ex) return { error: "That export format isn't available yet." };
+    if (ex.bytes) {
+      // Binary (PDF): base64-encode for transport; the client decodes + downloads.
+      out = {
+        filename: ex.filename,
+        contentType: ex.contentType,
+        base64: Buffer.from(ex.bytes).toString("base64"),
+      };
+    } else if (ex.text !== undefined) {
+      out = { filename: ex.filename, contentType: ex.contentType, text: ex.text };
+    } else {
+      return { error: "That export format isn't available yet." };
+    }
   } else {
     return { error: "That export format isn't available yet." };
   }

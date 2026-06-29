@@ -21,6 +21,11 @@ const FORMATS = [
     label: "Public JSON",
     desc: "Privacy-filtered to what your share settings allow — safe to hand out.",
   },
+  {
+    type: "printable_pdf_modern",
+    label: "Printable PDF",
+    desc: "A clean one-page character reference sheet for the table — prints well in black & white.",
+  },
 ] as const;
 
 export function ExportPanel({ characterId }: { characterId: string }) {
@@ -34,11 +39,20 @@ export function ExportPanel({ characterId }: { characterId: string }) {
     startTransition(async () => {
       const res = await exportCharacterAction(characterId, type);
       setBusy(null);
-      if (res.error || !res.text) {
+      if (res.error || (!res.text && !res.base64)) {
         setError(res.error ?? "Export failed.");
         return;
       }
-      const blob = new Blob([res.text], { type: res.contentType ?? "application/json" });
+      // Binary (PDF) comes back base64-encoded; text exports come back as a string.
+      let blob: Blob;
+      if (res.base64) {
+        const bin = atob(res.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: res.contentType ?? "application/pdf" });
+      } else {
+        blob = new Blob([res.text!], { type: res.contentType ?? "application/json" });
+      }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -68,8 +82,7 @@ export function ExportPanel({ characterId }: { characterId: string }) {
       ))}
       {error && <p className="text-sm text-danger">{error}</p>}
       <p className="text-xs text-muted-foreground">
-        Printable PDF exports (modern &amp; classic) are planned. Foundry exports are best-effort —
-        review the character after importing.
+        Foundry exports are best-effort — review the character after importing.
       </p>
     </div>
   );

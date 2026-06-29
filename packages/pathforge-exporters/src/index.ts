@@ -9,6 +9,7 @@
 import type { PathForgeCharacterV1 } from "@pathforge/schema";
 import { pathforgeJsonExporter } from "./pathforge-json";
 import { foundryPf1ActorJsonExporter } from "./foundry-pf1-actor-json";
+import { printablePdfModernExporter, printablePdfClassicExporter } from "./printable-pdf";
 
 export type ExportType =
   | "pathforge_json"
@@ -51,9 +52,15 @@ export type ExportAdapter = {
 
 export { pathforgeJsonExporter } from "./pathforge-json";
 export { foundryPf1ActorJsonExporter } from "./foundry-pf1-actor-json";
+export { printablePdfModernExporter, printablePdfClassicExporter } from "./printable-pdf";
 
-/** Registry of available exporters (Milestone 9). Printable PDFs are planned (§13.3). */
-export const exportAdapters: ExportAdapter[] = [pathforgeJsonExporter, foundryPf1ActorJsonExporter];
+/** Registry of available exporters. */
+export const exportAdapters: ExportAdapter[] = [
+  pathforgeJsonExporter,
+  foundryPf1ActorJsonExporter,
+  printablePdfModernExporter,
+  printablePdfClassicExporter,
+];
 
 /** Run a specific exporter by type. Returns null if the type isn't implemented. */
 export async function runExport(type: ExportType, ctx: ExportContext): Promise<ExportResult | null> {
