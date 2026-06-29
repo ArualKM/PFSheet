@@ -17,6 +17,8 @@ import { CampaignMembers, type CampaignMember } from "@/components/campaign/camp
 import { RemoveFromRoster } from "@/components/campaign/remove-from-roster";
 import { ArchiveButton, RestoreButton } from "@/components/campaign/archive-controls";
 import { DeleteCampaign } from "@/components/campaign/delete-campaign";
+import { EditCampaign } from "@/components/campaign/edit-campaign";
+import { CampaignModulesEditor } from "@/components/campaign/campaign-modules-editor";
 
 export const metadata: Metadata = { title: "Campaign" };
 
@@ -61,6 +63,8 @@ export default async function CampaignDashboardPage({
 
   const myRole = membership?.role ?? (campaign.owner_id === user.id ? "owner" : undefined);
   const isGm = myRole ? GM_ROLES.has(myRole) : false;
+  // Editing the campaign (name/desc/modules) is RLS-limited to owner + gm (not assistant_gm).
+  const canEditCampaign = myRole === "owner" || myRole === "gm";
 
   const roster = rosterRows ?? [];
   const rosterIds = roster.map((r) => r.character_id);
@@ -145,6 +149,16 @@ export default async function CampaignDashboardPage({
           ) : null
         }
       />
+
+      {canEditCampaign && (
+        <div className="mb-4">
+          <EditCampaign
+            campaignId={campaignId}
+            name={campaign.name}
+            description={campaign.description ?? ""}
+          />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         {/* Roster */}
@@ -311,7 +325,9 @@ export default async function CampaignDashboardPage({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {moduleKeys.length === 0 ? (
+              {canEditCampaign ? (
+                <CampaignModulesEditor campaignId={campaignId} enabledKeys={moduleKeys} />
+              ) : moduleKeys.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Core rules only. Optional rules &amp; 3pp modules adopted by this campaign will
                   appear here.

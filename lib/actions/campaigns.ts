@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { OPTIONAL_RULE_MODULES } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -43,7 +44,8 @@ export async function createCampaignAction(
   const { supabase, user } = await authedClient();
   const name = ((formData.get("name") as string | null) ?? "").trim();
   if (!name) return { error: "Give your campaign a name." };
-  const description = ((formData.get("description") as string | null) ?? "").trim() || null;
+  if (name.length > 120) return { error: "Name is too long (120 character max)." };
+  const description = ((formData.get("description") as string | null) ?? "").trim().slice(0, 2000) || null;
 
   // Backstop: ensure the owner has a profile row (the FK target).
   await supabase
@@ -69,6 +71,56 @@ export async function createCampaignAction(
   }
 
   redirect(`/campaigns/${data.id}`);
+}
+
+/**
+ * Edit a campaign's name/description. RLS (`campaigns_update_gm`) limits this to the owner or a
+ * GM-role member; the `.select()` confirms a row actually changed so an RLS-filtered 0-row write
+ * can't report false success.
+ */
+export async function updateCampaignDetailsAction(
+  campaignId: string,
+  name: string,
+  description: string,
+): Promise<MutationState> {
+  const { supabase } = await authedClient();
+  const clean = name.trim();
+  if (!clean) return { error: "Give your campaign a name." };
+  if (clean.length > 120) return { error: "Name is too long (120 character max)." };
+  const { data, error } = await supabase
+    .from("campaigns")
+    .update({ name: clean, description: description.trim().slice(0, 2000) || null })
+    .eq("id", campaignId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "You don't have permission to edit this campaign." };
+  revalidatePath(`/campaigns/${campaignId}`);
+  return { ok: true };
+}
+
+/**
+ * Set a campaign's enabled optional-rule modules (§17.2). Keys are validated against the catalog
+ * (junk dropped) and de-duped before persisting as the `enabled_modules` jsonb array. Same RLS +
+ * 0-row guard as the details edit.
+ */
+export async function updateCampaignModulesAction(
+  campaignId: string,
+  moduleKeys: string[],
+): Promise<MutationState> {
+  const { supabase } = await authedClient();
+  const valid = new Set(OPTIONAL_RULE_MODULES.map((m) => m.key));
+  const clean = [...new Set(moduleKeys)].filter((k) => valid.has(k));
+  const { data, error } = await supabase
+    .from("campaigns")
+    .update({ enabled_modules: clean })
+    .eq("id", campaignId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "You don't have permission to edit this campaign." };
+  revalidatePath(`/campaigns/${campaignId}`);
+  return { ok: true };
 }
 
 export async function deleteCampaignAction(campaignId: string): Promise<{ error?: string }> {
