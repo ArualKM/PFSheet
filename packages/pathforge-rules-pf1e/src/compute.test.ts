@@ -113,3 +113,51 @@ describe("computeCharacter — Haste-style buff", () => {
     expect(computed.attackBonuses.melee.value).toBe(1);
   });
 });
+
+describe("computeCharacter — equipped-item automation", () => {
+  // A synthetic multi-effect item: two automation effects on distinct engine domains (AC + a save)
+  // so we prove automation reaches MORE than the AC path — a regression where only AC consumed
+  // item automation would still pass an AC-only assertion.
+  const charmOfBonuses = (equipped: boolean) => {
+    const c = createDefaultCharacter();
+    c.inventory.potionsScrollsMagicItems.push({
+      id: "charm_bonuses",
+      name: "Charm of Bonuses (test)",
+      category: "magic_item",
+      quantity: 1,
+      equipped,
+      automation: [
+        {
+          id: "charm_ac",
+          target: "defenses.armorClass",
+          operation: "add",
+          value: 2,
+          bonusType: "deflection",
+        },
+        {
+          id: "charm_will",
+          target: "saves.will",
+          operation: "add",
+          value: 2,
+          bonusType: "resistance",
+        },
+      ],
+      modifiers: [],
+      identified: true,
+    });
+    return c;
+  };
+
+  it("applies an equipped item's automation to the computed values", () => {
+    const computed = computeCharacter(charmOfBonuses(true));
+    expect(computed.armorClass.total.value).toBe(12); // 10 + deflection 2
+    expect(computed.armorClass.touch.value).toBe(12); // deflection applies to touch
+    expect(computed.saves.will.value).toBe(2); // automation also flows to a non-AC domain
+  });
+
+  it("ignores an unequipped item's automation", () => {
+    const computed = computeCharacter(charmOfBonuses(false));
+    expect(computed.armorClass.total.value).toBe(10); // unequipped → no AC bonus
+    expect(computed.saves.will.value).toBe(0); // unequipped → no save bonus
+  });
+});

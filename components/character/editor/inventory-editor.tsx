@@ -6,6 +6,7 @@ import type { EquipmentItem } from "@pathforge/schema";
 import { BONUS_TYPES } from "@pathforge/schema";
 import { NumberField, SelectField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
+import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { Button } from "@/components/ui/button";
 
 /** Common single-stat targets a magic-item bonus can hit (each routes in the rules engine). */
@@ -151,6 +152,9 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
   ) => setModifiers(item, item.modifiers.map((m, idx) => (idx === mi ? { ...m, ...patch } : m)));
   const removeModifier = (item: EquipmentItem, mi: number) =>
     setModifiers(item, item.modifiers.filter((_, idx) => idx !== mi));
+
+  const setAutomation = (item: EquipmentItem, automation: EquipmentItem["automation"]) =>
+    updateItem(item.id, { automation });
 
   const removeItem = (id: string) =>
     ed.update((c) => {
@@ -383,7 +387,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
               <div className="mt-3 rounded-md border border-border/60 p-2">
                 <div className="mb-1.5 flex items-center justify-between">
                   <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Bonuses (apply when equipped)
+                    Simple bonuses (apply when equipped)
                   </span>
                   <Button size="sm" variant="ghost" onClick={() => addModifier(item)}>
                     <Plus className="size-3.5" /> Add
@@ -449,6 +453,24 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div className="mt-3 rounded-md border border-border/60 p-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Advanced effects — for broad or scaling bonuses the simple bonuses above can&apos;t
+                  express. Apply only while this item is equipped. Targets all saves, all skills, Max
+                  HP, CMB/CMD, and ƒx formulas that scale off level/BAB.
+                  {item.category === "weapon" && " A weapon's own to-hit goes in its Enhancement field above."}
+                </p>
+                <AutomationEffectsEditor
+                  effects={item.automation}
+                  idPrefix="itemfx"
+                  defaultTarget="defenses.armorClass"
+                  hiddenTargets={
+                    item.category === "weapon" ? ["attack", "attack.melee", "attack.ranged"] : undefined
+                  }
+                  onChange={(next) => setAutomation(item, next)}
+                />
               </div>
             </div>
           ))}

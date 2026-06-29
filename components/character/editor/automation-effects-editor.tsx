@@ -51,10 +51,25 @@ export function AutomationEffectsEditor({
   effects,
   onChange,
   idPrefix = "fx",
+  hiddenTargets = [],
+  defaultTarget = "attack",
 }: {
   effects: AutomationEffect[];
   onChange: (next: AutomationEffect[]) => void;
   idPrefix?: string;
+  /**
+   * Targets to omit from the dropdown for this call site (e.g. `attack*` on a weapon item, which
+   * would double-count the weapon's own Enhancement field). A target already saved on an effect
+   * stays selectable so editing never silently rewrites it — and the Custom field still accepts
+   * the hidden target, so this is a guard-rail, not a hard block (mirrors the inventory
+   * `targetOptions()` carve-out).
+   */
+  hiddenTargets?: string[];
+  /**
+   * Target a freshly-added effect starts on. Defaults to `attack` (feats/features/traits). Item
+   * call sites pass a defensive default so a new effect never starts on a `hiddenTargets` value.
+   */
+  defaultTarget?: string;
 }) {
   const update = (i: number, patch: Partial<AutomationEffect>) =>
     onChange(effects.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
@@ -62,7 +77,7 @@ export function AutomationEffectsEditor({
   const add = () =>
     onChange([
       ...effects,
-      { id: newEffectId(idPrefix), target: "attack", operation: "add", value: 1, bonusType: "untyped" },
+      { id: newEffectId(idPrefix), target: defaultTarget, operation: "add", value: 1, bonusType: "untyped" },
     ]);
 
   return (
@@ -85,6 +100,11 @@ export function AutomationEffectsEditor({
       {effects.map((e, i) => {
         const isFormula = typeof e.value === "string";
         const known = AUTOMATION_TARGET_OPTIONS.some((o) => o.target === e.target);
+        // Omit disallowed targets for this call site, but keep this effect's own saved target
+        // selectable so editing never silently rewrites it.
+        const rowOptions = AUTOMATION_TARGET_OPTIONS.filter(
+          (o) => !hiddenTargets.includes(o.target) || o.target === e.target,
+        );
         return (
           <div key={e.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
             <div className="space-y-1">
@@ -95,7 +115,7 @@ export function AutomationEffectsEditor({
                 onChange={(ev) => update(i, { target: ev.target.value === CUSTOM_TARGET ? "" : ev.target.value })}
                 className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
               >
-                {AUTOMATION_TARGET_OPTIONS.map((o) => (
+                {rowOptions.map((o) => (
                   <option key={o.target} value={o.target}>
                     {o.label}
                   </option>
