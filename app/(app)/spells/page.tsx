@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Search, Sparkles } from "lucide-react";
+import { Search } from "lucide-react";
+import { Sparkles } from "@/components/ui/game-icons";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/app-shell/app-shell";

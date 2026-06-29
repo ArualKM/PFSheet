@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Trash2, Swords, Gauge } from "lucide-react";
+import { Plus, Trash2, Gauge } from "lucide-react";
+import { Swords } from "@/components/ui/game-icons";
 import { DEFAULT_FORMULAS, type AttackEntry } from "@pathforge/schema";
 import { SelectField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";

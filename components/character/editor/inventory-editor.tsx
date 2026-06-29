@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, Trash2, Coins, Backpack } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { Coins, Backpack } from "@/components/ui/game-icons";
 import type { EquipmentItem } from "@pathforge/schema";
 import { BONUS_TYPES } from "@pathforge/schema";
 import { NumberField, SelectField, TextField } from "./fields";

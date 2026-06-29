@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Swords, Users, ArrowRight } from "lucide-react";
+import { Users, ArrowRight } from "lucide-react";
+import { Swords } from "@/components/ui/game-icons";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";

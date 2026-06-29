@@ -9,10 +9,10 @@ import {
   TriangleAlert,
   ChevronRight,
   Timer,
-  Swords,
   Moon,
   PowerOff,
 } from "lucide-react";
+import { Swords } from "@/components/ui/game-icons";
 import {
   BUFF_LIBRARY,
   BONUS_TYPES,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, ScrollText, Swords, Sparkles, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
+import { ScrollText, Swords, Sparkles } from "@/components/ui/game-icons";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/app-shell/app-shell";

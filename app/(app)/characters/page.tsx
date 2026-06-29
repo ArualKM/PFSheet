@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, ScrollText, Upload } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
+import { ScrollText } from "@/components/ui/game-icons";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/app-shell/app-shell";

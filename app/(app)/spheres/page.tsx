@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Search, Orbit } from "lucide-react";
+import { Search } from "lucide-react";
+import { ConcentrationOrb } from "@/components/ui/game-icons";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { PageHeader } from "@/components/app-shell/app-shell";
@@ -161,7 +162,7 @@ export default async function SpheresPage({
       ) : talents.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-            <Orbit className="size-6 text-gold" />
+            <ConcentrationOrb className="size-6 text-gold" />
             <p className="text-sm text-muted-foreground">
               No talents match your search. Try a different term or clear the filters.
             </p>

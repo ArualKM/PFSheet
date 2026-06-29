@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ShieldCheck, Users, BookOpen, ScrollText, ClipboardList, Archive } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Users, BookOpen, ClipboardList, Archive } from "lucide-react";
+import { ScrollText } from "@/components/ui/game-icons";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";

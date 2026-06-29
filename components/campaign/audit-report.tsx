@@ -1,4 +1,5 @@
-import { AlertTriangle, Info, FlaskConical, Puzzle, Sparkles, Sigma, Flag, EyeOff } from "lucide-react";
+import { AlertTriangle, Info, FlaskConical, Puzzle, Sigma } from "lucide-react";
+import { Sparkles, Flag, EyeOff } from "@/components/ui/game-icons";
 import type { CharacterAudit } from "@/lib/character/audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

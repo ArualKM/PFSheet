@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Sparkles, BookOpen, Wand2, Search } from "lucide-react";
+import { Plus, Trash2, BookOpen, Search } from "lucide-react";
+import { Sparkles, Wand2 } from "@/components/ui/game-icons";
 import type { SpellcasterEntry } from "@pathforge/schema";
 import { METAMAGIC_CATALOG } from "@pathforge/schema";
 import type { ComputedSpellSlots } from "@pathforge/rules-pf1e";

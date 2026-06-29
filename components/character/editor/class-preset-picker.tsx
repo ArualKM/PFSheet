@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Sparkles } from "@/components/ui/game-icons";
 import {
   CLASS_CATALOG,
   applyClassPreset,
