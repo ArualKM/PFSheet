@@ -1,0 +1,12 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PathForge">
+  <!-- Full-bleed background: maskable icons are clipped to the platform shape (circle/squircle),
+       so no rounded corners or inset border here. Logo padded into the central safe zone. -->
+  <rect width="512" height="512" fill="#0E151D"/>
+  <g transform="translate(256 256) scale(0.85) translate(-256 -256)">
+    <path d="M256 96 L392 168 V312 L256 416 L120 312 V168 Z" fill="none" stroke="#F0B35A" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M256 168 V416" stroke="#67D5FF" stroke-width="16" stroke-linecap="round"/>
+    <path d="M256 168 L344 216" stroke="#F0B35A" stroke-width="16" stroke-linecap="round"/>
+    <path d="M256 256 L168 304" stroke="#F0B35A" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="256" cy="168" r="22" fill="#F0B35A"/>
+  </g>
+</svg>

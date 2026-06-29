@@ -28,6 +28,15 @@ export const metadata: Metadata = {
   applicationName: "PathForge",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "PathForge", statusBarStyle: "black-translucent" },
+  icons: {
+    icon: [
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    // iOS home-screen icon — needs a real PNG (it ignores SVG); full-bleed since iOS masks corners.
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   openGraph: {
     title: "PathForge",
     description: "The modern Pathfinder 1e character command center.",
