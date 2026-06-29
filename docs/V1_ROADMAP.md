@@ -4,6 +4,14 @@ _Created 2026-06-28 from a grounded 7-domain readiness assessment (`v1-readiness
 cross-checked against the codebase. This is the authoritative "what's left for 1.0" plan; the running
 status log is [`../CLAUDE.md`](../CLAUDE.md) and the quick resume is [`NEXT_SESSION.md`](NEXT_SESSION.md)._
 
+> **Updated 2026-06-28** (re-grounded via the `v1-remaining-audit` workflow): **V1·1 ✅ DONE.** **V1·2 is
+> ~80% done** — robots/sitemap, privacy+terms+footer, friendly auth errors, and the icon overhaul all
+> shipped; only **PWA raster icons** + **promote CSP to enforcing / Discord embed carve-out** remain (+
+> optional loading skeletons). V1·1/V1·2 per-item status is marked inline below (✅ done · ◑ partial ·
+> ☐ todo); the audit re-confirmed **V1·3–V1·6 exactly as written** (automation editor, conditions, mythic,
+> ABP, campaign writes, QA gate, PDF are all still ◑/☐ — none started). 314 unit tests; migrations at 0018.
+> Hyper-detailed next steps live in [`NEXT_SESSION.md`](NEXT_SESSION.md).
+
 ## What "v1" means here
 
 A **polished, correct, complete WEB app + PWA**. Decisions baked into this plan:
@@ -29,9 +37,11 @@ SEO, a11y, PWA icons). Nothing outstanding is a data-loss or auth-bypass blocker
 Ordered for **best ROI + dependency flow**: cheap launch-blockers first, then the trust/polish layer,
 then PF1e depth, then the QA gate, then the one big player-facing export.
 
-### V1·1 — Launch-blocking essentials  _(MUST · ~1 short pass)_
+### V1·1 — Launch-blocking essentials  _(✅ DONE — commits through `8a5403a` + migration `0017`)_
 
-Small, high-impact, mostly S/M. None of these can ship a credible 1.0 without.
+Small, high-impact, mostly S/M. None of these can ship a credible 1.0 without. **All shipped:**
+password-reset · styled `not-found` · `global-error` + error boundaries · "coming soon" toggle gating ·
+API-key pepper (⚠ the 1 prod key must be regenerated at `/settings/api`) · `bump_sheet_version` search_path.
 
 | Item | Effort | Why |
 |---|---|---|
@@ -42,16 +52,17 @@ Small, high-impact, mostly S/M. None of these can ship a credible 1.0 without.
 | **Apply the API-key pepper** | S | `PATHFORGE_API_KEY_PEPPER` is a required env var + the docs claim "peppered SHA-256", but `hashApiKey` never mixes it in (`lib/api/auth.ts`). Either apply it (preferred) or drop the dead required env + fix docs. |
 | **Pin `bump_sheet_version` search_path** | S | New advisor WARN from migration 0016 (`function_search_path_mutable`). One-line migration `0017`. |
 
-### V1·2 — Polish & trust layer  _(SHOULD · the "feels like 1.0" pass)_
+### V1·2 — Polish & trust layer  _(◑ ~80% done · 2 items + 1 optional left)_
 
-| Item | Effort | Why |
-|---|---|---|
-| **Finish the icon overhaul** (#3) | M | `<GameIcon>` foundation + dashboard/inventory shipped. Extend game-icons to the remaining *thematic* surfaces where they fit (nav, editor section nav, campaign/feature cards) — leaving functional chrome (chevrons/close/check/spinners) on lucide. Add the CC-BY attribution (`/about` or footer) per licence. Real-browser tint check across obsidian/parchment/high_contrast. |
-| **PWA raster icons** | S | `manifest.ts` ships only `icon.svg`; iOS ignores SVG manifest icons. Add 192/512 PNGs (+ maskable) + apple-touch-icon so installed-app icons aren't blank. |
-| **`robots.ts` + `sitemap.ts`** | S | Public, indexable, link-shareable app with neither. Cover landing + `/developers` + public `/c/[slug]`. |
-| **Privacy policy + terms pages + footer links** | M | App collects emails + OAuth + user data; OAuth consent screens normally reference a privacy URL. Add static pages + footer links (also link the orphaned `/developers`). |
-| **Security headers (CSP / HSTS / X-Frame-Options / Permissions-Policy)** | M | `next.config.ts` sets only a few; its own comment promises a CSP that never landed. Defense-in-depth (Discord-embed route needs a `frame-ancestors` carve-out). |
-| **Friendly auth errors + route `loading.tsx` skeletons** | M | Auth surfaces raw Supabase messages; awaited server pages flash blank frames. Both are perceived-quality wins. |
+| Item | Status | Effort | Why / what's left |
+|---|---|---|---|
+| **Finish the icon overhaul** | ✅ done | M | Shipped across read-view/nav/editor/browse-list/dashboard + GM audit; CC-BY in footer **and** privacy page; 3-theme tint check passed. |
+| **PWA raster icons** | ☐ todo | M | `manifest.ts` still ships only `icon.svg`; iOS ignores SVG manifest icons. Add `icon-192/512.png` + maskable variants + `apple-touch-icon` (180) so installed icons aren't blank. **(Start here — self-contained.)** |
+| **`robots.ts` + `sitemap.ts`** | ✅ done | S | Both present; auth routes disallowed, public routes + ≤5000 shared `/c/[slug]` URLs indexed. |
+| **Privacy policy + terms pages + footer links** | ✅ done | M | `/(marketing)/privacy` + `/terms` exist, dated, comprehensive; footer links privacy/terms/developers; all in sitemap. |
+| **Security headers (CSP / HSTS / …)** | ◑ partial | M | `next.config.ts` ships a full **CSP-Report-Only** + HSTS + X-Frame-Options + Permissions-Policy + nosniff + Referrer-Policy. **Left:** clear violations → promote `Report-Only` → enforcing; change `frame-ancestors 'self'` → `'self' https://*.discord.com` for rich Discord embeds. |
+| **Friendly auth errors** | ✅ done | S | `friendlyAuthError()` maps Supabase codes to non-leaky text in `lib/actions/auth.ts`. |
+| **Route `loading.tsx` skeletons** | ◑ optional | S | 4 of ~27 routes have them (dashboard/characters/campaigns/`/c`). Add to character detail/edit, campaign detail/gm, settings if perceived-speed matters. Non-blocking. |
 
 ### V1·3 — Sheet completeness  _(SHOULD · the "complete PF1e sheet" layer)_
 

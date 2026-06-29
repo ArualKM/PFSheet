@@ -1,89 +1,105 @@
 # PathForge — where we are & what's next
 
-_Last updated: 2026-06-28. Quick "resume here" doc; the authoritative milestone log is
-[`../CLAUDE.md`](../CLAUDE.md) Status. **The plan to 1.0 is now [`V1_ROADMAP.md`](V1_ROADMAP.md)**
-(grounded 7-domain assessment → prioritized V1·1–V1·6). The S4 3pp plan
-([`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md) + [`S4_SYSTEM_DESIGNS.md`](S4_SYSTEM_DESIGNS.md))
-is now **post-1.0** (the XL flagship systems are deferred past v1)._
+_Last updated: 2026-06-28 (end of the chip-redesign / privacy / sidebar session). Quick "resume here"
+doc; the authoritative milestone log is [`../CLAUDE.md`](../CLAUDE.md) Status, and the full grounded
+plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
+([`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md)) is **post-1.0**._
 
 ## Current state
 
 - **Live in production** at https://pfsheet.org — auto-deploys from `main` via Vercel. Zero runtime errors.
 - **Milestones M0–M11 complete.** Secondary: **S1, S2, S3, S5a** done; **S5b** web side done (Phases
-  0–2); the **full sheet audit** done; **S4 (3pp/optional rules)** in progress (~11 systems + paste-parser
-  shipped — see [[pathforge-modularity-roadmap]]).
-- **Health:** lint + **283 unit tests** + typecheck + production build all green. Migrations at **0016**.
+  0–2); the **full sheet audit** done. **S4:** ~11 optional systems shipped; **Spheres of Power / Might /
+  Guile are all LIVE** (the rest of S4 — Path of War, Akashic — is post-1.0, gated on sourcing datasets).
+- **Health:** lint + **314 unit tests** + typecheck + production build all green. Migrations at **0018**.
+- **Plan to 1.0:** V1·1 ✅ done. **V1·2 is ~80% done** (see below). Next chunks: finish V1·2 → V1·3 sheet
+  depth → V1·4 campaign writes → V1·5 QA gate → V1·6 printable PDF.
 
-## What shipped this session (read-view + reliability)
+## What shipped THIS session (chip redesign + privacy + sidebar)
 
-1. **Autosave reliability** (3 layers; see [[pathforge-autosave-livelock]]): the real fast-typing FREEZE
-   fix — the mid-save re-arm did `setStatus("unsaved")`, a no-op when already "unsaved", so no flush was
-   ever rescheduled → frozen. Fixed with a `flushKick` counter the debounce depends on. Plus a 20s
-   save-timeout (hung-save recovery) and a try/catch around the editor's `computeCharacter` useMemo (a
-   compute throw can't crash the sheet). Diagnosed by reading the user's real character from the DB.
-2. **Milestone Leveling** rebuilt on the user's real campaign tables (cumulative requirement ladder +
-   4-difficulty job matrix, verified cell-by-cell).
-3. **UI polish pass** — 33 verified findings across editor/view/GM/campaigns (mobile touch targets,
-   overflow guards, empty states, the class-adder + skills-table mobile reflow, etc.).
-4. **Editable profile** — Settings → display name + globally-unique handle (`lib/actions/profile.ts`);
-   `inviteMemberAction` lowercases to match, so the invite-by-handle loop now works end-to-end.
-5. **Read-view completeness** — a 4-area audit found 23 "typed-but-hidden" gaps; surfaced ~18: profile
-   sub-fields, inventory notes/cost/weight/weapon-stats, alternate movement, spell-like abilities, the
-   psionic powers list, an Advancement (XP) card, a Senses card, feat type.
-6. **Read-view IA overhaul** — regrouped into **Combat** (BAB/CMB/CMD + attacks) and **Defenses** (saves
-   + DR/resist/immunity/conditions); a **wiki infobox** (large portrait + facts panel) replaces the hero
-   banner; **content-first rebalance** (Spellcasting/Inventory/etc. moved into the wide main column);
-   narrative split into a **Background** card; **mobile** renders the infobox as a top banner (it was at
-   the bottom). Speed moved from Attacks → Core.
-7. **Privacy** — a per-section **Privacy & sharing** editor in Settings (was unreachable before); the
-   share view now NAMES hidden sections; **Inventory + Wealth are public by default** now (per owner
-   call). The same `privacy.sections` gating drives the read view AND the `/api/v1/.../stats` endpoint.
+1. **Spheres chip editor + read view** (`deaf148`/`c95a6ac`) — the owner's mockup: tradition card with
+   drawback/boon/bonus-talent **chips** (click → inline target + `note`), spheres/talents as chips, ★ marks
+   a free `bonus` talent. Additive schema (grant `note`, talent `bonus`).
+2. **§15-gate the optional-rules systems** (`0960ee5`) — hero points / honor / stamina / mythic / psionics /
+   milestone leveling were leaking on public shares (psionics exposed its powers list). Now each is
+   `gate("<key>", …)` + a privacy-editor row (shown only when the system is enabled / has a non-default
+   level). `woundsVigor`/`senses`/`advancement` deliberately left ungated (locked with invariant tests).
+3. **Game-icons swap finished** (`002835c`) — browse/list/dashboard pages + editor sub-editors + GM audit.
+   CC-BY attribution already in footer + privacy page. 3-theme tint check passed.
+4. **Collapsible-sidebar overhaul** (`04b1261`/`03b8cde`/`500eeba`) — see [[pathforge-collapsible-sidebar]].
+   Fixed peeking label text via **container queries**; **4-state** rail (auto / open / closed-with-tooltips /
+   hidden-with-reopen); same on the editor section rail; **mobile drawer** now shows labels (`compact` mode).
 
-## Immediate next steps — the road to v1 (see [`V1_ROADMAP.md`](V1_ROADMAP.md))
+## Immediate next steps — finish V1·2, then V1·3 (GROUNDED — `v1-remaining-audit` workflow, 2026-06-28)
 
-The 7-domain readiness assessment found the core (sheet math, campaigns/GM, imports/exports/API, QA
-architecture) **essentially v1-complete**. What's left is a tight, mostly-cheap set. **Next: V1·2.**
+The audit found several V1·2 items already done (robots/sitemap, privacy+terms+footer, friendly auth
+errors, the icon overhaul). **V1·2 remaining is just two items + an optional one:**
 
-1. **V1·1 — launch-blockers — ✅ DONE** (commits through `8a5403a`): password-reset flow · styled
-   `not-found.tsx` · `global-error.tsx` + public/auth/share error boundaries · "Coming soon" gating of
-   the ~11 dead optional-rule toggles · API-key pepper (HMAC) · migration `0017` (pin search_path).
-   **⚠ The pepper invalidated existing API-key hashes — the 1 prod key must be regenerated at
-   `/settings/api`.** Migrations now run through `0017`.
-2. **V1·2 — polish/trust:** finish the **icon overhaul** (GameIcon foundation shipped — extend to the
-   remaining thematic surfaces + add CC-BY attribution) · PWA raster icons · robots/sitemap ·
-   privacy+terms pages · security headers (CSP/HSTS).
-3. **V1·3 — sheet depth:** feat/feature/trait **automation editor** (highest value) · more conditions ·
-   Mythic depth (boosts→scores, path abilities) · ABP math.
-4. **V1·4 — campaign writes:** GM-set enabled modules · edit campaign name/desc · invite consent.
-5. **V1·5 — QA gate:** E2E in CI (public smoke + seeded account) · a11y/axe pass.
-6. **V1·6:** printable-PDF export (§13.3).
+### V1·2·a — PWA raster icons  _(M — start here, fully self-contained)_
+- **State:** `app/manifest.ts` ships only `/icons/icon.svg` for both `any` + `maskable`; iOS ignores SVG
+  manifest icons → blank installed-app icon. No `apple-touch-icon`.
+- **Steps:** (1) rasterize `public/icons/icon.svg` → `icon-192.png`, `icon-512.png`, `icon-maskable-192.png`,
+  `icon-maskable-512.png` (maskable needs ~20% safe-zone padding). (2) add PNG entries (sizes/type/purpose)
+  to the `icons` array in `app/manifest.ts`. (3) add `apple-touch-icon` (180×180) via the root `metadata`
+  export (or a `<link>` in the marketing layout). (4) verify: DevTools → Application → Manifest; add-to-home
+  on iOS/Android shows a crisp icon.
+- **Accept:** manifest serves 192/512 + maskable PNGs; apple-touch-icon linked; installed PWA icon is crisp.
 
-**Post-1.0 (deferred):** the S4 flagship 3pp (compendium infra → Spheres ×3 → Path of War → Akashic;
-OGL-data + licensing gated) · spellcasting subsystems (domains/bloodlines/mysteries) · sheet tails
-(encumbrance, per-maneuver CMB, race catalog) · native apps + S5b Phase 2 · perf gate. Full detail +
-rationale in [`V1_ROADMAP.md`](V1_ROADMAP.md).
+### V1·2·b — Promote CSP to enforcing + Discord embed carve-out  _(M)_
+- **State:** `next.config.ts` already ships a full **`Content-Security-Policy-Report-Only`** + HSTS +
+  X-Frame-Options + Permissions-Policy + nosniff + Referrer-Policy. Two gaps: it's REPORT-ONLY (not
+  enforced), and `frame-ancestors 'self'` blocks Discord's preview crawler.
+- **Steps:** (1) run the app, exercise login/dashboard/sheet/settings, collect CSP-Report-Only violations
+  in DevTools. (2) tighten the policy to clear them (watch `'unsafe-inline'` on script/style). (3) rename
+  the header `Content-Security-Policy-Report-Only` → `Content-Security-Policy`. (4) change `frame-ancestors`
+  to `'self' https://*.discord.com` (the Discord card route needs framing for rich embeds). (5) verify:
+  post a public `/c/[slug]` link in Discord → rich preview renders; no console CSP errors.
+- **Accept:** CSP enforced with zero violations; Discord embeds render.
+
+### V1·2·c — (optional, low) more `loading.tsx` skeletons
+- Only 4 of ~27 routes have them (dashboard, characters, campaigns, `/c/[slug]`). Add to character
+  detail/edit, campaign detail/gm, settings if perceived-speed matters. Non-blocking.
+
+### V1·3 — sheet completeness  _(the "complete PF1e sheet" layer; do the automation editor first)_
+1. **Feat/feature/trait automation editor** _(M — highest value)_. The engine already consumes
+   `automation[]`, but `character-editor.tsx` hardcodes `automation: []` when adding a feat/feature/trait
+   (~lines 3949/4009/4128). Build an effect sub-editor (add/edit/delete rows: target · operation · value ·
+   bonusType) reused across the three. **Accept:** a custom feat (e.g. Weapon Focus +1, Toughness, racial
+   +2) changes the computed value live. Ship after an adversarial review per cadence.
+2. **Conditions engine expansion** _(M)_. ~14 of ~35 conditions modeled; add blinded/deafened/nauseated/
+   paralyzed/pinned/etc. as an additive `CONDITION_EFFECTS` table (infra exists in `conditions.ts`).
+3. **Mythic depth** _(L)_. `mythic.abilityBoosts` are never applied in `computeAbilities`; path abilities are
+   display-only. Wire boosts → scores + a path-abilities block + Hard-to-Kill.
+4. **Automatic Bonus Progression** _(M)_. `automaticBonusProgression` is NOT in `IMPLEMENTED_MODULE_KEYS`
+   (shows "coming soon") and has no engine math. Add the per-level "big six" bonuses into existing modifier
+   buckets, then un-gate the toggle.
+
+### V1·4 — campaign writes · V1·5 — QA gate · V1·6 — PDF  (full grounded detail in `V1_ROADMAP.md`)
+- **V1·4:** `enabled_modules` has NO write path (M, blocks §17.2 adopt-modules) · edit campaign name/desc
+  (S, only create/delete today) · invitation consent / `pending` state (L).
+- **V1·5:** un-gate the **public** E2E smoke so it runs on every push (S — cheap, highest QA leverage;
+  currently double-gated behind `RUN_E2E`) · `@axe-core/playwright` is installed but unused → add
+  `tests/e2e/accessibility.spec.ts` (M).
+- **V1·6:** printable-PDF export (L) — `ExportType` reserves `printable_pdf_modern/classic`; no implementer.
+  The repo already uses `pdf-lib` (imports), so a template-fill or HTML-render approach fits.
 
 ## Deferred / needs attention (not blocking)
 
-- **Read-view completeness leftovers** (need engine/editor work, not just display): custom **resource
-  pools** (`resources.list` — modeled but no editor at all), **per-class psionic** manifester detail +
-  **mythic path abilities** (need engine changes), editor inputs for a few profile sub-fields (family,
-  appearance detail). Lower-priority renders: honor code/deeds, stamina combat-tricks list, buff
-  effect/duration detail.
-- **Mobile ordering tail** — the infobox now banners up top, but the sidebar *trackers* (hero points,
-  mythic, …) + Languages/Wealth still stack at the very bottom on mobile; could reorder/prioritize.
-- **Campaign privacy prompt** (owner idea) — when attaching a character to a campaign, offer to set
-  Inventory/Wealth to Party. Needs campaign context in the view-model (not there today).
-- **API** — could add `topSkills` to `/summary` (skills currently only on `/stats`).
-- **Custom icon pack** — game-icons.net set IS now in `public/icons/000000/...` (4,133 SVGs, CC-BY,
-  hardcoded `fill="#000"`). Swap planned for final polish via a `<GameIcon>` that maps to currentColor.
-  See [[pathforge-icon-pack]].
-- **Authed E2E in CI** — `tests/e2e/sheet.spec.ts` skips until a test account + CI secrets + `RUN_E2E=true`.
-- **SECURITY DEFINER RPC exposure** (Supabase WARN, low sev) — move 8 RLS-helper fns to a non-exposed
-  schema + re-point every policy; its own careful branch-tested migration.
+- **Editor section rail hard-close** — the main nav has the 4th "hidden" state; the editor "Sheet sections"
+  rail has only auto/open/closed (+ tooltips). Could add hidden there too if wanted.
+- **Owner action:** the 1 prod API key must be regenerated at `/settings/api` (the V1·1 pepper invalidated
+  old hashes).
+- **Read-view completeness leftovers** — custom resource pools (`resources.list`, no editor), per-class
+  psionic detail, mythic path abilities (need engine), a few profile sub-field inputs.
+- **SECURITY DEFINER RPC exposure** (Supabase WARN, low sev) — move 8 RLS-helper fns to a non-exposed schema
+  + re-point every policy; its own careful branch-tested migration.
+- **Post-1.0:** S4 flagship 3pp (compendium `<OptionPicker>` → Path of War → Akashic; dataset+licensing
+  gated) · spellcasting subsystems (domains/bloodlines/mysteries) · native apps + S5b Phase 2 · perf gate.
 
 ## Working cadence (confirmed)
 
 Build a pass → adversarial multi-agent Workflow review → fix confirmed findings →
-`pnpm lint && pnpm test && pnpm typecheck` (+ build) → commit/push to `main`. Production DB changes
-need explicit owner sign-off; risky RLS changes get branch-tested first.
+`pnpm lint && pnpm test && pnpm typecheck` (+ build) → commit/push to `main` → verify prod runtime clean.
+UI changes get a **real-browser check** (Tailwind v4 silently drops invalid container-query/variant classes;
+`next build` won't catch it). Production DB changes need explicit owner sign-off; risky RLS changes get
+branch-tested first. **Ultracode is on** — use Workflows on substantive tasks.

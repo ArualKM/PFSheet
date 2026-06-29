@@ -366,6 +366,46 @@ Guile math is now LIVE** (combat/skill talents known/spent; same Full/¾/½ rate
   linted). 304 unit tests. Next Spheres work = the seeded-compendium `<OptionPicker>` add-flow, then Path
   of War / Akashic (datasets need sourcing like Spheres was).
 
+**Chip redesign + privacy gate + sidebar overhaul (2026-06-28).** Each pass shipped after an adversarial
+Workflow review; gate-green, prod-clean. **314 unit tests; NO new migrations (all schema changes additive/
+Zod-only).**
+- **Spheres chip editor + read view** (`deaf148`/`c95a6ac`) — adopted the owner's mockup: the `SpheresEditor`
+  tradition card holds drawback / boon / bonus-talent **chips** (click a drawback/boon → an inline target +
+  `note` editor, e.g. "Draining Casting → +1 talent"); spheres + talents are chips (Browse or +name); a ★
+  marks a talent `bonus` (free — excluded from the spent budget, shown in its own row). The read-view
+  `<SpheresCard>` mirrors the chips. Schema additive (`sphereGrantMetaSchema.note`, `sphereTalentRefSchema.bonus`).
+  Review fix: `<SphereChip>` renders a `<span>` (not a disabled `<button>`) when non-clickable; `<AddByName>`
+  uses a sync ref so Enter-then-blur can't double-add.
+- **§15-gate the optional-rules systems** (`0960ee5`) — hero points / honor / stamina / mythic / psionics /
+  milestone leveling were emitted RAW from `view-model.ts` → they leaked on public `/c/[slug]` shares
+  (psionics even exposed its powers list to non-owners). Now each is `gate("<key>", …)` with a
+  `DEFAULT_SECTION_PRIVACY` entry (default public) + `SECTION_LABELS` + a privacy-editor row that shows only
+  when the system is enabled OR a non-default level is already set (so a setting is never trapped after a
+  module toggle-off). `woundsVigor` (core-vitals, like hp), `senses` (core trait; only its notes are
+  owner-only), and `advancement`/XP (owner-only) are deliberately NOT section-gated — locked with invariant
+  tests. 6 gate tests + 3 invariant tests.
+- **Game-icons swap finished** (`002835c`) — extended the thematic→game-icons swap to the authed dashboard,
+  characters/campaigns lists + campaign dashboard, `/spells` + `/spheres` (Orbit→ConcentrationOrb), the
+  Buff/Combat/Spellcasting/Inventory/Class-preset editors, and the GM `audit-report`. CC-BY attribution
+  already lives in the marketing footer AND the privacy page; sphere `base_description` is not rendered
+  anywhere (nothing to trim). Real-browser tint check across obsidian/parchment/high_contrast passed
+  (icons render via CSS mask + tint to currentColor; labels stay high-contrast foreground; no overflow).
+- **Collapsible-sidebar overhaul** (`04b1261`/`03b8cde`/`500eeba`) — see [[pathforge-collapsible-sidebar]].
+  Fixed the unprofessional "peeking label text" on the collapsed rails: label visibility is now driven by a
+  **container query** (`@container/sb` on the rail + `@min-[8rem]/sb:` on each label) tied to the rail's real
+  width — collapsed shows clean icons, expanded reveals labels (keeps Logo/UserMenu as Server Components — no
+  client state). The rail is now **4-state** (persisted): **auto** (hover/focus overlay-expand) · **open**
+  (pinned wide, reflows) · **closed** (icons-only, no hover; instead styled hover **tooltips** — label +
+  short description, rendered via a portal with `position:fixed` so they escape the rail's overflow) ·
+  **hidden** (hard-close → the rail unmounts, a floating "Open sidebar" button restores the prior mode).
+  Controls: top `<<` pins closed, bottom pin-open, a Hide button. Same treatment on the editor "Sheet
+  sections" rail (3 states — no hidden). a11y: aria-label on every icon-only control, aria-describedby links
+  the tooltip to its trigger, focus moves to the replacement control on hide/unhide (only on user toggles).
+  **Mobile drawer fix:** the drawer reuses `<SidebarNav>`, whose labels are gated on the rail's
+  `@container/sb` (absent in the drawer) → it showed icons only; added a `compact` mode (always-visible
+  left-aligned labels, short "Spells"/"Spheres" for the compendiums, aria-label dropped so the name matches
+  the visible text — WCAG 2.5.3).
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
