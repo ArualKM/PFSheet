@@ -30,12 +30,18 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    // Content-Security-Policy. Shipped REPORT-ONLY first (it cannot break the app) so violations can
-    // be observed in the browser console across the authed surfaces before promoting to enforcing —
-    // flip the header key to "Content-Security-Policy" once clean. 'unsafe-inline' is required for
-    // Next's inline bootstrap + next/font + the few inline styles (GameIcon mask / global-error);
-    // img-src allows arbitrary https because portraits are user-supplied URLs; connect-src allows the
-    // Supabase host over https + wss (auth/db/realtime).
+    // Content-Security-Policy. ENFORCED in production; kept Report-Only in development so Next's
+    // dev-mode HMR / React Fast Refresh (which relies on eval) isn't blocked by script-src — the
+    // directive string is identical either way, so prod enforces exactly what dev reports.
+    // A grounded codebase audit confirmed every directive below is sufficient as-is: 'unsafe-inline'
+    // is required for Next's inline bootstrap/RSC flight scripts + next/font + the inline styles
+    // (GameIcon mask / global-error); 'unsafe-eval' is NOT needed in prod (the formula engine is
+    // parser-based; no eval/new Function/Wasm anywhere). img-src allows arbitrary https because
+    // portraits are user-supplied URLs rendered by a plain <img>; connect-src allows the Supabase
+    // host over https + wss (auth/db/realtime) — the only external client egress (no telemetry SDK).
+    // frame-ancestors stays 'self': Discord unfurls links by scraping OG meta tags server-side, it
+    // never iframes the page, so a "Discord embed" carve-out would do nothing but weaken clickjacking
+    // protection — deliberately omitted.
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
@@ -51,6 +57,11 @@ const nextConfig: NextConfig = {
       "manifest-src 'self'",
     ].join("; ");
 
+    const cspHeaderKey =
+      process.env.NODE_ENV === "production"
+        ? "Content-Security-Policy"
+        : "Content-Security-Policy-Report-Only";
+
     return [
       {
         source: "/:path*",
@@ -64,7 +75,7 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
           },
-          { key: "Content-Security-Policy-Report-Only", value: csp },
+          { key: cspHeaderKey, value: csp },
         ],
       },
     ];
