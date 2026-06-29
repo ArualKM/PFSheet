@@ -161,6 +161,47 @@ function modifierEntryToMod(source: string, m: ModifierEntry): IndexedMod | null
   };
 }
 
+/**
+ * Automatic Bonus Progression (Pathfinder Unchained): the deterministic "big six" enhancement bonuses
+ * a character gains by level instead of from magic items. Each returns the cumulative bonus at a given
+ * character level (the single-item-concentrated value for attunement). Mental/Physical Prowess (the
+ * player-assigned ability enhancements) are intentionally NOT auto-applied — they are entered via the
+ * ability enhancement fields. Source: Pathfinder Unchained, Automatic Bonus Progression.
+ */
+function abpResistance(level: number): number {
+  if (level >= 14) return 5;
+  if (level >= 13) return 4;
+  if (level >= 10) return 3;
+  if (level >= 8) return 2;
+  if (level >= 3) return 1;
+  return 0;
+}
+function abpAttunement(level: number): number {
+  // Armor and weapon attunement share this single-item progression.
+  if (level >= 17) return 5;
+  if (level >= 15) return 4;
+  if (level >= 14) return 3;
+  if (level >= 9) return 2;
+  if (level >= 4) return 1;
+  return 0;
+}
+function abpDeflection(level: number): number {
+  if (level >= 18) return 5;
+  if (level >= 17) return 4;
+  if (level >= 16) return 3;
+  if (level >= 10) return 2;
+  if (level >= 5) return 1;
+  return 0;
+}
+function abpToughening(level: number): number {
+  if (level >= 18) return 5;
+  if (level >= 17) return 4;
+  if (level >= 16) return 3;
+  if (level >= 13) return 2;
+  if (level >= 8) return 1;
+  return 0;
+}
+
 export type ModifierIndex = Map<string, IndexedMod[]>;
 
 export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: Resolver): ModifierIndex {
@@ -272,6 +313,34 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
         enabled: true,
       });
       if (mod) push(classifyTarget(`abilities.${String(boost.ability).toLowerCase()}`), mod);
+    }
+  }
+
+  // Automatic Bonus Progression: the deterministic "big six" bonuses by character level. Each has a
+  // distinct bonus type so they stack with one another (and with any real gear still in play). Mental/
+  // Physical Prowess (player-chosen ability enhancements) are entered via the ability enhancement fields.
+  if (isModuleKeyEnabled(character, "abp")) {
+    const lvl = num(character.identity.totalLevel);
+    const attune = abpAttunement(lvl);
+    const lines: { domain: string; value: number; type: BonusType; label: string }[] = [
+      { domain: "save.all", value: abpResistance(lvl), type: "resistance", label: "ABP resistance" },
+      { domain: "ac", value: attune, type: "enhancement", label: "ABP armor attunement" },
+      { domain: "attack.all", value: attune, type: "enhancement", label: "ABP weapon attunement" },
+      { domain: "ac", value: abpDeflection(lvl), type: "deflection", label: "ABP deflection" },
+      { domain: "ac", value: abpToughening(lvl), type: "natural_armor", label: "ABP toughening" },
+    ];
+    for (const l of lines) {
+      if (l.value <= 0) continue;
+      push(
+        l.domain,
+        modifierEntryToMod(l.label, {
+          id: `abp-${l.domain}-${l.type}`,
+          label: l.label,
+          value: l.value,
+          bonusType: l.type,
+          enabled: true,
+        }),
+      );
     }
   }
 

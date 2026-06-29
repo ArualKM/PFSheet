@@ -51,7 +51,8 @@ export const OPTIONAL_RULE_MODULES: OptionalRuleModule[] = [
     name: "Automatic Bonus Progression",
     group: "paizo",
     variantKey: "automaticBonusProgression",
-    description: "Grant the “big six” enhancement bonuses automatically by level instead of from magic items.",
+    description:
+      "Grant the “big six” enhancement bonuses (saves, AC, attack) automatically by level instead of from magic items; ability prowess bonuses are assigned manually.",
   },
   {
     key: "fractional",
@@ -191,6 +192,7 @@ const IMPLEMENTED_MODULE_KEYS = new Set<string>([
   "mythic",
   "background_skills",
   "wounds_vigor",
+  "abp",
   "fractional",
   "gestalt",
   "hero_points",
