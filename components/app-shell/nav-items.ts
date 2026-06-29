@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { TreasureMap, User, Flag, Wand2, ConcentrationOrb, Settings } from "@/components/ui/game-icons";
+import { TreasureMap, User, Flag, ScrollText, Settings } from "@/components/ui/game-icons";
 
 export type NavItem = {
   href: string;
@@ -18,7 +18,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", description: "Your jumping-off point & recent activity", icon: TreasureMap, mobile: true },
   { href: "/characters", label: "Characters", description: "Build, edit & share character sheets", icon: User, mobile: true },
   { href: "/campaigns", label: "Campaigns", description: "Run tables, rosters & GM approvals", icon: Flag, mobile: true },
-  { href: "/spells", label: "Spell Compendium", shortLabel: "Spells", description: "Search 3,000+ Pathfinder spells", icon: Wand2, mobile: true },
-  { href: "/spheres", label: "Spheres Compendium", shortLabel: "Spheres", description: "Browse Spheres of Power / Might / Guile", icon: ConcentrationOrb },
+  { href: "/compendium", label: "Compendium", shortLabel: "Library", description: "Search every PF1e rules element — feats, spells, spheres, races, archetypes & more", icon: ScrollText, mobile: true },
   { href: "/settings", label: "Settings", description: "Profile, API keys & preferences", icon: Settings },
 ];
