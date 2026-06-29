@@ -100,7 +100,7 @@ export function computeAbilities(
 
 type IndexedMod = StackInput & { bonusType: BonusType };
 
-function classifyTarget(target: string): string | null {
+export function classifyTarget(target: string): string | null {
   const t = target.toLowerCase();
   if (t.includes("armorclass") || t === "ac" || t.startsWith("defenses.armorclass")) return "ac";
   if (t.includes("cmd")) return "cmd";

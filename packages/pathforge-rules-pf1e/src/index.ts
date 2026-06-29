@@ -70,3 +70,7 @@ export {
 // Compendium prerequisite evaluation (feats / prestige)
 export { evaluatePrerequisite, evaluatePrerequisites, prereqSummary } from "./prerequisites";
 export type { CompendiumPrereq, PrereqContext, PrereqStatus, PrereqCheck } from "./prerequisites";
+
+// Compendium effect-seed → editable automation mapping (Phase 3 automation hooks)
+export { seedToAutomationEffect, seedsToAutomationEffects, normalizeEffectTarget, normalizeFormula } from "./effect-seeds";
+export type { CompendiumEffectSeed } from "./effect-seeds";

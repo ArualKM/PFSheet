@@ -6,9 +6,12 @@ import { ABILITY_KEYS } from "@pathforge/schema";
 import {
   evaluatePrerequisites,
   prereqSummary,
+  seedsToAutomationEffects,
   type CompendiumPrereq,
+  type CompendiumEffectSeed,
   type PrereqContext,
 } from "@pathforge/rules-pf1e";
+import { Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -68,6 +71,7 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
   const [q, setQ] = useState("");
   const [feats, setFeats] = useState<FeatResult[]>([]);
   const [prereqs, setPrereqs] = useState<Record<string, CompendiumPrereq[]>>({});
+  const [effects, setEffects] = useState<Record<string, CompendiumEffectSeed[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,19 +100,38 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
       setFeats(rows);
       const names = rows.map((r) => r.name);
       if (names.length) {
-        const { data: pr } = await supabase
-          .from("feat_prerequisite")
-          .select("feat,req_type,req_value")
-          .in("feat", names);
+        const [{ data: pr }, { data: fx }] = await Promise.all([
+          supabase.from("feat_prerequisite").select("feat,req_type,req_value").in("feat", names),
+          supabase.from("feat_effect").select("feat,target,op,value_or_formula,bonus_type,notes").in("feat", names),
+        ]);
         if (!cancelled) {
           const map: Record<string, CompendiumPrereq[]> = {};
           for (const p of (pr ?? []) as { feat: string; req_type: string; req_value: string }[]) {
             (map[p.feat] ??= []).push({ reqType: p.req_type, reqValue: p.req_value });
           }
           setPrereqs(map);
+          const emap: Record<string, CompendiumEffectSeed[]> = {};
+          for (const e of (fx ?? []) as {
+            feat: string;
+            target: string;
+            op: string;
+            value_or_formula: string;
+            bonus_type: string | null;
+            notes: string | null;
+          }[]) {
+            (emap[e.feat] ??= []).push({
+              target: e.target,
+              op: e.op,
+              valueOrFormula: e.value_or_formula,
+              bonusType: e.bonus_type,
+              notes: e.notes,
+            });
+          }
+          setEffects(emap);
         }
       } else {
         setPrereqs({});
+        setEffects({});
       }
       setLoading(false);
     }, 250);
@@ -131,7 +154,9 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
         normal: r.normal ?? undefined,
         special: r.special ?? undefined,
         tags: [],
-        automation: [],
+        // Pre-fill engine effects from the compendium seed (Phase 3). Clean unconditional effects compute
+        // immediately; choice/toggle/damage effects come in with a `condition` (recorded, not auto-applied).
+        automation: seedsToAutomationEffects(effects[r.name] ?? [], r.slug),
       });
     });
 
@@ -178,6 +203,14 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                   <div className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
                     {r.types && <Badge variant="rune">{r.types}</Badge>}
+                    {(effects[r.name]?.length ?? 0) > 0 && (
+                      <span
+                        title="Auto-fills this feat's mechanical effects on your sheet"
+                        className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-rune/40 bg-rune/10 px-1.5 py-0.5 text-[10px] text-foreground"
+                      >
+                        <Zap className="size-3 text-rune" aria-hidden /> auto
+                      </span>
+                    )}
                   </div>
                   <Button
                     size="sm"
