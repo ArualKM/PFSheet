@@ -466,6 +466,21 @@ export function CharacterDashboard({
                     {vm.mythic.power.current}/{vm.mythic.power.max}
                   </span>
                 </div>
+                {(vm.mythic.abilityBoosts > 0 || vm.mythic.pathAbilities > 0 || vm.mythic.hardToKill) && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    {vm.mythic.abilityBoosts > 0 && (
+                      <span>
+                        {vm.mythic.abilityBoosts} ability boost{vm.mythic.abilityBoosts === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    {vm.mythic.pathAbilities > 0 && (
+                      <span>
+                        {vm.mythic.pathAbilities} path {vm.mythic.pathAbilities === 1 ? "ability" : "abilities"}
+                      </span>
+                    )}
+                    {vm.mythic.hardToKill && <span className="text-gold">Hard to Kill</span>}
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}

@@ -117,7 +117,9 @@ function classifyTarget(target: string): string | null {
   if (t === "skills" || t === "skill.all" || t === "skills.all" || t === "all_skills") return "skill.all";
   const skill = t.match(/^skills?\.([a-z0-9_]+)/);
   if (skill?.[1]) return `skill.${skill[1]}`;
-  const ability = t.match(/^abilities?\.([a-z]{3})/);
+  // Full segment (not just 3 chars) so it round-trips with the key computeAbilities reads — custom
+  // ability keys longer than 3 chars (e.g. an imported "corruption") would otherwise be dropped.
+  const ability = t.match(/^abilities?\.([a-z0-9_]+)/);
   if (ability?.[1]) return `ability.${ability[1]}`;
   return null;
 }
@@ -259,6 +261,20 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
     if (mod) push("init", mod);
   }
 
+  // Mythic ability increases: each assigned tier boost is a permanent +2 to that ability. Untyped so
+  // multiple boosts to one ability stack (RAW: cumulative) and cascade like any other ability change.
+  if (isModuleKeyEnabled(character, "mythic")) {
+    for (const boost of character.mythic?.abilityBoosts ?? []) {
+      const mod = modifierEntryToMod("Mythic ability increase", {
+        id: `mythic-boost-${boost.id}`,
+        label: "Mythic ability increase",
+        value: 2,
+        enabled: true,
+      });
+      if (mod) push(classifyTarget(`abilities.${String(boost.ability).toLowerCase()}`), mod);
+    }
+  }
+
   // Always-on modifiers entered directly on a stat (entries with no condition).
   for (const m of character.defenses.armorClass.conditionalModifiers) {
     push("ac", modifierEntryToMod("Armor Class", m));
@@ -324,13 +340,17 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-/** PF1e health status from lethal + nonlethal damage. Dead at hp ≤ −Con score. */
+/**
+ * PF1e health status from lethal + nonlethal damage. Dead at hp ≤ −Con score. Mythic Hard to Kill
+ * (tier 1+) doubles the death threshold to −2×Con (you don't die until hp = double your Con score).
+ */
 function hpStatus(
   current: number,
   nonlethal: number,
   conScore: number,
+  hardToKill = false,
 ): "ok" | "staggered" | "disabled" | "unconscious" | "dying" | "dead" {
-  if (current <= -conScore) return "dead";
+  if (current <= -conScore * (hardToKill ? 2 : 1)) return "dead";
   if (current < 0) return "dying";
   if (current === 0) return "disabled";
   if (nonlethal > current) return "unconscious";
@@ -584,6 +604,12 @@ export type ComputedCharacter = {
       power: { current: number; max: number };
       /** +½ tier to effective level — display/CR only; never fed to level-derived formulas. */
       effectiveLevelBonus: number;
+      /** Count of assigned ability boosts (each a +2 already applied to the ability scores). */
+      abilityBoosts: number;
+      /** Count of chosen path/universal abilities recorded. */
+      pathAbilities: number;
+      /** Hard to Kill (tier 1+): death threshold doubled to −2×Con. */
+      hardToKill: boolean;
     };
     /** Psionics roll-up (absent unless the module is enabled). */
     psionics?: {
@@ -1089,6 +1115,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  // Hard to Kill (mythic tier 1+) doubles the death threshold; used by the hp status below too.
+  const mythicHardToKill = isModuleKeyEnabled(character, "mythic") && (character.mythic?.tier ?? 0) >= 1;
   let mythic: ComputedCharacter["summary"]["mythic"];
   if (isModuleKeyEnabled(character, "mythic")) {
     const tier = character.mythic?.tier ?? 0;
@@ -1099,6 +1127,9 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       surgeDie: mythicSurgeDie(tier),
       power: { current: Math.max(0, Math.min(max, character.mythic?.mythicPowerCurrent ?? max)), max },
       effectiveLevelBonus: Math.floor(tier / 2),
+      abilityBoosts: character.mythic?.abilityBoosts?.length ?? 0,
+      pathAbilities: character.mythic?.pathAbilities?.length ?? 0,
+      hardToKill: mythicHardToKill,
     };
   }
 
@@ -1136,6 +1167,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
           character.health.currentHp,
           character.health.nonlethalDamage,
           abilities.con?.effectiveScore ?? 10,
+          mythicHardToKill,
         ),
       },
       spells: spellcasting.length

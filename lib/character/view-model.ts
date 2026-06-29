@@ -216,7 +216,15 @@ export type CharacterViewModel = {
   /** Stamina pool (null unless the module is enabled). */
   stamina: { current: number; max: number } | null;
   /** Mythic roll-up (null unless the variant is enabled). */
-  mythic: { tier: number; path: string; surgeDie: string; power: { current: number; max: number } } | null;
+  mythic: {
+    tier: number;
+    path: string;
+    surgeDie: string;
+    power: { current: number; max: number };
+    abilityBoosts: number;
+    pathAbilities: number;
+    hardToKill: boolean;
+  } | null;
   /** Psionics roll-up (null unless the module is enabled). */
   psionics: {
     powerPoints: { current: number; max: number };
@@ -678,6 +686,9 @@ export function buildCharacterViewModel(
           path: computed.summary.mythic.path,
           surgeDie: computed.summary.mythic.surgeDie,
           power: computed.summary.mythic.power,
+          abilityBoosts: computed.summary.mythic.abilityBoosts,
+          pathAbilities: computed.summary.mythic.pathAbilities,
+          hardToKill: computed.summary.mythic.hardToKill,
         })
       : null,
     psionics: computed.summary.psionics

@@ -39,4 +39,38 @@ describe("mythic", () => {
   it("absent unless the variant is enabled", () => {
     expect(computeCharacter(createDefaultCharacter({ name: "X" })).summary.mythic).toBeUndefined();
   });
+
+  it("ability boosts raise the assigned ability score (+2 each, stacking)", () => {
+    const c = enabled(5);
+    const baseStr = computeCharacter(c).abilities.str!.effectiveScore;
+    c.mythic!.abilityBoosts = [
+      { id: "b1", tier: 1, ability: "str" },
+      { id: "b2", tier: 5, ability: "str" },
+    ];
+    expect(computeCharacter(c).abilities.str!.effectiveScore - baseStr).toBe(4);
+  });
+
+  it("Hard to Kill (tier 1+) doubles the death threshold to -2×Con", () => {
+    const m = enabled(1);
+    m.abilities.primary.con.score = 12; // normal death at -12, Hard to Kill at -24
+    m.health.maxHp = 30;
+    m.health.currentHp = -15;
+    expect(computeCharacter(m).summary.hp.status).toBe("dying"); // -15 > -24
+
+    const non = createDefaultCharacter({ name: "X" });
+    non.abilities.primary.con.score = 12;
+    non.health.maxHp = 30;
+    non.health.currentHp = -15;
+    expect(computeCharacter(non).summary.hp.status).toBe("dead"); // -15 <= -12
+  });
+
+  it("summary.mythic exposes ability-boost / path-ability counts + hardToKill", () => {
+    const c = enabled(3);
+    c.mythic!.abilityBoosts = [{ id: "b1", tier: 1, ability: "dex" }];
+    c.mythic!.pathAbilities = [{ id: "p1", name: "Fleet Charge", category: "path" }];
+    const m = computeCharacter(c).summary.mythic!;
+    expect(m.abilityBoosts).toBe(1);
+    expect(m.pathAbilities).toBe(1);
+    expect(m.hardToKill).toBe(true);
+  });
 });

@@ -932,6 +932,10 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
   const tier = mythic?.tier ?? 0;
   const max = maxMythicPower(tier);
   const current = Math.min(mythic?.mythicPowerCurrent ?? max, max);
+  const boosts = mythic?.abilityBoosts ?? [];
+  const pathAbilities = mythic?.pathAbilities ?? [];
+  const [boostAbility, setBoostAbility] = useState("str");
+  const [newAbilityName, setNewAbilityName] = useState("");
 
   const ensure = (mut: (m: MythicBlock) => void) =>
     ed.update((c) => {
@@ -941,6 +945,22 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
   const spendPower = (delta: number) =>
     ensure((m) => {
       m.mythicPowerCurrent = Math.max(0, Math.min(maxMythicPower(m.tier), current + delta));
+    });
+  const addBoost = () =>
+    ensure((m) => m.abilityBoosts.push({ id: newId("mboost"), tier: m.tier, ability: boostAbility }));
+  const removeBoost = (id: string) =>
+    ensure((m) => {
+      m.abilityBoosts = m.abilityBoosts.filter((b) => b.id !== id);
+    });
+  const addPathAbility = () => {
+    const name = newAbilityName.trim();
+    if (!name) return;
+    ensure((m) => m.pathAbilities.push({ id: newId("mpath"), name, category: "path" }));
+    setNewAbilityName("");
+  };
+  const removePathAbility = (id: string) =>
+    ensure((m) => {
+      m.pathAbilities = m.pathAbilities.filter((a) => a.id !== id);
     });
 
   return (
@@ -985,9 +1005,98 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
           Rest
         </Button>
       </div>
+      <div className="space-y-2 border-t border-border/40 pt-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <span className="text-sm font-semibold text-foreground">Ability boosts (+2 each)</span>
+          <div className="flex items-end gap-2">
+            <select
+              value={boostAbility}
+              aria-label="Ability to boost"
+              onChange={(e) => setBoostAbility(e.target.value)}
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm uppercase text-foreground"
+            >
+              {["str", "dex", "con", "int", "wis", "cha"].map((a) => (
+                <option key={a} value={a}>
+                  {a.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            <Button size="sm" onClick={addBoost}>
+              <Plus className="size-4" /> Add boost
+            </Button>
+          </div>
+        </div>
+        {boosts.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No mythic ability increases yet. Each boost is a permanent +2 to the chosen ability.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {boosts.map((b) => (
+              <span
+                key={b.id}
+                className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-xs text-gold"
+              >
+                +2 {String(b.ability).toUpperCase()}
+                <button
+                  type="button"
+                  aria-label={`Remove +2 ${String(b.ability).toUpperCase()} boost`}
+                  onClick={() => removeBoost(b.id)}
+                  className="text-gold/70 hover:text-gold"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2 border-t border-border/40 pt-3">
+        <span className="text-sm font-semibold text-foreground">Path &amp; universal abilities</span>
+        <div className="flex items-center gap-2">
+          <Input
+            value={newAbilityName}
+            aria-label="Path or universal ability name"
+            placeholder="e.g. Fleet Charge, Sustained by Faith"
+            onChange={(e) => setNewAbilityName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addPathAbility();
+              }
+            }}
+            className="flex-1"
+          />
+          <Button size="sm" onClick={addPathAbility} disabled={!newAbilityName.trim()}>
+            <Plus className="size-4" /> Add
+          </Button>
+        </div>
+        {pathAbilities.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No path or universal abilities recorded yet.</p>
+        ) : (
+          <div className="space-y-1">
+            {pathAbilities.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm"
+              >
+                <span className="text-foreground">{a.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove ${a.name}`}
+                  onClick={() => removePathAbility(a.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <p className="text-xs text-muted-foreground">
-        Path abilities, mythic feats, and tier ability-score boosts get their own editor + a searchable
-        compendium in a later pass.
+        A searchable mythic compendium (path abilities, mythic feats) lands with the compendium picker pass.
       </p>
     </div>
   );
