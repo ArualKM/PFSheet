@@ -180,6 +180,18 @@ export function getClassPreset(key: string): ClassPreset | undefined {
   return CLASS_CATALOG.find((c) => c.key === key);
 }
 
+/**
+ * Resolve a class row's preset for the recompute. A cached compendium preset wins (it's authoritative for
+ * that row, so no key-collision with the catalog) — this is how the progression-driven builder (Phase 4)
+ * feeds the EXACT same BAB/save/HP/caster math as a hardcoded preset, without a session registry.
+ */
+export function resolveClassPreset(row: {
+  presetKey?: string;
+  compendiumPreset?: ClassPreset;
+}): ClassPreset | undefined {
+  return row.compendiumPreset ?? (row.presetKey ? getClassPreset(row.presetKey) : undefined);
+}
+
 // ---- Pure math helpers (produce STORED numbers the engine then reads) ----
 
 export function babForLevel(prog: BabProgression, level: number): number {
@@ -328,7 +340,7 @@ export function recomputeClassDerived(
   const warnings: string[] = [];
 
   const linked = character.identity.classes
-    .map((c) => ({ row: c, preset: c.presetKey ? getClassPreset(c.presetKey) : undefined }))
+    .map((c) => ({ row: c, preset: resolveClassPreset(c) }))
     .filter((x): x is { row: (typeof character.identity.classes)[number]; preset: ClassPreset } => !!x.preset);
 
   const manualCount = character.identity.classes.length - linked.length;

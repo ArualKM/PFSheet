@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { CLASS_CATALOG } from "./class-catalog";
+import { CLASS_CATALOG, recomputeClassDerived } from "./class-catalog";
 import { parseProgression, compendiumRowToPreset } from "./class-compendium";
+import { createDefaultCharacter } from "./factory";
 import fixtures from "./class-compendium.fixtures.json";
 
 // Real class_progression.json_data for the 11 core classes (extracted from the PFcore dataset), keyed by
@@ -56,4 +57,43 @@ describe("compendiumRowToPreset assembles a catalog-equivalent preset from a com
     expect(preset.bab).toBe("full");
     expect(preset.caster?.clProgression).toBe("minus_three");
   });
+});
+
+describe("the cached compendium preset drives recomputeClassDerived identically to the catalog preset", () => {
+  const derived = (c: ReturnType<typeof createDefaultCharacter>) => ({
+    bab: c.combat.bab.total,
+    fort: c.defenses.savingThrows.fortitude.base,
+    ref: c.defenses.savingThrows.reflex.base,
+    will: c.defenses.savingThrows.will.base,
+    hp: c.health.maxHp,
+  });
+
+  // Same class + level, resolved two ways: via presetKey (catalog) vs via a cached compendium preset.
+  for (const level of [1, 5, 11, 20]) {
+    it(`Fighter L${level}: compendium row recomputes byte-identical BAB/saves/HP (no double-count)`, () => {
+      const fighter = CLASS_CATALOG.find((x) => x.key === "fighter")!;
+      const { preset } = compendiumRowToPreset({
+        key: "pfcore:fighter",
+        name: "Fighter",
+        hitDie: fighter.hitDie,
+        skillRanksPerLevel: fighter.skillRanksPerLevel,
+        classSkillKeys: fighter.classSkillKeys,
+        progression: PROG.Fighter,
+      });
+
+      const catalog = createDefaultCharacter();
+      catalog.identity.classes = [{ id: "c1", name: "Fighter", level, hitDie: "d10", presetKey: "fighter" }];
+      catalog.identity.totalLevel = level;
+      recomputeClassDerived(catalog, { hpMethod: "average" });
+
+      const compendium = createDefaultCharacter();
+      compendium.identity.classes = [
+        { id: "c1", name: "Fighter", level, hitDie: "d10", compendiumId: "pfcore:fighter", compendiumPreset: preset },
+      ];
+      compendium.identity.totalLevel = level;
+      recomputeClassDerived(compendium, { hpMethod: "average" });
+
+      expect(derived(compendium)).toEqual(derived(catalog));
+    });
+  }
 });
