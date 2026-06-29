@@ -447,8 +447,24 @@ review. **Unit tests 314 → 338. No new DB migrations** (still 0018; all change
   verified via a render-to-PNG loop; shipped after an adversarial review (1 must-fix applied: finite-guard
   a formula-valued BAB so the cell can't print "NaN"). Deferred: skills pagination past ~108 ranked skills
   (unreachable by real sheets) + a distinct "classic" layout.
-- **Spawned follow-ups** (background tasks): DRY the buff/automation effect-row UI · inventory-item
-  automation editor · ABP ability-prowess auto-apply · the campaign invitation-consent flow.
+- **Effect-row DRY** (`f826f3e`, 2026-06-29; shipped after an adversarial Workflow review + browser check)
+  — the Buff Center custom-buff form and the feat/feature/trait `AutomationEffectsEditor` had two
+  near-identical effect-row UIs with **drifting target menus**. Extracted ONE id-agnostic `<EffectRow>`
+  into `automation-effects-editor.tsx` (target + Custom… freeform + op + value/ƒx + bonusType + remove),
+  used by both call sites; the buff form dropped its private `TARGET_OPTIONS`/`DraftEffect` for the shared
+  `AUTOMATION_TARGET_OPTIONS` + `EditableEffect`. Intentionally widens the buff menu (hp/melee/ranged/cmb/
+  save.all/skill.all/Custom…, all honored by `classifyTarget`) and unifies the ƒx seed to `@{level.total}`.
+  Type split: `EditableEffect` (narrow write/patch + draft state) vs `EffectRowValue` (wide read prop);
+  `hiddenTargets`/`defaultTarget` (the inventory weapon-guard from `342e2d1`) thread through `EffectRow`.
+  The review caught a real should-fix: the buff affected-value preview (`summaryValues` in
+  `packages/pathforge-rules-pf1e/src/buffs.ts`) only read `summary`, so attack sub-domains
+  (melee/ranged/cmb live on `attackBonuses`) + Max HP showed an EMPTY delta and a misleading "No net
+  change" card though the engine applied them (also hit the pre-existing "Attack" option) — now reads the
+  full computed result; skills diff separately and `skill.all` collapses to one "All skills" row. +4
+  tests. See [[pathforge-automation-editor]].
+- **Spawned follow-ups** (background tasks): DRY the buff/automation effect-row UI ✓ (`f826f3e`) ·
+  inventory-item automation editor ✓ (`342e2d1`) · ABP ability-prowess auto-apply ✓ (`7cd435b`) · the
+  campaign invitation-consent flow (still open).
 - **Owner note:** the new `e2e-public` CI job runs on every push — glance at the first Actions run to
   confirm green (validated locally, but live CI couldn't be checked — `gh` not installed here).
 
