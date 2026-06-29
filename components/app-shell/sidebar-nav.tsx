@@ -10,7 +10,10 @@ import { cn } from "@/lib/utils";
 
 const TOOLTIP_ID = "pf-nav-tooltip";
 
-export function SidebarNav() {
+/** `compact` is for the mobile drawer: labels are always shown (left-aligned, short label for the long
+ * compendium names) instead of the container-query collapse used by the desktop rail. The drawer has no
+ * `@container/sb`, so without this the rail's `@min-[8rem]/sb:` labels would never appear (icons only). */
+export function SidebarNav({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
   const mode = useRailMode();
   // A single fixed-positioned tooltip for whichever item is hovered/focused — only while the rail is
@@ -39,7 +42,9 @@ export function SidebarNav() {
             key={item.href}
             href={item.href}
             title={item.label}
-            aria-label={item.label}
+            // Rail (collapsed) hides the text, so it needs an explicit name; the compact drawer shows the
+            // text, so let that be the name (keeps accessible name == visible text — WCAG 2.5.3).
+            aria-label={compact ? undefined : item.label}
             aria-current={active ? "page" : undefined}
             aria-describedby={tip?.href === item.href ? TOOLTIP_ID : undefined}
             onMouseEnter={(e) => show(e, item)}
@@ -47,7 +52,8 @@ export function SidebarNav() {
             onFocus={(e) => show(e, item)}
             onBlur={hide}
             className={cn(
-              "group flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors @min-[8rem]/sb:justify-start",
+              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              compact ? "justify-start" : "justify-center @min-[8rem]/sb:justify-start",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
               active
                 ? "bg-surface-raised text-foreground"
@@ -57,7 +63,9 @@ export function SidebarNav() {
             <Icon
               className={cn("size-4 shrink-0", active ? "text-gold" : "text-muted-foreground")}
             />
-            <span className="hidden truncate whitespace-nowrap @min-[8rem]/sb:block">{item.label}</span>
+            <span className={cn("truncate whitespace-nowrap", !compact && "hidden @min-[8rem]/sb:block")}>
+              {compact ? (item.shortLabel ?? item.label) : item.label}
+            </span>
           </Link>
         );
       })}

@@ -40,7 +40,7 @@ export function MobileNavDrawer({ user }: { user: { email?: string; displayName?
           </div>
           {/* Navigating closes the drawer (clicks bubble up from the links). */}
           <div className="flex-1 overflow-y-auto px-3 py-2" onClick={() => setOpen(false)}>
-            <SidebarNav />
+            <SidebarNav compact />
           </div>
           <div className="space-y-2 border-t border-border p-3">
             <div className="flex items-center justify-between px-1">
