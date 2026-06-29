@@ -57,6 +57,25 @@ export const CONDITION_EFFECTS: Record<string, ConditionEffect[]> = {
   prone: [{ target: "attack.melee", value: -4, label: "Prone" }],
   cowering: [{ target: "ac", value: -2, label: "Cowering" }],
   stunned: [{ target: "ac", value: -2, label: "Stunned" }],
+  // Blinded: −2 AC (its loss of Dex-to-AC, half speed, and −4 on Str/Dex skill checks are positional /
+  // non-cleanly-targetable, so only the flat −2 AC is modeled — see the module header).
+  blinded: [{ target: "ac", value: -2, label: "Blinded" }],
+  // Deafened: −4 on initiative (the 20% verbal-spell-failure chance is not a numeric modifier).
+  deafened: [{ target: "initiative", value: -4, label: "Deafened" }],
+  // Pinned: an additional −4 AC (the denial of Dex-to-AC is positional, not modeled). Pinned is RAW also
+  // grappled — list both conditions to get grappled's −2 attack / −4 Dex on top.
+  pinned: [{ target: "ac", value: -4, label: "Pinned" }],
+  // Squeezing (moving through a too-small space): −4 attack and −4 AC.
+  squeezing: [
+    { target: "attack", value: -4, label: "Squeezing" },
+    { target: "ac", value: -4, label: "Squeezing" },
+  ],
+  // Invisible: +2 on attack rolls vs. sighted foes (the concealment / denial of the foe's Dex-to-AC is
+  // positional and lives on the defender, not modeled here).
+  invisible: [{ target: "attack", value: 2, label: "Invisible" }],
+  // Intentionally NOT modeled (no clean static numeric self-modifier — they are action restrictions or
+  // "set ability to 0" / helpless effects, recorded for display only): nauseated, paralyzed, helpless,
+  // dazed, staggered, confused, stable, dying, unconscious, petrified, flat-footed (loses Dex to AC).
 };
 
 /** Display-cased condition names for the editor quick-pick. */
