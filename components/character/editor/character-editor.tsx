@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   Check,
   CircleAlert,
+  Search,
   X,
   Star,
   Loader2,
@@ -108,6 +109,7 @@ import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
+import { FeatPicker } from "./feat-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -4186,6 +4188,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
 function FeatsEditor({ ed }: { ed: EditorApi }) {
   const feats = ed.draft.feats.list;
   const features = ed.draft.features.list;
+  const [featPickerOpen, setFeatPickerOpen] = useState(false);
 
   const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
   const featureRemaining = (f: (typeof features)[number]) => f.uses?.current ?? featureMax(f);
@@ -4230,25 +4233,35 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
   return (
     <div className="space-y-6">
       <section>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">Feats</h3>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              ed.update((c) =>
-                c.feats.list.push({
-                  id: newId("feat"),
-                  name: "New Feat",
-                  tags: [],
-                  automation: [],
-                }),
-              )
-            }
-          >
-            <Plus className="size-4" /> Add feat
-          </Button>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant={featPickerOpen ? "default" : "secondary"} onClick={() => setFeatPickerOpen((o) => !o)}>
+              <Search className="size-4" /> Browse
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                ed.update((c) =>
+                  c.feats.list.push({
+                    id: newId("feat"),
+                    name: "New Feat",
+                    tags: [],
+                    automation: [],
+                  }),
+                )
+              }
+            >
+              <Plus className="size-4" /> Add feat
+            </Button>
+          </div>
         </div>
+        {featPickerOpen && (
+          <div className="mb-3">
+            <FeatPicker ed={ed} onClose={() => setFeatPickerOpen(false)} />
+          </div>
+        )}
         {feats.length === 0 && <p className="text-sm text-muted-foreground">No feats yet.</p>}
         <div className="space-y-2">
           {feats.map((f, i) => (

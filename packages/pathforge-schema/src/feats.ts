@@ -11,6 +11,8 @@ export const featEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.string().optional(),
+  /** Stable slug of the compendium feat this was applied from (links back to feat_compendium). */
+  compendiumId: z.string().optional(),
   source: sourceRefSchema.optional(),
   prerequisites: z.string().optional(),
   benefit: z.string().optional(),
@@ -46,6 +48,8 @@ export const featureEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
   category: featureCategorySchema,
+  /** Stable slug of the compendium entry this was applied from (class feature / racial trait / etc.). */
+  compendiumId: z.string().optional(),
   source: sourceRefSchema.optional(),
   description: z.string().optional(),
   automation: z.array(automationEffectSchema).default([]),
