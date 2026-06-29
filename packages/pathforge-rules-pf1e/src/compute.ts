@@ -109,6 +109,7 @@ function classifyTarget(target: string): string | null {
   if (t === "saves" || t === "save.all" || t === "saves.all" || t === "all_saves") return "save.all";
   if (t.includes("initiative") || t === "init") return "init";
   if (t.includes("speed")) return "speed";
+  if (t === "hp" || t === "maxhp" || t === "hp.max" || t === "vitals.hp" || t === "health.maxhp") return "hp";
   if (t.includes("melee")) return "attack.melee";
   if (t.includes("ranged")) return "attack.ranged";
   if (t.includes("cmb")) return "attack.cmb";
@@ -855,6 +856,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   const speedBase = parseLeadingInt(character.combat.speed.base);
   const speedBonus = applyStacking(index.get("speed") ?? []).total;
 
+  // Flat max-HP modifiers from feat/feature/trait/item automation + buffs (e.g. Toughness +3).
+  // Added on top of the stored maxHp; energy drain still lowers the ceiling by 5 per negative level.
+  const hpBonus = applyStacking(index.get("hp") ?? []).total;
+
   // Individual attack lines: resolve each attack's to-hit formula; damage dice
   // are presentation-only and passed through untouched.
   const manualAttacks: ComputedAttack[] = character.combat.attacks
@@ -966,7 +971,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     } else {
       hd = computeMaxHpFromLevels(character, "average");
     }
-    const maxVigor = Math.max(0, wv?.maxVigor ?? hd.hd + hd.fcb);
+    // Flat HP bonuses (Toughness etc.) buff Vigor under W&V, mirroring how they add to standard max HP.
+    const maxVigor = Math.max(0, (wv?.maxVigor ?? hd.hd + hd.fcb) + hpBonus);
     const maxWounds = Math.max(0, wv?.maxWounds ?? 2 * conScore);
     const threshold = wv?.woundThreshold ?? conScore;
     const curVigor = wv?.currentVigor ?? maxVigor;
@@ -1121,8 +1127,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       speed: { base: speedBase, bonus: speedBonus, total: speedBase + speedBonus },
       hp: {
         current: character.health.currentHp,
-        // Energy drain lowers the hp ceiling by 5 per negative level.
-        max: Math.max(0, num(character.health.maxHp) - 5 * negLevels),
+        // Energy drain lowers the hp ceiling by 5 per negative level; automation/buffs add hpBonus.
+        max: Math.max(0, num(character.health.maxHp) + hpBonus - 5 * negLevels),
         temp: character.health.tempHp,
         nonlethal: character.health.nonlethalDamage,
         negativeLevels: negLevels,

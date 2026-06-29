@@ -98,6 +98,7 @@ import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
+import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -3961,38 +3962,50 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
         {feats.length === 0 && <p className="text-sm text-muted-foreground">No feats yet.</p>}
         <div className="space-y-2">
           {feats.map((f, i) => (
-            <div key={f.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
-              <TextField
-                label="Name"
-                value={f.name}
-                onChange={(v) =>
+            <div key={f.id} className="space-y-2 rounded-lg border border-border p-2">
+              <div className="flex items-end gap-2">
+                <TextField
+                  label="Name"
+                  value={f.name}
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      const t = c.feats.list[i];
+                      if (t) t.name = v;
+                    })
+                  }
+                  className="flex-1"
+                />
+                <TextField
+                  label="Type"
+                  value={f.type ?? ""}
+                  placeholder="Combat, General…"
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      const t = c.feats.list[i];
+                      if (t) t.type = v;
+                    })
+                  }
+                  className="w-36"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove feat"
+                  onClick={() => ed.update((c) => c.feats.list.splice(i, 1))}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+              <AutomationEffectsEditor
+                effects={f.automation}
+                idPrefix="featfx"
+                onChange={(next) =>
                   ed.update((c) => {
                     const t = c.feats.list[i];
-                    if (t) t.name = v;
+                    if (t) t.automation = next;
                   })
                 }
-                className="flex-1"
               />
-              <TextField
-                label="Type"
-                value={f.type ?? ""}
-                placeholder="Combat, General…"
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const t = c.feats.list[i];
-                    if (t) t.type = v;
-                  })
-                }
-                className="w-36"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove feat"
-                onClick={() => ed.update((c) => c.feats.list.splice(i, 1))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
             </div>
           ))}
         </div>
@@ -4112,6 +4125,16 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   </div>
                 )}
               </div>
+              <AutomationEffectsEditor
+                effects={f.automation}
+                idPrefix="featurefx"
+                onChange={(next) =>
+                  ed.update((c) => {
+                    const t = c.features.list[i];
+                    if (t) t.automation = next;
+                  })
+                }
+              />
             </div>
           ))}
         </div>
@@ -4141,38 +4164,50 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
         )}
         <div className="space-y-2">
           {ed.draft.traits.list.map((t, i) => (
-            <div key={t.id} className="flex items-end gap-2 rounded-lg border border-border p-2">
-              <TextField
-                label="Name"
-                value={t.name}
-                onChange={(v) =>
+            <div key={t.id} className="space-y-2 rounded-lg border border-border p-2">
+              <div className="flex items-end gap-2">
+                <TextField
+                  label="Name"
+                  value={t.name}
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      const e = c.traits.list[i];
+                      if (e) e.name = v;
+                    })
+                  }
+                  className="flex-1"
+                />
+                <TextField
+                  label="Type"
+                  value={t.type ?? ""}
+                  placeholder="Combat, Social, Faith…"
+                  onChange={(v) =>
+                    ed.update((c) => {
+                      const e = c.traits.list[i];
+                      if (e) e.type = v || undefined;
+                    })
+                  }
+                  className="w-40"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Remove trait"
+                  onClick={() => ed.update((c) => c.traits.list.splice(i, 1))}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+              <AutomationEffectsEditor
+                effects={t.automation}
+                idPrefix="traitfx"
+                onChange={(next) =>
                   ed.update((c) => {
                     const e = c.traits.list[i];
-                    if (e) e.name = v;
+                    if (e) e.automation = next;
                   })
                 }
-                className="flex-1"
               />
-              <TextField
-                label="Type"
-                value={t.type ?? ""}
-                placeholder="Combat, Social, Faith…"
-                onChange={(v) =>
-                  ed.update((c) => {
-                    const e = c.traits.list[i];
-                    if (e) e.type = v || undefined;
-                  })
-                }
-                className="w-40"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove trait"
-                onClick={() => ed.update((c) => c.traits.list.splice(i, 1))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
             </div>
           ))}
         </div>
