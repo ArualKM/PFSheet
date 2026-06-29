@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      alternate_racial_trait_compendium: {
+        Row: {
+          description: string | null
+          race: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          trait_name: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          race?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          trait_name?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          race?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          trait_name?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      animal_companion_compendium: {
+        Row: {
+          ability_scores: string | null
+          ac: string | null
+          advancement: string | null
+          attack: string | null
+          category: string | null
+          flavor: string | null
+          monster_url: string | null
+          name: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          special_qualities: string | null
+          speed: string | null
+          starting_stats: string | null
+          url: string | null
+        }
+        Insert: {
+          ability_scores?: string | null
+          ac?: string | null
+          advancement?: string | null
+          attack?: string | null
+          category?: string | null
+          flavor?: string | null
+          monster_url?: string | null
+          name?: string | null
+          search?: unknown
+          size?: string | null
+          slug: string
+          source?: string | null
+          special_qualities?: string | null
+          speed?: string | null
+          starting_stats?: string | null
+          url?: string | null
+        }
+        Update: {
+          ability_scores?: string | null
+          ac?: string | null
+          advancement?: string | null
+          attack?: string | null
+          category?: string | null
+          flavor?: string | null
+          monster_url?: string | null
+          name?: string | null
+          search?: unknown
+          size?: string | null
+          slug?: string
+          source?: string | null
+          special_qualities?: string | null
+          speed?: string | null
+          starting_stats?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           allowed_campaign_ids: Json
@@ -76,6 +166,78 @@ export type Database = {
           bucket?: string
           count?: number
           window_start?: string
+        }
+        Relationships: []
+      }
+      archetype_compendium: {
+        Row: {
+          class: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          class?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          class?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      archetype_feature_compendium: {
+        Row: {
+          archetype: string | null
+          class: string | null
+          feature: string | null
+          level: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          text: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          archetype?: string | null
+          class?: string | null
+          feature?: string | null
+          level?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          text?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          archetype?: string | null
+          class?: string | null
+          feature?: string | null
+          level?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          text?: string | null
+          type?: string | null
+          url?: string | null
         }
         Relationships: []
       }
@@ -526,6 +688,150 @@ export type Database = {
           },
         ]
       }
+      class_compendium: {
+        Row: {
+          alignment: string | null
+          category: string | null
+          class_skills: string | null
+          description: string | null
+          hit_die: string | null
+          name: string | null
+          proficiencies: string | null
+          role: string | null
+          search: unknown
+          skill_points_per_level: string | null
+          slug: string
+          source: string | null
+          starting_wealth: string | null
+          url: string | null
+        }
+        Insert: {
+          alignment?: string | null
+          category?: string | null
+          class_skills?: string | null
+          description?: string | null
+          hit_die?: string | null
+          name?: string | null
+          proficiencies?: string | null
+          role?: string | null
+          search?: unknown
+          skill_points_per_level?: string | null
+          slug: string
+          source?: string | null
+          starting_wealth?: string | null
+          url?: string | null
+        }
+        Update: {
+          alignment?: string | null
+          category?: string | null
+          class_skills?: string | null
+          description?: string | null
+          hit_die?: string | null
+          name?: string | null
+          proficiencies?: string | null
+          role?: string | null
+          search?: unknown
+          skill_points_per_level?: string | null
+          slug?: string
+          source?: string | null
+          starting_wealth?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      class_feature_compendium: {
+        Row: {
+          category: string | null
+          class: string | null
+          description: string | null
+          feature: string | null
+          level: string | null
+          search: unknown
+          slug: string
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          category?: string | null
+          class?: string | null
+          description?: string | null
+          feature?: string | null
+          level?: string | null
+          search?: unknown
+          slug: string
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          category?: string | null
+          class?: string | null
+          description?: string | null
+          feature?: string | null
+          level?: string | null
+          search?: unknown
+          slug?: string
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      class_option_compendium: {
+        Row: {
+          class: string | null
+          description: string | null
+          group: string | null
+          name: string | null
+          option_type: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          subtype: string | null
+          url: string | null
+        }
+        Insert: {
+          class?: string | null
+          description?: string | null
+          group?: string | null
+          name?: string | null
+          option_type?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          subtype?: string | null
+          url?: string | null
+        }
+        Update: {
+          class?: string | null
+          description?: string | null
+          group?: string | null
+          name?: string | null
+          option_type?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          subtype?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      class_progression: {
+        Row: {
+          class: string | null
+          json_data: Json | null
+          slug: string
+        }
+        Insert: {
+          class?: string | null
+          json_data?: Json | null
+          slug: string
+        }
+        Update: {
+          class?: string | null
+          json_data?: Json | null
+          slug?: string
+        }
+        Relationships: []
+      }
       content_packs: {
         Row: {
           created_at: string | null
@@ -579,6 +885,93 @@ export type Database = {
           },
         ]
       }
+      drawback_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          requirements: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          requirements?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          requirements?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      eidolon_base_form_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      eidolon_evolution_compendium: {
+        Row: {
+          cost: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          cost?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          cost?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       export_jobs: {
         Row: {
           character_id: string
@@ -629,6 +1022,189 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      familiar_compendium: {
+        Row: {
+          granted_ability: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          url: string | null
+        }
+        Insert: {
+          granted_ability?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          url?: string | null
+        }
+        Update: {
+          granted_ability?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      favored_class_option_compendium: {
+        Row: {
+          benefit: string | null
+          class: string | null
+          race: string | null
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          benefit?: string | null
+          class?: string | null
+          race?: string | null
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          benefit?: string | null
+          class?: string | null
+          race?: string | null
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      feat_compendium: {
+        Row: {
+          benefit: string | null
+          combat_trick: string | null
+          description: string | null
+          mythic: string | null
+          name: string | null
+          normal: string | null
+          prerequisites: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          types: string | null
+          url: string | null
+        }
+        Insert: {
+          benefit?: string | null
+          combat_trick?: string | null
+          description?: string | null
+          mythic?: string | null
+          name?: string | null
+          normal?: string | null
+          prerequisites?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          special?: string | null
+          types?: string | null
+          url?: string | null
+        }
+        Update: {
+          benefit?: string | null
+          combat_trick?: string | null
+          description?: string | null
+          mythic?: string | null
+          name?: string | null
+          normal?: string | null
+          prerequisites?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          special?: string | null
+          types?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      feat_effect: {
+        Row: {
+          bonus_type: string | null
+          feat: string | null
+          notes: string | null
+          op: string | null
+          slug: string
+          target: string | null
+          value_or_formula: string | null
+        }
+        Insert: {
+          bonus_type?: string | null
+          feat?: string | null
+          notes?: string | null
+          op?: string | null
+          slug: string
+          target?: string | null
+          value_or_formula?: string | null
+        }
+        Update: {
+          bonus_type?: string | null
+          feat?: string | null
+          notes?: string | null
+          op?: string | null
+          slug?: string
+          target?: string | null
+          value_or_formula?: string | null
+        }
+        Relationships: []
+      }
+      feat_prerequisite: {
+        Row: {
+          feat: string | null
+          req_type: string | null
+          req_value: string | null
+          slug: string
+        }
+        Insert: {
+          feat?: string | null
+          req_type?: string | null
+          req_value?: string | null
+          slug: string
+        }
+        Update: {
+          feat?: string | null
+          req_type?: string | null
+          req_value?: string | null
+          slug?: string
+        }
+        Relationships: []
+      }
+      feature_effect: {
+        Row: {
+          bonus_type: string | null
+          class: string | null
+          feature: string | null
+          notes: string | null
+          op: string | null
+          slug: string
+          target: string | null
+          value_or_formula: string | null
+        }
+        Insert: {
+          bonus_type?: string | null
+          class?: string | null
+          feature?: string | null
+          notes?: string | null
+          op?: string | null
+          slug: string
+          target?: string | null
+          value_or_formula?: string | null
+        }
+        Update: {
+          bonus_type?: string | null
+          class?: string | null
+          feature?: string | null
+          notes?: string | null
+          op?: string | null
+          slug?: string
+          target?: string | null
+          value_or_formula?: string | null
+        }
+        Relationships: []
       }
       gm_notes: {
         Row: {
@@ -803,6 +1379,195 @@ export type Database = {
           },
         ]
       }
+      mythic_path_ability_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      mythic_path_compendium: {
+        Row: {
+          description: string | null
+          json_data: Json | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          json_data?: Json | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          json_data?: Json | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      mythic_spell_augment: {
+        Row: {
+          area: string | null
+          casting_time: string | null
+          components: string | null
+          description: string | null
+          descriptors: string | null
+          duration: string | null
+          effect: string | null
+          level: string | null
+          mythic: string | null
+          name: string | null
+          range: string | null
+          saving_throw: string | null
+          school: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          spell_resistance: string | null
+          subschool: string | null
+          target: string | null
+          url: string | null
+        }
+        Insert: {
+          area?: string | null
+          casting_time?: string | null
+          components?: string | null
+          description?: string | null
+          descriptors?: string | null
+          duration?: string | null
+          effect?: string | null
+          level?: string | null
+          mythic?: string | null
+          name?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          school?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          spell_resistance?: string | null
+          subschool?: string | null
+          target?: string | null
+          url?: string | null
+        }
+        Update: {
+          area?: string | null
+          casting_time?: string | null
+          components?: string | null
+          description?: string | null
+          descriptors?: string | null
+          duration?: string | null
+          effect?: string | null
+          level?: string | null
+          mythic?: string | null
+          name?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          school?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          spell_resistance?: string | null
+          subschool?: string | null
+          target?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      prestige_class_compendium: {
+        Row: {
+          alignment: string | null
+          description: string | null
+          hit_die: string | null
+          name: string | null
+          requirements: string | null
+          role: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          alignment?: string | null
+          description?: string | null
+          hit_die?: string | null
+          name?: string | null
+          requirements?: string | null
+          role?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          alignment?: string | null
+          description?: string | null
+          hit_die?: string | null
+          name?: string | null
+          requirements?: string | null
+          role?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      prestige_progression: {
+        Row: {
+          class: string | null
+          json_data: Json | null
+          slug: string
+        }
+        Insert: {
+          class?: string | null
+          json_data?: Json | null
+          slug: string
+        }
+        Update: {
+          class?: string | null
+          json_data?: Json | null
+          slug?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -827,6 +1592,75 @@ export type Database = {
           handle?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      race_compendium: {
+        Row: {
+          category: string | null
+          details: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          category?: string | null
+          details?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          category?: string | null
+          details?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      race_trait_compendium: {
+        Row: {
+          ability_modifiers: string | null
+          category: string | null
+          race: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          speed: string | null
+          standard_traits: string | null
+          url: string | null
+        }
+        Insert: {
+          ability_modifiers?: string | null
+          category?: string | null
+          race?: string | null
+          search?: unknown
+          size?: string | null
+          slug: string
+          source?: string | null
+          speed?: string | null
+          standard_traits?: string | null
+          url?: string | null
+        }
+        Update: {
+          ability_modifiers?: string | null
+          category?: string | null
+          race?: string | null
+          search?: unknown
+          size?: string | null
+          slug?: string
+          source?: string | null
+          speed?: string | null
+          standard_traits?: string | null
+          url?: string | null
         }
         Relationships: []
       }
@@ -1210,6 +2044,42 @@ export type Database = {
         }
         Relationships: []
       }
+      trait_compendium: {
+        Row: {
+          category: string | null
+          description: string | null
+          name: string | null
+          requirements: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          category?: string | null
+          description?: string | null
+          name?: string | null
+          requirements?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          category?: string | null
+          description?: string | null
+          name?: string | null
+          requirements?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1255,6 +2125,379 @@ export type Database = {
         Args: { p_character_id: string; p_user_id: string }
         Returns: boolean
       }
+      search_alternate_racial_trait_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          race: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          trait_name: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "alternate_racial_trait_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_animal_companion_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          ability_scores: string | null
+          ac: string | null
+          advancement: string | null
+          attack: string | null
+          category: string | null
+          flavor: string | null
+          monster_url: string | null
+          name: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          special_qualities: string | null
+          speed: string | null
+          starting_stats: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "animal_companion_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_archetype_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          class: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "archetype_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_archetype_feature_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          archetype: string | null
+          class: string | null
+          feature: string | null
+          level: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          text: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "archetype_feature_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_class_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          alignment: string | null
+          category: string | null
+          class_skills: string | null
+          description: string | null
+          hit_die: string | null
+          name: string | null
+          proficiencies: string | null
+          role: string | null
+          search: unknown
+          skill_points_per_level: string | null
+          slug: string
+          source: string | null
+          starting_wealth: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "class_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_class_feature_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          category: string | null
+          class: string | null
+          description: string | null
+          feature: string | null
+          level: string | null
+          search: unknown
+          slug: string
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "class_feature_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_class_option_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          class: string | null
+          description: string | null
+          group: string | null
+          name: string | null
+          option_type: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          subtype: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "class_option_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_drawback_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          requirements: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "drawback_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_eidolon_base_form_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "eidolon_base_form_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_eidolon_evolution_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          cost: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "eidolon_evolution_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_familiar_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          granted_ability: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "familiar_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_feat_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          benefit: string | null
+          combat_trick: string | null
+          description: string | null
+          mythic: string | null
+          name: string | null
+          normal: string | null
+          prerequisites: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          types: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "feat_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_mythic_path_ability_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          path: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mythic_path_ability_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_mythic_path_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          json_data: Json | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mythic_path_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_mythic_spell_augment: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          area: string | null
+          casting_time: string | null
+          components: string | null
+          description: string | null
+          descriptors: string | null
+          duration: string | null
+          effect: string | null
+          level: string | null
+          mythic: string | null
+          name: string | null
+          range: string | null
+          saving_throw: string | null
+          school: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          spell_resistance: string | null
+          subschool: string | null
+          target: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mythic_spell_augment"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_prestige_class_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          alignment: string | null
+          description: string | null
+          hit_die: string | null
+          name: string | null
+          requirements: string | null
+          role: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "prestige_class_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_race_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          category: string | null
+          details: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "race_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_race_trait_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          ability_modifiers: string | null
+          category: string | null
+          race: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          speed: string | null
+          standard_traits: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "race_trait_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       search_spell_compendium: {
         Args: {
           p_classes?: Json
@@ -1286,23 +2529,43 @@ export type Database = {
       }
       search_sphere_talents: {
         Args: {
-          p_query?: string
-          p_sphere?: string
           p_category?: string
           p_limit?: number
+          p_query?: string
+          p_sphere?: string
         }
         Returns: {
-          id: string
-          sphere_name: string
-          talent_name: string
-          talent_category: string
-          subcategory: string
-          source: string
-          tags: string
-          prerequisites: string
           base_cost: string
           description: string
+          id: string
+          prerequisites: string
+          source: string
+          sphere_name: string
+          subcategory: string
+          tags: string
+          talent_category: string
+          talent_name: string
         }[]
+      }
+      search_trait_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          category: string | null
+          description: string | null
+          name: string | null
+          requirements: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "trait_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
     }
     Enums: {
