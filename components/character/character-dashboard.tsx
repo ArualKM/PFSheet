@@ -275,7 +275,7 @@ export function CharacterDashboard({
             <SectionCard title="Feats" icon={Sparkles}>
               <ShowMore cap={12} noun="feats" className="space-y-1.5">
                 {vm.feats.map((f, i) => {
-                  const hasDetail = !!(f.prerequisites || f.benefit || f.special || f.normal || f.notes);
+                  const hasDetail = [f.prerequisites, f.benefit, f.special, f.normal, f.notes].some((v) => v && v.trim());
                   return (
                     <EntryDetailRow
                       key={i}
@@ -330,7 +330,7 @@ export function CharacterDashboard({
                         )}
                       </>
                     }
-                    details={f.description ? <DetailPara value={f.description} /> : undefined}
+                    details={f.description && f.description.trim() ? <DetailPara value={f.description} /> : undefined}
                   />
                 ))}
               </ShowMore>
@@ -351,7 +351,7 @@ export function CharacterDashboard({
                         </Badge>
                       ) : undefined
                     }
-                    details={t.description ? <DetailPara value={t.description} /> : undefined}
+                    details={t.description && t.description.trim() ? <DetailPara value={t.description} /> : undefined}
                   />
                 ))}
               </div>
