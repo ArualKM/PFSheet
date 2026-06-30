@@ -109,6 +109,7 @@ import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
+import { ArchetypePicker } from "./archetype-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
@@ -2752,6 +2753,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   const prog = ed.draft.progression;
   const [showCatalog, setShowCatalog] = useState(false);
   const [showClassCompendium, setShowClassCompendium] = useState(false);
+  const [showArchetypes, setShowArchetypes] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const hasPresetClass = id.classes.some((c) => c.presetKey);
 
@@ -2811,6 +2813,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
               onClick={() => {
                 setShowClassCompendium((v) => !v);
                 setShowCatalog(false);
+                setShowArchetypes(false);
               }}
             >
               <Search className="size-4" /> Compendium
@@ -2821,9 +2824,21 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
               onClick={() => {
                 setShowCatalog((v) => !v);
                 setShowClassCompendium(false);
+                setShowArchetypes(false);
               }}
             >
               <Sparkles className="size-4" /> From catalog
+            </Button>
+            <Button
+              size="sm"
+              variant={showArchetypes ? "default" : "secondary"}
+              onClick={() => {
+                setShowArchetypes((v) => !v);
+                setShowClassCompendium(false);
+                setShowCatalog(false);
+              }}
+            >
+              <Sparkles className="size-4" /> Archetypes
             </Button>
             <Button
               size="sm"
@@ -2844,6 +2859,11 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         {showClassCompendium && (
           <div className="mb-3">
             <ClassCompendiumPicker ed={ed} onClose={() => setShowClassCompendium(false)} />
+          </div>
+        )}
+        {showArchetypes && (
+          <div className="mb-3">
+            <ArchetypePicker ed={ed} onClose={() => setShowArchetypes(false)} />
           </div>
         )}
         {showCatalog && (
