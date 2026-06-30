@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, X } from "lucide-react";
+import { Award } from "lucide-react";
 import { parseProgression, type CompendiumClassInput, type HpMethod } from "@pathforge/schema";
 import { applyCompendiumClass, type ApplyCompendiumClassResult } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +9,7 @@ import { parseHitDie } from "@/lib/character/class-compendium";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NumberField } from "./fields";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type PrestigeRow = { slug: string; name: string; hit_die: string | null; role: string | null; description: string | null };
@@ -93,64 +94,25 @@ export function PrestigePicker({ ed, onClose }: { ed: CharacterEditorApi; onClos
   };
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> Prestige classes
-        </h4>
-        <Button variant="ghost" size="icon" aria-label="Close prestige classes" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
-      {error && <p className="mb-2 text-xs text-danger">{error}</p>}
-
+    <PickerShell icon={<Award />} title="Prestige classes" onClose={onClose}>
       {!selected ? (
         <>
-          <div className="relative">
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search prestige classes — e.g. Arcane Trickster, Duelist…"
-              aria-label="Search prestige classes"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-            />
-            {loading && (
-              <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            )}
-          </div>
-          <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
-            {rows.length === 0 && !loading ? (
-              <li className="px-1 py-2 text-sm text-muted-foreground">
-                {q.trim().length === 1 ? "Keep typing…" : "No prestige classes found."}
-              </li>
-            ) : (
-              rows.map((r) => (
-                <li key={r.slug}>
-                  <button
-                    type="button"
-                    onClick={() => select(r)}
-                    aria-label={`Select ${r.name}`}
-                    className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-left hover:border-rune/50"
-                  >
-                    <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                    {r.hit_die && <Badge variant="gold">d{parseHitDie(r.hit_die)}</Badge>}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
+          <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label="Search prestige classes" placeholder="Search prestige classes — e.g. Arcane Trickster, Duelist…" />
+          <PickerError message={error} />
+          <PickerList isEmpty={rows.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No prestige classes found."}>
+            {rows.map((r) => (
+              <PickerRow key={r.slug} onClick={() => select(r)} ariaLabel={`Select ${r.name}`}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                  {r.hit_die && <Badge variant="gold">d{parseHitDie(r.hit_die)}</Badge>}
+                </span>
+              </PickerRow>
+            ))}
+          </PickerList>
         </>
       ) : (
-        <div className="space-y-3 rounded-md border border-border/70 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-foreground">{selected.name}</span>
-            <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
-              ← Back
-            </Button>
-          </div>
-
+        <PickerDetail title={selected.name} onBack={() => setSelected(null)}>
+          <PickerError message={error} />
           {!parsed ? (
             <p className="text-xs text-muted-foreground">Loading progression…</p>
           ) : (
@@ -211,8 +173,8 @@ export function PrestigePicker({ ed, onClose }: { ed: CharacterEditorApi; onClos
               )}
             </>
           )}
-        </div>
+        </PickerDetail>
       )}
-    </div>
+    </PickerShell>
   );
 }

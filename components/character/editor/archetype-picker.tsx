@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, X, CircleAlert, Check } from "lucide-react";
+import { CircleAlert, Check, Shield } from "lucide-react";
 import {
   applyArchetype,
   archetypeReplaces,
@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type ArchRow = { slug: string; name: string; class: string; source: string | null };
@@ -100,37 +101,26 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
   };
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> Archetypes
-        </h4>
-        <Button variant="ghost" size="icon" aria-label="Close archetypes" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
+    <PickerShell icon={<Shield />} title="Archetypes" onClose={onClose}>
       {classes.length === 0 ? (
         <p className="px-1 py-2 text-sm text-muted-foreground">Add a class first to choose an archetype.</p>
       ) : (
         <>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <select
-              value={classId}
-              onChange={(e) => {
-                setClassId(e.target.value);
-                setSelected(null);
-              }}
-              aria-label="Class"
-              className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-            >
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={classId}
+            onChange={(e) => {
+              setClassId(e.target.value);
+              setSelected(null);
+            }}
+            aria-label="Class"
+            className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+          >
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
           {applied.length > 0 && (
             <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
               Applied:
@@ -142,50 +132,26 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
             </p>
           )}
 
-          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
-
           {!selected ? (
             <>
-              <div className="relative mt-2">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search archetypes by name…"
-                  aria-label="Search archetypes"
-                  className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-                />
-                {loading && (
-                  <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                )}
+              <div className="mt-2">
+                <PickerSearch value={q} onChange={setQ} loading={loading} label="Search archetypes" placeholder="Search archetypes by name…" />
               </div>
-              <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
-                {rows.length === 0 && !loading ? (
-                  <li className="px-1 py-2 text-sm text-muted-foreground">No archetypes found.</li>
-                ) : (
-                  rows.map((r) => (
-                    <li key={r.slug}>
-                      <button
-                        type="button"
-                        onClick={() => selectArch(r)}
-                        aria-label={`Open ${r.name}`}
-                        className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-left hover:border-rune/50"
-                      >
-                        <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                        {r.source && <span className="shrink-0 text-[11px] text-muted-foreground">{r.source.split(/ pg/)[0]}</span>}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
+              <PickerError message={error} />
+              <PickerList isEmpty={rows.length === 0 && !loading} emptyText="No archetypes found.">
+                {rows.map((r) => (
+                  <PickerRow key={r.slug} onClick={() => selectArch(r)} ariaLabel={`Open ${r.name}`}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                      {r.source && <span className="shrink-0 text-[11px] text-muted-foreground">{r.source.split(/ pg/)[0]}</span>}
+                    </span>
+                  </PickerRow>
+                ))}
+              </PickerList>
             </>
           ) : (
-            <div className="mt-3 space-y-3 rounded-md border border-border/70 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-foreground">{selected.name}</span>
-                <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
-                  ← Back
-                </Button>
-              </div>
+            <PickerDetail title={selected.name} onBack={() => setSelected(null)}>
+              <PickerError message={error} />
 
               {replaces.length > 0 && (
                 <p className="text-[11px] text-muted-foreground">
@@ -219,10 +185,10 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
                   {report.added.length} archetype feature{report.added.length === 1 ? "" : "s"}.
                 </div>
               )}
-            </div>
+            </PickerDetail>
           )}
         </>
       )}
-    </div>
+    </PickerShell>
   );
 }

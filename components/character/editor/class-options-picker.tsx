@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Check, X, Loader2 } from "lucide-react";
+import { Plus, Check, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PickerShell, PickerSearch, PickerList, PickerRow } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type OptionRow = {
@@ -98,16 +99,7 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
     });
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> Class options
-        </h4>
-        <Button variant="ghost" size="icon" aria-label="Close class options" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
+    <PickerShell icon={<Sparkles />} title="Class options" onClose={onClose}>
       {classNames.length === 0 ? (
         <p className="px-1 py-2 text-sm text-muted-foreground">Add a class first to choose its options.</p>
       ) : (
@@ -140,30 +132,15 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
             </select>
           </div>
 
-          <div className="relative mt-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search options by name…"
-              aria-label="Search class options"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-            />
-            {loading && (
-              <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            )}
+          <div className="mt-2">
+            <PickerSearch value={q} onChange={setQ} loading={loading} label="Search class options" placeholder="Search options by name…" />
           </div>
-
-          <ul className="mt-2 flex max-h-[55vh] flex-col gap-1 overflow-y-auto sm:max-h-80">
-            {rows.length === 0 && !loading ? (
-              <li className="px-1 py-2 text-sm text-muted-foreground">No options found.</li>
-            ) : (
-              rows.map((r) => {
-                const isAdded = added.has(r.slug);
-                return (
-                  <li
-                    key={r.slug}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5"
-                  >
+          <PickerList isEmpty={rows.length === 0 && !loading} emptyText="No options found." className="sm:max-h-80">
+            {rows.map((r) => {
+              const isAdded = added.has(r.slug);
+              return (
+                <PickerRow key={r.slug}>
+                  <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
                       {r.option_type && (
@@ -191,13 +168,13 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
                         </>
                       )}
                     </Button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
+                  </div>
+                </PickerRow>
+              );
+            })}
+          </PickerList>
         </>
       )}
-    </div>
+    </PickerShell>
   );
 }
