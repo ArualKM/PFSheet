@@ -51,7 +51,7 @@ export function EntryCard({
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-label={`${open ? "Done" : "Edit"} editing ${name} details`}
-              className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-10"
             >
               {open ? "Done" : "Edit"}
               <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />

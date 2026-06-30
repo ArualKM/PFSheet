@@ -18,11 +18,13 @@ const buttonVariants = cva(
         link: "text-rune underline-offset-4 hover:underline",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        default: "h-10 px-4 py-2",
+        // Touch-first: >= 44px (the --pf-tap baseline) on phones, the original tighter size at sm+ (desktop),
+        // so dense in-row controls (steppers / trash / Add) are tappable without bloating the desktop layout.
+        sm: "h-11 px-3 text-xs sm:h-8",
+        default: "h-11 px-4 py-2 sm:h-10",
         lg: "h-11 px-6 text-base",
-        icon: "size-10",
-        // Touch-comfortable sizes (>= 44px) for mobile nav/drawer/sheet controls.
+        icon: "size-11 sm:size-10",
+        // Always touch-comfortable (>= 44px) regardless of breakpoint — for mobile nav/drawer/sheet controls.
         touch: "h-11 min-w-11 px-4",
         "icon-touch": "size-11",
       },

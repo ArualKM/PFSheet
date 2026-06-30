@@ -484,7 +484,7 @@ function CustomBuffForm({
             value={category}
             aria-label="Buff category"
             onChange={(e) => setCategory(e.target.value as BuffCategory)}
-            className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+            className="h-11 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-10"
           >
             {(Object.keys(CATEGORY_LABEL) as BuffCategory[]).map((c) => (
               <option key={c} value={c}>
@@ -499,7 +499,7 @@ function CustomBuffForm({
             value={unit}
             aria-label="Duration unit"
             onChange={(e) => setUnit(e.target.value as DurationUnit)}
-            className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+            className="h-11 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-10"
           >
             {DURATION_UNITS.map((u) => (
               <option key={u} value={u}>
@@ -532,7 +532,7 @@ function CustomBuffForm({
                 value={e.target}
                 aria-label="Effect target"
                 onChange={(ev) => updateEffect(i, { target: ev.target.value })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 {TARGET_OPTIONS.map((o) => (
                   <option key={o.target} value={o.target}>
@@ -547,7 +547,7 @@ function CustomBuffForm({
                 value={e.operation}
                 aria-label="Effect operation"
                 onChange={(ev) => updateEffect(i, { operation: ev.target.value as "add" | "subtract" })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 <option value="add">+</option>
                 <option value="subtract">−</option>
@@ -571,7 +571,7 @@ function CustomBuffForm({
               title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
               onClick={() => updateEffect(i, { value: typeof e.value === "string" ? 0 : "@{combat.bab.total}" })}
               className={cn(
-                "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
+                "h-11 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors sm:h-9",
                 typeof e.value === "string"
                   ? "border-gold/40 bg-gold/10 text-gold"
                   : "border-border text-muted-foreground hover:text-foreground",
@@ -585,7 +585,7 @@ function CustomBuffForm({
                 value={e.bonusType}
                 aria-label="Effect bonus type"
                 onChange={(ev) => updateEffect(i, { bonusType: ev.target.value as BonusType })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 {BONUS_TYPES.map((t) => (
                   <option key={t} value={t}>

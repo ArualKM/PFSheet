@@ -109,7 +109,7 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
               value={cls}
               onChange={(e) => setCls(e.target.value)}
               aria-label="Class"
-              className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 flex-1 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             >
               {classNames.map((n) => (
                 <option key={n} value={n}>
@@ -121,7 +121,7 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
               value={optionType}
               onChange={(e) => setOptionType(e.target.value)}
               aria-label="Option type"
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             >
               <option value="">All types</option>
               {types.map((t) => (

@@ -125,7 +125,7 @@ export function ArchetypePicker({
                 setSelected(null);
               }}
               aria-label="Class"
-              className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             >
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>

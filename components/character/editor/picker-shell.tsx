@@ -62,7 +62,7 @@ export function PickerSearch({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
-        className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-9 text-sm text-foreground transition-colors focus:border-rune/60 focus:outline-none"
+        className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-9 text-sm text-foreground transition-colors focus:border-rune/60 focus:outline-none sm:h-10"
       />
       {loading && (
         <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />

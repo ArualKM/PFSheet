@@ -184,7 +184,7 @@ export function SpellPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: 
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search by name, school, descriptor, or text…"
         aria-label="Search spells"
-        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+        className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground sm:h-10"
       />
 
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

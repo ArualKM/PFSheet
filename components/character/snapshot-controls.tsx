@@ -50,12 +50,12 @@ export function CreateSnapshotButton({ characterId }: { characterId: string }) {
               create();
             }
           }}
-          className="h-9"
+          className="h-11 sm:h-9"
         />
         <Button type="button" size="sm" onClick={create} disabled={pending}>
           {pending ? "Saving…" : "Save"}
         </Button>
-        <Button type="button" size="icon" variant="ghost" className="size-9" onClick={() => setOpen(false)}>
+        <Button type="button" size="icon" variant="ghost" className="size-9 sm:size-9" onClick={() => setOpen(false)}>
           <X className="size-4" />
           <span className="sr-only">Cancel</span>
         </Button>
@@ -90,7 +90,7 @@ export function DeleteSnapshotButton({
       type="button"
       variant="ghost"
       size="icon"
-      className="size-8"
+      className="size-8 sm:size-8"
       disabled={pending}
       onClick={del}
       aria-label={`Delete snapshot ${label}`}

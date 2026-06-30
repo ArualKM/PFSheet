@@ -333,7 +333,7 @@ export function SpherePicker({
             value={sphere}
             onChange={(e) => setSphere(e.target.value)}
             aria-label="Filter by sphere"
-            className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-xs text-foreground"
+            className="h-11 flex-1 rounded-lg border border-border bg-background px-2 text-xs text-foreground sm:h-9"
           >
             <option value="">All spheres</option>
             {SYSTEMS.map((sys) => {
@@ -354,7 +354,7 @@ export function SpherePicker({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label="Filter by category"
-            className="h-9 rounded-lg border border-border bg-background px-2 text-xs text-foreground"
+            className="h-11 rounded-lg border border-border bg-background px-2 text-xs text-foreground sm:h-9"
           >
             <option value="">All types</option>
             {CATEGORIES.map((c) => (

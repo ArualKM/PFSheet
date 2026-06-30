@@ -57,7 +57,7 @@ export function ShareControls({
         value={visibility}
         disabled={pending}
         onChange={(e) => change(e.target.value as Visibility)}
-        className="h-8 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground disabled:opacity-60"
+        className="h-11 rounded-lg border border-border bg-background px-2.5 text-sm text-foreground disabled:opacity-60 sm:h-8"
       >
         <option value="private">Private</option>
         <option value="unlisted">Unlisted (link only)</option>

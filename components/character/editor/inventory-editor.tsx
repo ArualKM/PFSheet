@@ -248,7 +248,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                   placeholder="e.g. 15 gp"
                   className="w-28"
                 />
-                <label className="flex h-10 items-center gap-1.5 text-sm text-muted-foreground">
+                <label className="flex h-11 items-center gap-1.5 text-sm text-muted-foreground sm:h-10">
                   <input
                     type="checkbox"
                     checked={!!item.equipped}
@@ -295,7 +295,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                     Weapon stats — an equipped weapon becomes a computed attack (BAB + ability + size + enhancement).
                   </p>
                   <div className="flex flex-wrap items-end gap-2">
-                    <label className="flex h-9 items-center gap-1.5 text-xs text-foreground">
+                    <label className="flex h-11 items-center gap-1.5 text-xs text-foreground sm:h-9">
                       <input
                         type="checkbox"
                         checked={!!item.weapon?.ranged}

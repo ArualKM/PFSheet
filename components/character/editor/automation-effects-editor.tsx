@@ -113,7 +113,7 @@ export function AutomationEffectsEditor({
                 value={known ? e.target : CUSTOM_TARGET}
                 aria-label="Effect target"
                 onChange={(ev) => update(i, { target: ev.target.value === CUSTOM_TARGET ? "" : ev.target.value })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 {rowOptions.map((o) => (
                   <option key={o.target} value={o.target}>
@@ -140,7 +140,7 @@ export function AutomationEffectsEditor({
                 value={e.operation === "subtract" ? "subtract" : "add"}
                 aria-label="Effect operation"
                 onChange={(ev) => update(i, { operation: ev.target.value as "add" | "subtract" })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 <option value="add">+</option>
                 <option value="subtract">−</option>
@@ -171,7 +171,7 @@ export function AutomationEffectsEditor({
               title="Use a formula value — reference @{combat.bab.total}, @{level.total}, @{abilities.str.mod}, …"
               onClick={() => update(i, { value: isFormula ? 0 : "@{level.total}" })}
               className={cn(
-                "h-9 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
+                "h-11 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors sm:h-9",
                 isFormula
                   ? "border-gold/40 bg-gold/10 text-gold"
                   : "border-border text-muted-foreground hover:text-foreground",
@@ -186,7 +186,7 @@ export function AutomationEffectsEditor({
                 value={e.bonusType ?? "untyped"}
                 aria-label="Effect bonus type"
                 onChange={(ev) => update(i, { bonusType: ev.target.value as BonusType })}
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 {BONUS_TYPES.map((t) => (
                   <option key={t} value={t}>

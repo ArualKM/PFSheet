@@ -520,7 +520,7 @@ export function CharacterEditor({
           }}
         />
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {section.items.length > 1 ? (
             <div role="tablist" aria-label={`${section.label} panels`} className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
               {section.items.map((i, idx) => (
@@ -551,14 +551,14 @@ export function CharacterEditor({
               {section.items[0]!.label}
             </h2>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => setAdvanced((v) => !v)}
               aria-pressed={advanced}
               title="Toggle Simple / Advanced mode"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors sm:min-h-0",
                 advanced
                   ? "border-gold/40 bg-gold/10 text-gold"
                   : "border-border text-muted-foreground hover:text-foreground",
@@ -781,7 +781,7 @@ function HeroPointsEditor({ ed }: { ed: EditorApi }) {
         </Button>
       </div>
       <div className="flex flex-wrap items-end gap-4">
-        <label className="flex h-9 items-center gap-1.5 text-sm text-foreground">
+        <label className="flex h-11 items-center gap-1.5 text-sm text-foreground sm:h-9">
           <input
             type="checkbox"
             checked={!!hp?.heroesFortune}
@@ -1057,7 +1057,7 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
               value={boostAbility}
               aria-label="Ability to boost"
               onChange={(e) => setBoostAbility(e.target.value)}
-              className="h-9 rounded-md border border-border bg-background px-2 text-sm uppercase text-foreground"
+              className="h-11 rounded-md border border-border bg-background px-2 text-sm uppercase text-foreground sm:h-9"
             >
               {["str", "dex", "con", "int", "wis", "cha"].map((a) => (
                 <option key={a} value={a}>
@@ -1239,7 +1239,7 @@ function ProwessTrackEditor({
           value={pick}
           aria-label={`${title} — ability to enhance`}
           onChange={(e) => setPick(e.target.value)}
-          className="h-9 rounded-md border border-border bg-background px-2 text-sm uppercase text-foreground"
+          className="h-11 rounded-md border border-border bg-background px-2 text-sm uppercase text-foreground sm:h-9"
         >
           {abilities.map((a) => (
             <option key={a} value={a}>
@@ -1442,7 +1442,7 @@ function AddByName({ placeholder, onAdd }: { placeholder: string; onAdd: (name: 
       }}
       onBlur={commit}
       placeholder={placeholder}
-      className="h-7 w-full rounded-full border border-dashed border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground sm:w-36"
+      className="h-11 w-full rounded-full border border-dashed border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground sm:h-7 sm:w-36"
     />
   );
 }
@@ -2861,7 +2861,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-label={`${open ? "Done" : "Edit"} editing ${displayName} details`}
-              className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+              className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-10"
             >
               {open ? "Done" : "Edit"}
               <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
@@ -3314,7 +3314,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
               onChange={(e) =>
                 ed.update((c) => (c.progression.xpTrack = e.target.value as "slow" | "medium" | "fast" | "custom"))
               }
-              className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-10"
             >
               {["slow", "medium", "fast", "custom"].map((t) => (
                 <option key={t} value={t}>
@@ -3954,7 +3954,7 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
                 addCondition();
               }
             }}
-            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+            className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground sm:h-10"
           />
           <Button size="sm" variant="secondary" onClick={addCondition}>
             Add
@@ -4047,7 +4047,7 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
                 addImmunity();
               }
             }}
-            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+            className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground sm:h-10"
           />
           <Button size="sm" variant="secondary" onClick={addImmunity}>
             Add
@@ -4502,7 +4502,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                       value={s.ability}
                       aria-label={`${skillDisplayLabel(s)} ability`}
                       onChange={(e) => setAbility(i, e.target.value)}
-                      className="ml-1 h-10 rounded border border-border bg-background px-1 text-[11px] uppercase text-foreground"
+                      className="ml-1 h-11 rounded border border-border bg-background px-1 text-[11px] uppercase text-foreground"
                     >
                       {SKILL_ABILITIES.map((a) => (
                         <option key={a} value={a}>
@@ -4542,7 +4542,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                         const n = intOr0(e.target.value);
                         if (n !== null) setBgRanks(i, n);
                       }}
-                      className="tnum mt-0.5 block h-10 w-16 rounded-md border border-rune/40 bg-background px-2 text-sm"
+                      className="tnum mt-0.5 block h-11 w-16 rounded-md border border-rune/40 bg-background px-2 text-sm"
                     />
                   </label>
                 )}
@@ -4556,7 +4556,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                       const n = intOr0(e.target.value);
                       if (n !== null) setMisc(i, n);
                     }}
-                    className="tnum mt-0.5 block h-10 w-16 rounded-md border border-border bg-background px-2 text-sm"
+                    className="tnum mt-0.5 block h-11 w-16 rounded-md border border-border bg-background px-2 text-sm"
                   />
                 </label>
                 {s.custom && (
@@ -4584,7 +4584,7 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
             value={addType}
             onChange={(e) => setAddType(e.target.value)}
             aria-label="Skill type to add"
-            className="h-10 rounded-md border border-border bg-background px-2 text-sm"
+            className="h-11 rounded-md border border-border bg-background px-2 text-sm sm:h-10"
           >
             <option value="custom">Custom skill</option>
             {REPEATABLE_SKILL_BASES.map((b) => (
@@ -4604,14 +4604,14 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
             }}
             placeholder={addType === "custom" ? "Skill name" : "Specialty (e.g. alchemy)"}
             aria-label={addType === "custom" ? "Custom skill name" : "Specialty"}
-            className="h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+            className="h-11 flex-1 rounded-md border border-border bg-background px-3 text-sm sm:h-10"
           />
           {addType === "custom" && (
             <select
               value={addAbility}
               onChange={(e) => setAddAbility(e.target.value)}
               aria-label="Custom skill ability"
-              className="h-10 rounded-md border border-border bg-background px-2 text-sm uppercase"
+              className="h-11 rounded-md border border-border bg-background px-2 text-sm uppercase sm:h-10"
             >
               {SKILL_ABILITIES.map((a) => (
                 <option key={a} value={a}>
@@ -4986,7 +4986,7 @@ function ProfileEditor({ ed }: { ed: EditorApi }) {
   const p = ed.draft.profile;
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <div className="size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-raised">
           <PortraitImage src={p.portraitUrl} alt="Portrait preview" fallback={ed.draft.identity.name.charAt(0) || "?"} />
         </div>

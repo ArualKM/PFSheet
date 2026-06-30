@@ -78,7 +78,7 @@ export function CompanionsCard({ parentId, companions }: { parentId: string; com
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Shadow the wolf"
               aria-label="Companion name"
-              className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             />
           </label>
           <label className="text-xs">
@@ -87,7 +87,7 @@ export function CompanionsCard({ parentId, companions }: { parentId: string; com
               value={type}
               onChange={(e) => setType(e.target.value)}
               aria-label="Companion type"
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+              className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             >
               {TYPES.map((t) => (
                 <option key={t.value} value={t.value}>

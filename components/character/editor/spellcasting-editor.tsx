@@ -248,7 +248,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                           aria-label={`${caster.className} level ${lvl} spells per day`}
                           value={caster.spellsPerDay[String(lvl)]?.total ?? ""}
                           onChange={(e) => setSlots(i, lvl, e.target.value === "" ? null : Math.trunc(Number(e.target.value)))}
-                          className="tnum h-10 w-full rounded-md border border-border bg-background px-1 text-center text-xs sm:h-9"
+                          className="tnum h-11 w-full appearance-none rounded-md border border-border bg-background px-1 text-center text-xs sm:h-9"
                         />
                       </label>
                     ))}
@@ -493,7 +493,7 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                 if (e.target.value) addCatalogMetamagic(e.target.value);
                 e.target.value = "";
               }}
-              className="h-8 rounded border border-border bg-background px-1 text-xs text-foreground"
+              className="h-11 rounded border border-border bg-background px-1 text-xs text-foreground sm:h-8"
             >
               <option value="">+ Standard metamagic…</option>
               {METAMAGIC_CATALOG.filter((m) => !sc.metamagic.some((k) => k.id === m.id)).map((m) => (

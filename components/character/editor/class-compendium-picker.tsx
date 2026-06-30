@@ -284,7 +284,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                   <div className="flex flex-wrap items-end gap-3 rounded-lg border border-rune/30 bg-rune/5 p-2">
                     <label className="text-xs">
                       <span className="mb-1 block font-medium text-muted-foreground">Casting ability</span>
-                      <select value={castingAbility} onChange={(e) => setCastingAbility(e.target.value as AbilityKey)} aria-label="Casting ability" className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground">
+                      <select value={castingAbility} onChange={(e) => setCastingAbility(e.target.value as AbilityKey)} aria-label="Casting ability" className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9">
                         {ABILITY_KEYS.map((a) => (
                           <option key={a} value={a}>
                             {a.toUpperCase()}
@@ -294,7 +294,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                     </label>
                     <label className="text-xs">
                       <span className="mb-1 block font-medium text-muted-foreground">Caster type</span>
-                      <select value={casterType} onChange={(e) => setCasterType(e.target.value as CasterType)} aria-label="Caster type" className="h-9 rounded-lg border border-border bg-background px-2 text-sm capitalize text-foreground">
+                      <select value={casterType} onChange={(e) => setCasterType(e.target.value as CasterType)} aria-label="Caster type" className="h-11 rounded-lg border border-border bg-background px-2 text-sm capitalize text-foreground sm:h-9">
                         {CASTER_TYPES.map((t) => (
                           <option key={t} value={t}>
                             {t}

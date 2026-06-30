@@ -61,14 +61,14 @@ export function SpellListViewer({ title, spells }: { title: string; spells: Spel
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               aria-label={`Search ${title}`}
-              className="h-9 w-28 rounded border border-border bg-background pl-7 pr-2 text-xs text-foreground sm:w-36"
+              className="h-11 w-28 rounded border border-border bg-background pl-7 pr-2 text-xs text-foreground sm:h-9 sm:w-36"
             />
           </div>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortMode)}
             aria-label={`Sort ${title}`}
-            className="h-9 rounded border border-border bg-background px-2 text-xs text-foreground"
+            className="h-11 rounded border border-border bg-background px-2 text-xs text-foreground sm:h-9"
           >
             {SORTS.map((s) => (
               <option key={s.value} value={s.value}>

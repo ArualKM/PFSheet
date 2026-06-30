@@ -33,7 +33,7 @@ export function SpellRow({ spell, right }: { spell: SpellView; right?: ReactNode
 
   return (
     <div className="rounded-md border border-border/70 bg-surface-raised/30">
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex min-h-11 items-center gap-2 px-3 py-2">
         <button
           type="button"
           className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
