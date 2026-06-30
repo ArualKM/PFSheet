@@ -108,6 +108,7 @@ import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
+import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
@@ -2726,6 +2727,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showClassCompendium, setShowClassCompendium] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const hasPresetClass = id.classes.some((c) => c.presetKey);
 
@@ -2779,6 +2781,9 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 Recompute
               </Button>
             )}
+            <Button size="sm" variant={showClassCompendium ? "default" : "secondary"} onClick={() => setShowClassCompendium((v) => !v)}>
+              <Search className="size-4" /> Compendium
+            </Button>
             <Button size="sm" variant="secondary" onClick={() => setShowCatalog((v) => !v)}>
               <Sparkles className="size-4" /> From catalog
             </Button>
@@ -2798,6 +2803,11 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             </Button>
           </div>
         </div>
+        {showClassCompendium && (
+          <div className="mb-3">
+            <ClassCompendiumPicker ed={ed} onClose={() => setShowClassCompendium(false)} />
+          </div>
+        )}
         {showCatalog && (
           <div className="mb-3">
             <ClassPresetPicker
