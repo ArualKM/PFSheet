@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Check, X, Loader2 } from "lucide-react";
+import { Plus, Check, Zap, Swords } from "lucide-react";
 import { ABILITY_KEYS } from "@pathforge/schema";
 import {
   evaluatePrerequisites,
@@ -11,10 +11,10 @@ import {
   type CompendiumEffectSeed,
   type PrereqContext,
 } from "@pathforge/rules-pf1e";
-import { Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow } from "./picker-shell";
 import { Badge } from "@/components/ui/badge";
 
 type FeatResult = {
@@ -161,45 +161,24 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     });
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> Feat compendium
-        </h4>
-        <Button variant="ghost" size="icon" aria-label="Close feat compendium" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
-      <div className="relative">
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search feats by name, type, or benefit…"
-          aria-label="Search the feat compendium"
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-        />
-        {loading && (
-          <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
-
-      <ul className="mt-2 flex max-h-[65vh] flex-col gap-1 overflow-y-auto sm:max-h-96">
-        {feats.length === 0 && !loading ? (
-          <li className="px-1 py-2 text-sm text-muted-foreground">
-            {q.trim().length === 1 ? "Keep typing…" : "No feats found."}
-          </li>
-        ) : (
-          feats.map((r) => {
-            const isAdded = added.has(r.slug);
-            const checks = evaluatePrerequisites(prereqs[r.name] ?? [], ctx);
-            const sum = prereqSummary(checks);
-            return (
-              <li key={r.slug} className="rounded-md border border-border/60 bg-background px-2.5 py-1.5">
-                <div className="flex items-center justify-between gap-2">
+    <PickerShell icon={<Swords />} title="Feat compendium" onClose={onClose}>
+      <PickerSearch
+        autoFocus
+        value={q}
+        onChange={setQ}
+        loading={loading}
+        label="Search the feat compendium"
+        placeholder="Search feats by name, type, or benefit…"
+      />
+      <PickerError message={error} />
+      <PickerList isEmpty={feats.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No feats found."}>
+        {feats.map((r) => {
+          const isAdded = added.has(r.slug);
+          const checks = evaluatePrerequisites(prereqs[r.name] ?? [], ctx);
+          const sum = prereqSummary(checks);
+          return (
+            <PickerRow key={r.slug}>
+              <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
                     {r.types && <Badge variant="rune">{r.types}</Badge>}
@@ -262,11 +241,10 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                     ))}
                   </div>
                 )}
-              </li>
-            );
-          })
-        )}
-      </ul>
-    </div>
+            </PickerRow>
+          );
+        })}
+      </PickerList>
+    </PickerShell>
   );
 }

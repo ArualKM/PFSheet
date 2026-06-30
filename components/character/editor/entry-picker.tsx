@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Search, Plus, Check, X, Loader2 } from "lucide-react";
+import { Plus, Check, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow } from "./picker-shell";
 
 export type EntryRow = Record<string, unknown> & { slug: string; name: string };
 
@@ -15,6 +16,7 @@ export type EntryRow = Record<string, unknown> & { slug: string; name: string };
  */
 export function EntryPicker({
   title,
+  icon,
   rpc,
   placeholder,
   addedIds,
@@ -24,6 +26,8 @@ export function EntryPicker({
   limit = 40,
 }: {
   title: string;
+  /** Header icon (defaults to a scroll). */
+  icon?: ReactNode;
   /** The `search_*` RPC name (takes p_query + p_limit, returns rows with slug + name). */
   rpc: string;
   placeholder: string;
@@ -66,45 +70,15 @@ export function EntryPicker({
   }, [q, supabase, rpc, limit]);
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> {title}
-        </h4>
-        <Button variant="ghost" size="icon" aria-label={`Close ${title}`} onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
-      <div className="relative">
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={placeholder}
-          aria-label={`Search ${title}`}
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-        />
-        {loading && (
-          <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
-
-      <ul className="mt-2 flex max-h-[65vh] flex-col gap-1 overflow-y-auto sm:max-h-96">
-        {rows.length === 0 && !loading ? (
-          <li className="px-1 py-2 text-sm text-muted-foreground">
-            {q.trim().length === 1 ? "Keep typing…" : "No matches found."}
-          </li>
-        ) : (
-          rows.map((r) => {
-            const isAdded = addedIds.has(r.slug);
-            return (
-              <li
-                key={r.slug}
-                className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5"
-              >
+    <PickerShell icon={icon ?? <ScrollText />} title={title} onClose={onClose}>
+      <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label={`Search ${title}`} placeholder={placeholder} />
+      <PickerError message={error} />
+      <PickerList isEmpty={rows.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No matches found."}>
+        {rows.map((r) => {
+          const isAdded = addedIds.has(r.slug);
+          return (
+            <PickerRow key={r.slug}>
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">{r.name}</span>
                   {renderMeta && <div className="truncate text-[11px] text-muted-foreground">{renderMeta(r)}</div>}
@@ -127,11 +101,11 @@ export function EntryPicker({
                     </>
                   )}
                 </Button>
-              </li>
-            );
-          })
-        )}
-      </ul>
-    </div>
+              </div>
+            </PickerRow>
+          );
+        })}
+      </PickerList>
+    </PickerShell>
   );
 }
