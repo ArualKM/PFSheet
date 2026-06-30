@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, BookOpen, Search } from "lucide-react";
+import { Plus, Trash2, BookOpen, Search, ChevronDown } from "lucide-react";
 import { Sparkles, Wand2 } from "@/components/ui/game-icons";
 import type { SpellcasterEntry } from "@pathforge/schema";
 import { METAMAGIC_CATALOG } from "@pathforge/schema";
 import type { ComputedSpellSlots } from "@pathforge/rules-pf1e";
-import { NumberField, SelectField, TextField } from "./fields";
+import { NumberField, SelectField, TextField, TextAreaField } from "./fields";
 import { SpellPicker } from "./spell-picker";
+import { EntryCard } from "./entry-card";
+import { StatChip } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,6 +25,8 @@ function newId(prefix: string): string {
 export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
   const sc = ed.draft.spellcasting;
   const [showPicker, setShowPicker] = useState(false);
+  // The id of a just-added list entry, so its EntryCard mounts already-open for editing.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const addCaster = () =>
     ed.update((c) =>
@@ -256,10 +260,16 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                   onCast={(lvl, d, total) => castLevel(i, lvl, d, total)}
                 />
               </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <TextField label="Save DC formula" value={caster.saveDcFormula} onChange={(v) => updateCaster(i, { saveDcFormula: v })} placeholder="10 + spell level + @{abilities.int.mod}" className="font-mono" />
-                <TextField label="Concentration formula" value={caster.concentrationFormula} onChange={(v) => updateCaster(i, { concentrationFormula: v })} placeholder="@{casterLevel} + @{abilities.int.mod}" className="font-mono" />
-              </div>
+              <details className="group mt-2">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground">
+                  <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+                  Save DC &amp; concentration formulas
+                </summary>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <TextField label="Save DC formula" value={caster.saveDcFormula} onChange={(v) => updateCaster(i, { saveDcFormula: v })} placeholder="10 + spell level + @{abilities.int.mod}" inputClassName="font-mono" />
+                  <TextField label="Concentration formula" value={caster.concentrationFormula} onChange={(v) => updateCaster(i, { concentrationFormula: v })} placeholder="@{casterLevel} + @{abilities.int.mod}" inputClassName="font-mono" />
+                </div>
+              </details>
             </div>
           ))}
         </div>
@@ -275,7 +285,15 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
             <Button size="sm" variant={showPicker ? "secondary" : "ghost"} onClick={() => setShowPicker((v) => !v)}>
               <Search className="size-4" /> Search compendium
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => ed.update((c) => c.spellcasting.knownSpells.push({ id: newId("spell"), name: "New spell", level: 0 }))}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const id = newId("spell");
+                ed.update((c) => c.spellcasting.knownSpells.push({ id, name: "New spell", level: 0 }));
+                setOpenId(id);
+              }}
+            >
               <Plus className="size-4" /> Add manually
             </Button>
           </div>
@@ -287,21 +305,64 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
         )}
         {sc.knownSpells.length === 0 && <p className="text-sm text-muted-foreground">No spells listed yet.</p>}
         <div className="space-y-2">
-          {sc.knownSpells.map((sp, i) => (
-            <div key={sp.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-              <TextField label="Spell" value={sp.name} onChange={(v) => ed.update((c) => { const s = c.spellcasting.knownSpells[i]; if (s) s.name = v; })} className="min-w-[10rem] flex-1" />
-              <NumberField label="Lvl" value={sp.level} min={0} max={9} onChange={(v) => ed.update((c) => { const s = c.spellcasting.knownSpells[i]; if (s) s.level = Math.max(0, Math.min(9, v)); })} className="w-16" />
-              <TextField label="School" value={sp.school ?? ""} onChange={(v) => ed.update((c) => { const s = c.spellcasting.knownSpells[i]; if (s) s.school = v; })} className="w-32" />
-              {preparedCaster && (
-                <Button size="sm" variant="ghost" onClick={() => prepareFromKnown(sp)}>
-                  Prepare
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" aria-label={`Remove ${sp.name}`} onClick={() => ed.update((c) => c.spellcasting.knownSpells.splice(i, 1))}>
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+          {sc.knownSpells.map((sp, i) => {
+            const setSpell = (mut: (s: (typeof sc.knownSpells)[number]) => void) =>
+              ed.update((c) => {
+                const s = c.spellcasting.knownSpells[i];
+                if (s) mut(s);
+              });
+            return (
+              <EntryCard
+                key={sp.id}
+                nameLabel="Spell"
+                name={sp.name}
+                onNameChange={(v) => setSpell((s) => (s.name = v))}
+                onRemove={() => ed.update((c) => c.spellcasting.knownSpells.splice(i, 1))}
+                removeLabel={`Remove ${sp.name}`}
+                defaultOpen={sp.id === openId}
+                chips={
+                  <>
+                    <StatChip label="Lv" value={sp.level} />
+                    {sp.school && <StatChip value={sp.school} />}
+                    {sp.descriptor && <StatChip tone="rune" value={sp.descriptor} />}
+                    {sp.range && <StatChip value={sp.range} />}
+                  </>
+                }
+              >
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <NumberField label="Level" value={sp.level} min={0} max={9} onChange={(v) => setSpell((s) => (s.level = Math.max(0, Math.min(9, v))))} />
+                  <TextField label="School" value={sp.school ?? ""} onChange={(v) => setSpell((s) => (s.school = v || undefined))} />
+                  <TextField label="Subschool" value={sp.subschool ?? ""} onChange={(v) => setSpell((s) => (s.subschool = v || undefined))} />
+                  <TextField label="Descriptor" value={sp.descriptor ?? ""} onChange={(v) => setSpell((s) => (s.descriptor = v || undefined))} />
+                  <TextField label="Casting time" value={sp.castingTime ?? ""} onChange={(v) => setSpell((s) => (s.castingTime = v || undefined))} />
+                  <TextField label="Components" value={sp.components ?? ""} onChange={(v) => setSpell((s) => (s.components = v || undefined))} />
+                  <TextField label="Range" value={sp.range ?? ""} onChange={(v) => setSpell((s) => (s.range = v || undefined))} />
+                  <TextField label="Duration" value={sp.duration ?? ""} onChange={(v) => setSpell((s) => (s.duration = v || undefined))} />
+                  <TextField label="Saving throw" value={sp.savingThrow ?? ""} onChange={(v) => setSpell((s) => (s.savingThrow = v || undefined))} />
+                  <TextField label="Spell resistance" value={sp.spellResistance ?? ""} onChange={(v) => setSpell((s) => (s.spellResistance = v || undefined))} />
+                  <TextField label="Area" value={sp.area ?? ""} onChange={(v) => setSpell((s) => (s.area = v || undefined))} />
+                  <TextField label="Effect" value={sp.effect ?? ""} onChange={(v) => setSpell((s) => (s.effect = v || undefined))} />
+                  <TextField label="Targets" value={sp.targets ?? ""} onChange={(v) => setSpell((s) => (s.targets = v || undefined))} />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!sp.atWill}
+                    onChange={(e) => setSpell((s) => (s.atWill = e.target.checked || undefined))}
+                    className="size-4 rounded border-border accent-rune"
+                  />
+                  <span className="font-medium">At will</span>
+                </label>
+                <TextAreaField label="Description" value={sp.description ?? ""} rows={3} onChange={(v) => setSpell((s) => (s.description = v || undefined))} />
+                <TextField label="Notes" value={sp.notes ?? ""} onChange={(v) => setSpell((s) => (s.notes = v || undefined))} />
+                {preparedCaster && (
+                  <Button size="sm" variant="secondary" onClick={() => prepareFromKnown(sp)}>
+                    <BookOpen className="size-4" /> Prepare
+                  </Button>
+                )}
+              </EntryCard>
+            );
+          })}
         </div>
 
         {preparedCaster && sc.preparedSpells.length > 0 && (
@@ -414,7 +475,15 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
             <Wand2 className="size-4" /> Spell-like abilities &amp; metamagic
           </h3>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button size="sm" variant="ghost" onClick={() => ed.update((c) => c.spellcasting.spellLikeAbilities.push({ id: newId("sla"), name: "New ability", used: 0 }))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const id = newId("sla");
+                ed.update((c) => c.spellcasting.spellLikeAbilities.push({ id, name: "New ability", used: 0 }));
+                setOpenId(id);
+              }}
+            >
               <Plus className="size-4" /> SLA
             </Button>
             <select
@@ -433,30 +502,68 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                 </option>
               ))}
             </select>
-            <Button size="sm" variant="ghost" onClick={() => ed.update((c) => c.spellcasting.metamagic.push({ id: newId("meta"), name: "New metamagic", levelAdjust: 0 }))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const id = newId("meta");
+                ed.update((c) => c.spellcasting.metamagic.push({ id, name: "New metamagic", levelAdjust: 0 }));
+                setOpenId(id);
+              }}
+            >
               <Plus className="size-4" /> Custom
             </Button>
           </div>
         </div>
         <div className="space-y-2">
-          {sc.spellLikeAbilities.map((sla, i) => (
-            <div key={sla.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-              <TextField label="Spell-like ability" value={sla.name} onChange={(v) => ed.update((c) => { const s = c.spellcasting.spellLikeAbilities[i]; if (s) s.name = v; })} className="min-w-[10rem] flex-1" />
-              <NumberField label="Uses/day" value={typeof sla.usesPerDay === "number" ? sla.usesPerDay : 0} min={0} onChange={(v) => ed.update((c) => { const s = c.spellcasting.spellLikeAbilities[i]; if (s) s.usesPerDay = v; })} className="w-24" />
-              <Button variant="ghost" size="icon" aria-label={`Remove ${sla.name}`} onClick={() => ed.update((c) => c.spellcasting.spellLikeAbilities.splice(i, 1))}>
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
-          {sc.metamagic.map((m, i) => (
-            <div key={m.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
-              <TextField label="Metamagic feat" value={m.name} onChange={(v) => ed.update((c) => { const s = c.spellcasting.metamagic[i]; if (s) s.name = v; })} className="min-w-[10rem] flex-1" />
-              <NumberField label="+Levels" value={m.levelAdjust} min={0} onChange={(v) => ed.update((c) => { const s = c.spellcasting.metamagic[i]; if (s) s.levelAdjust = v; })} className="w-24" />
-              <Button variant="ghost" size="icon" aria-label={`Remove ${m.name}`} onClick={() => ed.update((c) => c.spellcasting.metamagic.splice(i, 1))}>
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
-          ))}
+          {sc.spellLikeAbilities.map((sla, i) => {
+            const setSla = (mut: (s: (typeof sc.spellLikeAbilities)[number]) => void) =>
+              ed.update((c) => {
+                const s = c.spellcasting.spellLikeAbilities[i];
+                if (s) mut(s);
+              });
+            return (
+              <EntryCard
+                key={sla.id}
+                nameLabel="Spell-like ability"
+                name={sla.name}
+                onNameChange={(v) => setSla((s) => (s.name = v))}
+                onRemove={() => ed.update((c) => c.spellcasting.spellLikeAbilities.splice(i, 1))}
+                removeLabel={`Remove ${sla.name}`}
+                defaultOpen={sla.id === openId}
+                chips={typeof sla.usesPerDay === "number" && sla.usesPerDay > 0 ? <StatChip tone="gold" value={`${sla.usesPerDay}/day`} /> : undefined}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <NumberField label="Uses/day" value={typeof sla.usesPerDay === "number" ? sla.usesPerDay : 0} min={0} onChange={(v) => setSla((s) => (s.usesPerDay = v))} />
+                  <NumberField label="Caster level" value={sla.casterLevel ?? 0} min={0} onChange={(v) => setSla((s) => (s.casterLevel = v || undefined))} />
+                </div>
+                <TextField label="Save DC formula" value={sla.saveDcFormula ?? ""} onChange={(v) => setSla((s) => (s.saveDcFormula = v || undefined))} placeholder="10 + spell level + @{abilities.cha.mod}" inputClassName="font-mono" />
+                <TextField label="Notes" value={sla.notes ?? ""} onChange={(v) => setSla((s) => (s.notes = v || undefined))} />
+              </EntryCard>
+            );
+          })}
+          {sc.metamagic.map((m, i) => {
+            const setMeta = (mut: (s: (typeof sc.metamagic)[number]) => void) =>
+              ed.update((c) => {
+                const s = c.spellcasting.metamagic[i];
+                if (s) mut(s);
+              });
+            return (
+              <EntryCard
+                key={m.id}
+                nameLabel="Metamagic feat"
+                name={m.name}
+                onNameChange={(v) => setMeta((s) => (s.name = v))}
+                onRemove={() => ed.update((c) => c.spellcasting.metamagic.splice(i, 1))}
+                removeLabel={`Remove ${m.name}`}
+                defaultOpen={m.id === openId}
+                chips={<StatChip tone="rune" value={`+${m.levelAdjust} level`} />}
+              >
+                <NumberField label="+Spell levels" value={m.levelAdjust} min={0} onChange={(v) => setMeta((s) => (s.levelAdjust = v))} className="w-32" />
+                <TextField label="Notes" value={m.notes ?? ""} onChange={(v) => setMeta((s) => (s.notes = v || undefined))} />
+              </EntryCard>
+            );
+          })}
         </div>
       </section>
     </div>

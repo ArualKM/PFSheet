@@ -83,6 +83,7 @@ export function TextField({
   placeholder,
   hint,
   className,
+  inputClassName,
 }: {
   label: string;
   value: string;
@@ -90,12 +91,14 @@ export function TextField({
   placeholder?: string;
   hint?: string;
   className?: string;
+  /** Applied to the <input> itself (e.g. `font-mono` for formula fields) — `className` styles the wrapper. */
+  inputClassName?: string;
 }) {
   const id = useId();
   return (
     <div className={cn("space-y-1", className)}>
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <Input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputClassName} />
       {hint && <p className="text-[11px] text-warning">{hint}</p>}
     </div>
   );

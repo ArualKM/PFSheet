@@ -118,6 +118,7 @@ import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS } from "./automation-effects-editor";
 import { StatChip } from "./picker-shell";
+import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
@@ -3053,6 +3054,109 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   );
 }
 
+const ABILITY_ABBR: Record<AbilityKey, string> = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+
+/**
+ * A consolidated "Race details" disclosure — the racial LENS on the sheet. Collapsed shows a chip summary of the
+ * applied racial effects (race name, ability mods tinted +/−, size, speed); expanded lets you VIEW and SET them
+ * by hand: ability-score adjustments (editing a mod adjusts that score by the delta, mirroring applyRace), size,
+ * base speed + height. The standard-traits prose lives as a feature (edited under Features). Works whether the
+ * race was applied from the compendium (raceApplied populated) or is hand-entered (raceApplied is created here).
+ */
+function RaceDetails({ ed }: { ed: EditorApi }) {
+  const [open, setOpen] = useState(false);
+  const id = ed.draft.identity;
+  const mods = id.raceApplied?.abilityMods ?? {};
+  // Read only the leading integer — match the engine's parseLeadingInt (compute.ts) so the chip, the field,
+  // and the round-trip write all agree (a "30 ft. (20 in armor)" string must read 30, not "302020").
+  const speedMatch = /-?\d+/.exec(String(ed.draft.combat.speed.base ?? ""));
+  const speedNum = speedMatch ? parseInt(speedMatch[0], 10) : NaN;
+  const pointBuyOn = !!ed.draft.abilities.pointBuy?.enabled;
+
+  const matchedSize = PF_SIZES.find((s) => s.toLowerCase() === (id.size ?? "medium").toLowerCase());
+  const sizeValue = matchedSize ?? id.size ?? "Medium";
+  const sizeOptions = (matchedSize || !id.size ? PF_SIZES : [id.size, ...PF_SIZES]).map((s) => ({ value: s, label: s }));
+
+  const setMod = (key: AbilityKey, next: number) =>
+    ed.update((c) => {
+      if (!c.identity.raceApplied) c.identity.raceApplied = { name: c.identity.race || "Custom race", abilityMods: {} };
+      const ra = c.identity.raceApplied;
+      const old = ra.abilityMods[key] ?? 0;
+      const a = c.abilities.primary[key];
+      if (a) a.score += next - old; // keep the score consistent with the recorded racial mod
+      if (next === 0) delete ra.abilityMods[key];
+      else ra.abilityMods[key] = next;
+    });
+
+  const nonzero = ABILITY_KEYS.filter((k) => (mods[k] ?? 0) !== 0);
+
+  return (
+    <div className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`${open ? "Hide" : "Show"} race details`}
+        className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 p-2 text-left"
+      >
+        <span className="text-sm font-medium text-foreground">Race details</span>
+        {id.race && <StatChip value={id.race} />}
+        {nonzero.map((k) => (
+          <StatChip key={k} label={ABILITY_ABBR[k]} value={`${mods[k]! >= 0 ? "+" : ""}${mods[k]}`} tone={mods[k]! >= 0 ? "good" : "poor"} />
+        ))}
+        {id.size && <StatChip value={id.size} />}
+        {Number.isFinite(speedNum) && <StatChip value={`${speedNum} ft`} />}
+        <ChevronDown className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="space-y-3 border-t border-border/50 p-2.5">
+          <div>
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ability adjustments</p>
+            {pointBuyOn ? (
+              // Point Buy owns the score (composeAbilityScore reads pointBuy.racial) — editing the score here would
+              // be silently wiped on the next Point Buy recompute, so steer the user to that single channel.
+              <p className="text-[11px] text-muted-foreground">
+                Point Buy is active — set racial bonuses in the Abilities tab&apos;s Point Buy panel so the score stays in sync.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {ABILITY_KEYS.map((k) => (
+                    <NumberField key={k} label={ABILITY_ABBR[k]} value={mods[k] ?? 0} onChange={(v) => setMod(k, v)} />
+                  ))}
+                </div>
+                {id.raceApplied ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">Editing a racial mod adjusts that ability score by the difference.</p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-warning">
+                    Heads up: your ability scores may already include racial mods. Only set these if your scores are
+                    pre-racial — or apply a race from Browse races to track them cleanly.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <SelectField label="Size" value={sizeValue} onChange={(v) => ed.update((c) => (c.identity.size = v))} options={sizeOptions} />
+            <NumberField
+              label="Base speed (ft)"
+              value={Number.isFinite(speedNum) ? speedNum : 30}
+              min={0}
+              onChange={(v) => ed.update((c) => (c.combat.speed.base = `${v} ft`))}
+            />
+            <TextField label="Base height" value={id.height ?? ""} onChange={(v) => ed.update((c) => (c.identity.height = v || undefined))} />
+          </div>
+          {id.raceApplied?.traitFeatureId && (
+            <p className="text-[11px] text-muted-foreground">
+              Standard racial traits are stored as a feature — edit the prose under Abilities → Features &amp; abilities.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
@@ -3094,6 +3198,9 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             <RacePicker ed={ed} onClose={() => setShowRaces(false)} />
           </div>
         )}
+        <div className="mt-2">
+          <RaceDetails ed={ed} />
+        </div>
       </div>
 
       <div>
@@ -4527,66 +4634,6 @@ function effectChips(effects: AutomationEffect[]): ReactNode {
       ))}
       {effects.length > shown.length && <StatChip value={`+${effects.length - shown.length} more`} />}
     </>
-  );
-}
-
-/**
- * Shared editor row for a feat / feature / trait (and any future entry): COLLAPSED shows a compact name + a chip
- * strip summarising the entry (type/category, automated effects, uses); the chevron opens the caller's full
- * editor (description fields + the automation editor). Mirrors ClassRow so the whole edit UI reads the same way —
- * beautiful chips by default, a disclosure to customise every aspect, mobile-friendly.
- */
-function EntryCard({
-  name,
-  onNameChange,
-  chips,
-  onRemove,
-  removeLabel,
-  defaultOpen = false,
-  children,
-}: {
-  name: string;
-  onNameChange: (v: string) => void;
-  chips?: ReactNode;
-  onRemove: () => void;
-  removeLabel: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  // Open when the parent signals this row should edit (e.g. just-added) — render-phase "adjust on prop change",
-  // robust to the ed.update re-render ordering that a mount-only initial value loses to. Never force-closes,
-  // so a user's manual toggle sticks.
-  const [prevDefaultOpen, setPrevDefaultOpen] = useState(defaultOpen);
-  if (defaultOpen !== prevDefaultOpen) {
-    setPrevDefaultOpen(defaultOpen);
-    if (defaultOpen) setOpen(true);
-  }
-  return (
-    <div className="rounded-lg border border-border">
-      <div className="space-y-1.5 p-2">
-        <div className="flex flex-wrap items-end gap-2">
-          <TextField label="Name" value={name} onChange={onNameChange} className="min-w-0 flex-1 sm:max-w-[18rem]" />
-          <div className="ml-auto flex items-center">
-            <button
-              type="button"
-              onClick={() => setOpen((o) => !o)}
-              aria-expanded={open}
-              aria-label={`${open ? "Done" : "Edit"} editing ${name} details`}
-              className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              {open ? "Done" : "Edit"}
-              <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-            </button>
-            <Button variant="ghost" size="icon" aria-label={removeLabel} onClick={onRemove}>
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-        </div>
-        {chips && <div className="flex flex-wrap items-center gap-1">{chips}</div>}
-      </div>
-      {open && <div className="space-y-3 border-t border-border/50 p-2.5">{children}</div>}
-    </div>
   );
 }
 
