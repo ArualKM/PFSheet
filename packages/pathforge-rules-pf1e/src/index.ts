@@ -79,8 +79,8 @@ export type { CompendiumEffectSeed } from "./effect-seeds";
 export { grantClassFeatures, applyCompendiumClass } from "./class-builder";
 export type { CompendiumFeatureRow, ApplyCompendiumClassResult } from "./class-builder";
 // Phase 5 — archetypes
-export { applyArchetype, parseReplaces, archetypeReplaces, findArchetypeConflicts } from "./class-builder";
-export type { ArchetypeFeatureRow, ApplyArchetypeResult } from "./class-builder";
+export { applyArchetype, unapplyArchetype, parseReplaces, archetypeReplaces, findArchetypeConflicts } from "./class-builder";
+export type { ArchetypeFeatureRow, ApplyArchetypeResult, UnapplyArchetypeResult } from "./class-builder";
 // Phase 7 — races
 export { parseAbilityMods, applyRace } from "./race-builder";
 export type { RaceApplyResult } from "./race-builder";

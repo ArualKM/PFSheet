@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, ChevronDown, GraduationCap } from "lucide-react";
-import { parseProgression, ABILITY_KEYS, type AbilityKey, type CasterType, type HpMethod } from "@pathforge/schema";
+import {
+  parseProgression,
+  ABILITY_KEYS,
+  type AbilityKey,
+  type CasterType,
+  type CompendiumClassInput,
+  type HpMethod,
+} from "@pathforge/schema";
 import { applyCompendiumClass, type ApplyCompendiumClassResult, type CompendiumFeatureRow } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -16,22 +23,36 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NumberField } from "./fields";
-import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail, FeatureTypeChip } from "./picker-shell";
+import {
+  PickerShell,
+  PickerSearch,
+  PickerError,
+  PickerList,
+  PickerRow,
+  PickerDetail,
+  FeatureTypeChip,
+  Segmented,
+} from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 const HP_METHODS: HpMethod[] = ["manual", "average", "max"];
 const HP_LABELS: Record<HpMethod, string> = { manual: "Manual", average: "Average", max: "Max" };
 const CASTER_TYPES: CasterType[] = ["prepared", "spontaneous", "spellbook"];
 
+type ClassMode = "base" | "prestige";
+
 const firstNum = (s: string) => s.match(/[+-]?\d+/)?.[0] ?? s;
 
 /**
- * Phase 4 + polish — the progression-driven class builder. Search class_compendium, preview the parsed
- * BAB/saves/caster, browse a per-level PROGRESSION ACCORDION (each level's BAB/saves + the features gained,
- * tagged Su/Ex/Sp; levels above the chosen one dimmed), then apply via applyCompendiumClass.
+ * Phase 4 + polish — the progression-driven class builder, now covering BASE and PRESTIGE classes via one
+ * Base/Prestige filter (prestige is just a compendium class applied with `suppressCaster`, so it shares this
+ * whole UI instead of a separate button). Search the compendium, preview the parsed BAB/saves/caster, browse a
+ * per-level PROGRESSION ACCORDION (each level's BAB/saves + the features gained, tagged Su/Ex/Sp; levels above
+ * the chosen one dimmed), then apply via applyCompendiumClass.
  */
 export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
   const supabase = useMemo(() => createClient(), []);
+  const [mode, setMode] = useState<ClassMode>("base");
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<ClassCompendiumRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,14 +70,17 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
   const [report, setReport] = useState<ApplyCompendiumClassResult | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
+  const isPrestige = mode === "prestige";
+
   useEffect(() => {
     const term = q.trim();
     if (term.length === 1) return;
     let cancelled = false;
+    const rpc = isPrestige ? "search_prestige_class_compendium" : "search_class_compendium";
     const t = setTimeout(async () => {
       setLoading(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: e } = await (supabase as any).rpc("search_class_compendium", { p_query: term, p_limit: 30 });
+      const { data, error: e } = await (supabase as any).rpc(rpc, { p_query: term, p_limit: 30 });
       if (cancelled) return;
       setError(e?.message ?? null);
       setRows((data ?? []) as ClassCompendiumRow[]);
@@ -66,7 +90,16 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, supabase]);
+  }, [q, supabase, isPrestige]);
+
+  const changeMode = (m: ClassMode) => {
+    if (m === mode) return;
+    setMode(m);
+    setSelected(null);
+    setQ("");
+    setRows([]);
+    setError(null);
+  };
 
   const select = async (row: ClassCompendiumRow) => {
     setSelected(row);
@@ -76,6 +109,23 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
     setFeatures([]);
     setExpanded(new Set());
     setQ("");
+
+    // Prestige: only the progression table exists (no feature/effect tables) and casting is suppressed.
+    if (isPrestige) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error: e } = await (supabase as any).from("prestige_progression").select("json_data").eq("class", row.name).maybeSingle();
+      if (e) {
+        setError(e.message);
+        return;
+      }
+      const prog = data?.json_data ?? null;
+      setProgression(prog);
+      const p = parseProgression(prog);
+      if (!prog) p.warnings.push("No progression data for this prestige class — BAB/saves default to ¾/poor.");
+      setParsed(p);
+      return;
+    }
+
     const [progRes, featRes, fxRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("class_progression").select("json_data").eq("class", row.name).maybeSingle(),
@@ -102,11 +152,27 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
   const apply = () => {
     if (!selected || !progression) return;
     setApplying(true);
-    const input = buildClassInput(selected, progression, { castingAbility, casterType });
     let res: ApplyCompendiumClassResult | undefined;
-    ed.update((c) => {
-      res = applyCompendiumClass(c, { input, level, hpMethod, features });
-    });
+    if (isPrestige) {
+      // A prestige class advances an existing caster ("+1 level of existing class"), so we suppress the spurious
+      // new-caster the spell columns would create; the player raises their real caster's level manually.
+      const input: CompendiumClassInput = {
+        key: `pfcore-prestige:${selected.slug}`,
+        name: selected.name,
+        hitDie: parseHitDie(selected.hit_die),
+        skillRanksPerLevel: 2,
+        classSkillKeys: [],
+        progression,
+      };
+      ed.update((c) => {
+        res = applyCompendiumClass(c, { input, level, hpMethod, suppressCaster: true });
+      });
+    } else {
+      const input = buildClassInput(selected, progression, { castingAbility, casterType });
+      ed.update((c) => {
+        res = applyCompendiumClass(c, { input, level, hpMethod, features });
+      });
+    }
     setReport(res ?? null);
     setApplying(false);
   };
@@ -129,23 +195,43 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
     <PickerShell icon={<GraduationCap />} title="Class compendium" onClose={onClose}>
       {!selected ? (
         <>
+          <div className="mb-2">
+            <Segmented
+              ariaLabel="Class type"
+              value={mode}
+              onChange={changeMode}
+              options={[
+                { value: "base", label: "Base & core" },
+                { value: "prestige", label: "Prestige" },
+              ]}
+            />
+          </div>
           <PickerSearch
             autoFocus
             value={q}
             onChange={setQ}
             loading={loading}
-            label="Search the class compendium"
-            placeholder="Search classes — e.g. Fighter, Oracle, Magus…"
+            label={isPrestige ? "Search prestige classes" : "Search the class compendium"}
+            placeholder={
+              isPrestige ? "Search prestige — e.g. Arcane Trickster, Duelist…" : "Search classes — e.g. Fighter, Oracle, Magus…"
+            }
           />
           <PickerError message={error} />
-          <PickerList isEmpty={rows.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No classes found."}>
+          <PickerList
+            isEmpty={rows.length === 0 && !loading}
+            hint={q.trim().length === 1 ? "Keep typing…" : isPrestige ? "No prestige classes found." : "No classes found."}
+          >
             {rows.map((r) => (
               <PickerRow key={r.slug} onClick={() => select(r)} ariaLabel={`Select ${r.name}`}>
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                  <span className="flex shrink-0 items-center gap-1.5">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{r.name}</span>
+                  <span className="flex min-w-0 shrink items-center justify-end gap-1.5">
                     {r.hit_die && <Badge variant="gold">d{parseHitDie(r.hit_die)}</Badge>}
-                    {r.role && <span className="hidden text-[11px] text-muted-foreground sm:inline">{r.role.split(/[.,]/)[0]}</span>}
+                    {r.role && (
+                      <span className="hidden max-w-[14rem] truncate text-[11px] text-muted-foreground sm:inline-block">
+                        {r.role.split(/[.,]/)[0]}
+                      </span>
+                    )}
                   </span>
                 </span>
               </PickerRow>
@@ -165,7 +251,9 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 <Badge variant="outline">Fort {parsed.saves.fortitude}</Badge>
                 <Badge variant="outline">Ref {parsed.saves.reflex}</Badge>
                 <Badge variant="outline">Will {parsed.saves.will}</Badge>
-                {parsed.caster && <Badge variant="rune">caster (CL {parsed.caster.clProgression.replace("_", "-")})</Badge>}
+                {!isPrestige && parsed.caster && (
+                  <Badge variant="rune">caster (CL {parsed.caster.clProgression.replace("_", "-")})</Badge>
+                )}
               </div>
 
               <div className="flex flex-wrap items-end gap-3">
@@ -184,32 +272,41 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 </div>
               </div>
 
-              {parsed.caster && (
-                <div className="flex flex-wrap items-end gap-3 rounded-lg border border-rune/30 bg-rune/5 p-2">
-                  <label className="text-xs">
-                    <span className="mb-1 block font-medium text-muted-foreground">Casting ability</span>
-                    <select value={castingAbility} onChange={(e) => setCastingAbility(e.target.value as AbilityKey)} aria-label="Casting ability" className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground">
-                      {ABILITY_KEYS.map((a) => (
-                        <option key={a} value={a}>
-                          {a.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs">
-                    <span className="mb-1 block font-medium text-muted-foreground">Caster type</span>
-                    <select value={casterType} onChange={(e) => setCasterType(e.target.value as CasterType)} aria-label="Caster type" className="h-9 rounded-lg border border-border bg-background px-2 text-sm capitalize text-foreground">
-                      {CASTER_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <p className="w-full text-[11px] text-muted-foreground">
-                    The dataset doesn&apos;t record the casting stat — confirm it (the default is often wrong for non-core classes).
+              {isPrestige ? (
+                parsed.caster && (
+                  <p className="rounded-lg border border-rune/30 bg-rune/5 p-2 text-[11px] text-muted-foreground">
+                    This prestige class advances an existing caster level — applied as BAB/saves/HP only; raise your
+                    caster&apos;s level by your prestige levels manually.
                   </p>
-                </div>
+                )
+              ) : (
+                parsed.caster && (
+                  <div className="flex flex-wrap items-end gap-3 rounded-lg border border-rune/30 bg-rune/5 p-2">
+                    <label className="text-xs">
+                      <span className="mb-1 block font-medium text-muted-foreground">Casting ability</span>
+                      <select value={castingAbility} onChange={(e) => setCastingAbility(e.target.value as AbilityKey)} aria-label="Casting ability" className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground">
+                        {ABILITY_KEYS.map((a) => (
+                          <option key={a} value={a}>
+                            {a.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-xs">
+                      <span className="mb-1 block font-medium text-muted-foreground">Caster type</span>
+                      <select value={casterType} onChange={(e) => setCasterType(e.target.value as CasterType)} aria-label="Caster type" className="h-9 rounded-lg border border-border bg-background px-2 text-sm capitalize text-foreground">
+                        {CASTER_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="w-full text-[11px] text-muted-foreground">
+                      The dataset doesn&apos;t record the casting stat — confirm it (the default is often wrong for non-core classes).
+                    </p>
+                  </div>
+                )
               )}
 
               {table.length > 0 && (
@@ -262,6 +359,10 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                     })}
                   </ul>
                 </div>
+              )}
+
+              {isPrestige && (
+                <p className="text-[11px] text-warning">Check you meet the entry requirements — they aren&apos;t auto-verified.</p>
               )}
 
               {parsed.warnings.length > 0 && (

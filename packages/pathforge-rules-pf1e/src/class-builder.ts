@@ -196,6 +196,7 @@ export function applyArchetype(
   // Grant the archetype's leveled features (note-only rows with no numeric level are skipped).
   const have = new Set(character.features.list.map((f) => f.compendiumId).filter(Boolean) as string[]);
   const added: string[] = [];
+  const grantedFeatureIds: string[] = [];
   for (const f of opts.features) {
     const lvl = Number(f.level);
     // note-only rows (e.g. "Rogue Talents") have empty/null level → Number(...) is 0/NaN, not a real level.
@@ -212,8 +213,58 @@ export function applyArchetype(
     });
     have.add(f.slug);
     added.push(f.feature);
+    grantedFeatureIds.push(f.slug);
   }
 
-  row.archetypes = [...(row.archetypes ?? []), { name: opts.archetype.name, compendiumId: opts.archetype.compendiumId, replaces }];
+  row.archetypes = [
+    ...(row.archetypes ?? []),
+    { name: opts.archetype.name, compendiumId: opts.archetype.compendiumId, replaces, grantedFeatureIds },
+  ];
   return { added, replaced, conflicts: [] };
+}
+
+export type UnapplyArchetypeResult = {
+  /** Names of the archetype features removed from the sheet. */
+  removedFeatures: string[];
+  /** Lowercased base names of the standard class features that should be RESTORED (what this archetype
+   * replaced, minus anything a remaining archetype on the class still replaces). The caller re-grants them
+   * from the class feature rows — the engine has no class-feature data to restore them itself. */
+  restore: string[];
+};
+
+/**
+ * Remove an applied archetype from a class row (the inverse of {@link applyArchetype}): drop its record, remove
+ * the archetype features it granted (by the slugs recorded in `grantedFeatureIds`), and report the standard
+ * features to restore. Pure + idempotent (a no-op if the archetype isn't applied). Restoring the standards is
+ * the caller's job (it owns the async class-feature fetch).
+ */
+export function unapplyArchetype(
+  character: PathForgeCharacterV1,
+  opts: { classId: string; archetype: { name: string; compendiumId?: string } },
+): UnapplyArchetypeResult {
+  const row = character.identity.classes.find((c) => c.id === opts.classId);
+  if (!row || !row.archetypes?.length) return { removedFeatures: [], restore: [] };
+
+  const match = (a: CharacterArchetype) =>
+    opts.archetype.compendiumId ? a.compendiumId === opts.archetype.compendiumId : a.name === opts.archetype.name;
+  const target = row.archetypes.find(match);
+  if (!target) return { removedFeatures: [], restore: [] };
+
+  row.archetypes = row.archetypes.filter((a) => !match(a));
+
+  const grantedIds = new Set(target.grantedFeatureIds ?? []);
+  const removedFeatures: string[] = [];
+  if (grantedIds.size) {
+    character.features.list = character.features.list.filter((f) => {
+      if (f.category === "archetype_feature" && f.compendiumId && grantedIds.has(f.compendiumId)) {
+        removedFeatures.push(f.name);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  const stillReplaced = new Set((row.archetypes ?? []).flatMap((a) => a.replaces));
+  const restore = (target.replaces ?? []).filter((r) => !stillReplaced.has(r));
+  return { removedFeatures, restore };
 }

@@ -11,8 +11,7 @@ import {
 } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail } from "./picker-shell";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail, StatChip } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type ArchRow = { slug: string; name: string; class: string; source: string | null };
@@ -25,13 +24,22 @@ const esc = (s: string) => s.replace(/[%_\\]/g, "\\$&");
  * archetype on the class (the conflict rule, explained inline). Apply runs applyArchetype (removes replaced
  * standard features + grants the archetype's features + records it on the class row).
  */
-export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+export function ArchetypePicker({
+  ed,
+  onClose,
+  lockedClassId,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  /** When set, the picker is scoped to this class row (embedded inside it) — the class chooser is hidden. */
+  lockedClassId?: string;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const classes = useMemo(
     () => ed.draft.identity.classes.map((c) => ({ id: c.id, name: c.compendiumPreset?.name ?? c.name })).filter((c) => c.name),
     [ed.draft.identity.classes],
   );
-  const [classId, setClassId] = useState(classes[0]?.id ?? "");
+  const [classId, setClassId] = useState(lockedClassId ?? classes[0]?.id ?? "");
   const selectedClass = classes.find((c) => c.id === classId);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<ArchRow[]>([]);
@@ -44,8 +52,11 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
   const classRow = ed.draft.identity.classes.find((c) => c.id === classId);
   const applied = useMemo(() => classRow?.archetypes ?? [], [classRow?.archetypes]);
 
+  // Key the fetch on the stable class NAME (string), not the memo'd object — the editor clones its draft on
+  // every edit, so `selectedClass` churns identity each apply/unrelated edit and would otherwise refetch.
+  const className = selectedClass?.name;
   useEffect(() => {
-    if (!selectedClass) return;
+    if (!className) return;
     let cancelled = false;
     const t = setTimeout(async () => {
       setLoading(true);
@@ -53,7 +64,7 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
       let query = (supabase as any)
         .from("archetype_compendium")
         .select("slug,name,class,source")
-        .eq("class", selectedClass.name)
+        .eq("class", className)
         .order("name")
         .limit(200);
       if (q.trim()) query = query.ilike("name", `%${esc(q.trim())}%`);
@@ -67,7 +78,7 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
       cancelled = true;
       clearTimeout(t);
     };
-  }, [selectedClass, q, supabase]);
+  }, [className, q, supabase]);
 
   const selectArch = async (r: ArchRow) => {
     setSelected(r);
@@ -106,28 +117,28 @@ export function ArchetypePicker({ ed, onClose }: { ed: CharacterEditorApi; onClo
         <p className="px-1 py-2 text-sm text-muted-foreground">Add a class first to choose an archetype.</p>
       ) : (
         <>
-          <select
-            value={classId}
-            onChange={(e) => {
-              setClassId(e.target.value);
-              setSelected(null);
-            }}
-            aria-label="Class"
-            className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-          >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          {!lockedClassId && (
+            <select
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setSelected(null);
+              }}
+              aria-label="Class"
+              className="h-9 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           {applied.length > 0 && (
             <p className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
               Applied:
               {applied.map((a) => (
-                <Badge key={a.compendiumId ?? a.name} variant="rune">
-                  {a.name}
-                </Badge>
+                <StatChip key={a.compendiumId ?? a.name} tone="rune" value={a.name} />
               ))}
             </p>
           )}

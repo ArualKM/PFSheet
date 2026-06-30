@@ -8,6 +8,9 @@ export const characterArchetypeSchema = z.object({
   name: z.string(),
   compendiumId: z.string().optional(),
   replaces: z.array(z.string()).default([]),
+  /** The compendium slugs of the features this archetype granted — so it can be cleanly un-applied (remove its
+   * own features + restore the standards it replaced). Absent on archetypes applied before this was tracked. */
+  grantedFeatureIds: z.array(z.string()).optional(),
 });
 export type CharacterArchetype = z.infer<typeof characterArchetypeSchema>;
 
@@ -21,6 +24,12 @@ export const characterClassSchema = z.object({
   level: z.number().int().min(0),
   hitDie: z.string().optional(),
   favoredClass: z.boolean().optional(),
+  /** Favored-class bonus tally for THIS class: how many of its levels took +1 HP vs +1 skill rank (the rest
+   * are race/3pp options). The summed `hp` across favored classes feeds `health.favoredClassHpBonus` (which the
+   * HP-from-levels math reads); `skill` is surfaced for the player to spend in Skills. */
+  favoredClassBonus: z
+    .object({ hp: z.number().int().min(0).default(0), skill: z.number().int().min(0).default(0) })
+    .optional(),
   /** Gestalt variant: which of the two parallel class tracks this class advances ("a" default / "b"). */
   track: z.enum(["a", "b"]).optional(),
   /** Links a row to its CLASS_CATALOG preset so BAB/saves/HP can recompute from classes. */

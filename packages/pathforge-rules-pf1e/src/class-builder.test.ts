@@ -5,6 +5,7 @@ import {
   grantClassFeatures,
   applyCompendiumClass,
   applyArchetype,
+  unapplyArchetype,
   parseReplaces,
   type CompendiumFeatureRow,
   type ArchetypeFeatureRow,
@@ -183,5 +184,39 @@ describe("archetypes (Phase 5)", () => {
     applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
     grantClassFeatures(c, { features: ROGUE_FEATURES, fromLevel: 1, toLevel: 5, exclude: ["trapfinding", "trap sense"] });
     expect(c.features.list.map((f) => f.name)).not.toContain("Trap Sense (Ex)");
+  });
+
+  it("unapplyArchetype removes the record + its features and reports the standards to restore", () => {
+    const c = rogue5();
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    expect(c.features.list.map((f) => f.name)).toContain("Expert Acrobat (Ex)");
+
+    const res = unapplyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" } });
+    // The archetype's own granted features are gone…
+    const names = c.features.list.map((f) => f.name);
+    expect(names).not.toContain("Expert Acrobat (Ex)");
+    expect(names).not.toContain("Second Chance (Ex)");
+    // …the record is gone…
+    expect(c.identity.classes[0]!.archetypes).toHaveLength(0);
+    // …and it reports the standard features the caller should restore.
+    expect([...res.restore].sort()).toEqual(["trap sense", "trapfinding"]);
+  });
+
+  it("unapplyArchetype only reports standards NOT still replaced by a remaining archetype", () => {
+    const c = rogue5();
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    const sneak: ArchetypeFeatureRow[] = [{ slug: "af-z", archetype: "Z", feature: "Zfeat", level: 1, replaces: "sneak attack" }];
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Z", compendiumId: "z-rogue" }, features: sneak });
+
+    // Removing Z restores only "sneak attack"; Acrobat's trapfinding/trap sense stay replaced.
+    const res = unapplyArchetype(c, { classId: "rogue1", archetype: { name: "Z", compendiumId: "z-rogue" } });
+    expect(res.restore).toEqual(["sneak attack"]);
+    expect(c.identity.classes[0]!.archetypes).toHaveLength(1);
+  });
+
+  it("unapplyArchetype is a no-op for an archetype that isn't applied", () => {
+    const c = rogue5();
+    const res = unapplyArchetype(c, { classId: "rogue1", archetype: { name: "Nope", compendiumId: "nope" } });
+    expect(res).toEqual({ removedFeatures: [], restore: [] });
   });
 });

@@ -70,6 +70,9 @@ import {
   parsePsionicPowers,
   recomputeClassDerived,
   computeMaxHpFromLevels,
+  resolveClassPreset,
+  type ClassPreset,
+  type CasterType,
   type PathForgeCharacterV1,
   type AbilityKey,
   type ModifierEntry,
@@ -96,7 +99,7 @@ import {
   milestoneJobReward,
   type PrivacyLevel,
 } from "@pathforge/schema";
-import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures } from "@pathforge/rules-pf1e";
+import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures, unapplyArchetype } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
@@ -107,14 +110,13 @@ import { CombatEditor, SpeedEditor } from "./combat-editor";
 import { InventoryEditor } from "./inventory-editor";
 import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
-import { ClassPresetPicker } from "./class-preset-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { ArchetypePicker } from "./archetype-picker";
-import { PrestigePicker } from "./prestige-picker";
 import { RacePicker } from "./race-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
+import { StatChip } from "./picker-shell";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
@@ -2621,12 +2623,49 @@ const PF_SIZES = [
 
 type ClassEntry = PathForgeCharacterV1["identity"]["classes"][number];
 
-/** One class row, collapsed to Class · Level · HD · (Track) with the rest (archetype, future per-class
- * fields) behind a chevron — keeps the row compact + reasonable on mobile. */
+// Per-class progression editor option lists (PF1e). These edit the row's cached preset so every class —
+// compendium, catalog, OR hand-built custom — exposes the same knobs and feeds the same BAB/save/HP recompute.
+const BAB_OPTIONS = [
+  { value: "full", label: "Full" },
+  { value: "three_quarter", label: "¾" },
+  { value: "half", label: "½" },
+];
+const SAVE_OPTIONS = [
+  { value: "good", label: "Good" },
+  { value: "poor", label: "Poor" },
+];
+const CASTER_TYPE_OPTIONS = [
+  { value: "", label: "Non-caster" },
+  { value: "prepared", label: "Prepared" },
+  { value: "spontaneous", label: "Spontaneous" },
+  { value: "spellbook", label: "Spellbook" },
+];
+const CL_PROGRESSION_OPTIONS = [
+  { value: "full", label: "Full = level" },
+  { value: "minus_three", label: "−3 (pal/ran)" },
+];
+const STD_HIT_DICE = ["d6", "d8", "d10", "d12"];
+const BAB_LABEL: Record<string, string> = { full: "full BAB", three_quarter: "¾ BAB", half: "½ BAB" };
+const SAVE_LABEL: Record<"fortitude" | "reflex" | "will", string> = { fortitude: "Fort", reflex: "Ref", will: "Will" };
+
+function dieToNum(d: string | undefined): 6 | 8 | 10 | 12 {
+  const n = parseInt(String(d ?? "").replace(/[^0-9]/g, ""), 10);
+  return n === 6 || n === 8 || n === 10 || n === 12 ? n : 8;
+}
+
+/**
+ * One class row. The COLLAPSED state is a "beautiful default display": a compact name + level, then a chip
+ * strip summarising every aspect the engine uses (level, HD, BAB, the three saves tinted good/poor, caster,
+ * favored, archetypes). The chevron opens the full editor where every one of those aspects is adjustable —
+ * BAB/saves/caster/HD edit the row's cached preset (so a custom class computes exactly like a compendium one),
+ * plus a favored-class checkbox + FCB split and a per-class archetype manager scoped to THIS class.
+ */
 function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   const [open, setOpen] = useState(false);
+  const [showArch, setShowArch] = useState(false);
   const gestalt = isGestalt(ed.draft);
   const supabase = useMemo(() => createClient(), []);
+
   const set = (mut: (t: ClassEntry, c: PathForgeCharacterV1) => void) =>
     ed.update((c) => {
       const t = c.identity.classes[i];
@@ -2635,9 +2674,55 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   const syncLevel = (c: PathForgeCharacterV1) => {
     c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
   };
+  // health.favoredClassHpBonus is the SUM of every favored class's hp-FCB tally (the HP-from-levels math reads it).
+  const syncFcbHp = (c: PathForgeCharacterV1) => {
+    c.health.favoredClassHpBonus = c.identity.classes.reduce((s, x) => s + (x.favoredClassBonus?.hp ?? 0), 0);
+  };
+  // progression.favoredClasses (the read-sheet list) is DERIVED from the rows' favoredClass flags + current
+  // resolved names — never keyed by mutable name — so a rename/remove/duplicate can't strand a stale entry.
+  const syncFavoredClasses = (c: PathForgeCharacterV1) => {
+    c.progression.favoredClasses = [
+      ...new Set(
+        c.identity.classes
+          .filter((x) => x.favoredClass)
+          .map((x) => (resolveClassPreset(x)?.name ?? x.name).trim())
+          .filter(Boolean),
+      ),
+    ];
+  };
+
+  // The row's resolved progression preset (compendium > catalog), or undefined for a not-yet-configured custom
+  // class. Editing any progression field clones it into the row's OWN compendiumPreset (a deep copy so we never
+  // mutate the shared catalog object) — which `resolveClassPreset` then prefers — and re-sums BAB/saves.
+  const preset = resolveClassPreset(cl);
+  const editPreset = (mut: (p: ClassPreset) => void) =>
+    set((t, c) => {
+      if (!t.compendiumPreset) {
+        const r = resolveClassPreset(t);
+        t.compendiumPreset = r
+          ? {
+              ...r,
+              key: `custom:${t.id}`,
+              saves: { ...r.saves },
+              caster: r.caster ? { ...r.caster } : undefined,
+              classSkillKeys: [...r.classSkillKeys],
+            }
+          : {
+              key: `custom:${t.id}`,
+              name: t.name || "Class",
+              hitDie: dieToNum(t.hitDie),
+              bab: "three_quarter",
+              saves: { fortitude: "poor", reflex: "poor", will: "poor" },
+              skillRanksPerLevel: 2,
+              classSkillKeys: [],
+            };
+      }
+      mut(t.compendiumPreset);
+      recomputeClassDerived(c, { hpMethod: "manual" });
+    });
+
   // Leveling a compendium class up grants the newly-reached levels' features (idempotent; level-down leaves
-  // existing features in place per the builder's decision). Fetches the class's features on demand.
-  // classId + exclude are captured at click time (passed in) — never read live after the async fetch, and
+  // existing features in place per the builder's decision). classId + exclude are captured at click time and
   // the row is matched by id (not array index) so a concurrent class add/remove can't corrupt the grant.
   const regrantFeatures = async (className: string, classId: string, fromLevel: number, toLevel: number, exclude: string[]) => {
     const [{ data: feats }, { data: fx }] = await Promise.all([
@@ -2653,99 +2738,314 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
     });
   };
 
+  // Restore specific standard class features (the ones an un-applied archetype had replaced) — re-fetches the
+  // class's features and re-grants only the named ones, excluding anything a remaining archetype still replaces.
+  const restoreStandardFeatures = async (className: string, classId: string, toLevel: number, restore: string[]) => {
+    const restoreSet = new Set(restore.map((s) => s.toLowerCase()));
+    const [{ data: feats }, { data: fx }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
+    ]);
+    const rows = buildFeatureRows(feats ?? [], fx ?? []).filter((r) => restoreSet.has(r.feature.trim().toLowerCase()));
+    if (!rows.length) return;
+    ed.update((c) => {
+      const r = c.identity.classes.find((x) => x.id === classId);
+      if (!r) return;
+      grantClassFeatures(c, { features: rows, fromLevel: 0, toLevel, exclude: (r.archetypes ?? []).flatMap((a) => a.replaces) });
+    });
+  };
+  // Remove an applied archetype: drop it + its granted features (engine), then restore the standards it replaced.
+  const removeArchetype = (a: { name: string; compendiumId?: string }) => {
+    const className = cl.compendiumPreset?.name ?? cl.name;
+    const classId = cl.id;
+    const toLevel = cl.level;
+    const hasCompendium = !!cl.compendiumId;
+    let restore: string[] = [];
+    ed.update((c) => {
+      restore = unapplyArchetype(c, { classId, archetype: a }).restore;
+      if (c.identity.classes.some((x) => resolveClassPreset(x))) recomputeClassDerived(c, { hpMethod: "manual" });
+    });
+    if (restore.length && hasCompendium) void restoreStandardFeatures(className, classId, toLevel, restore);
+  };
+
+  const displayName = preset?.name ?? cl.name;
+  const fcb = cl.favoredClassBonus ?? { hp: 0, skill: 0 };
+  const fcbRemaining = Math.max(0, cl.level - fcb.hp - fcb.skill);
+  const archetypes = cl.archetypes ?? [];
+
+  const toggleFavored = (on: boolean) =>
+    set((t, c) => {
+      t.favoredClass = on || undefined;
+      if (!on) t.favoredClassBonus = undefined;
+      syncFavoredClasses(c);
+      syncFcbHp(c);
+    });
+  // The hp + skill tally is jointly clamped to the class level (each NumberField's `max` is only the native
+  // attribute — it doesn't bound the committed value — so the real guard lives here).
+  const setFcb = (hp: number, skill: number) =>
+    set((t, c) => {
+      const cap = Math.max(0, t.level);
+      const h = Math.min(Math.max(0, hp), cap);
+      const sk = Math.min(Math.max(0, skill), cap - h);
+      t.favoredClassBonus = { hp: h, skill: sk };
+      syncFcbHp(c);
+    });
+
   return (
     <div className="rounded-lg border border-border">
-      <div className="flex flex-wrap items-end gap-2 p-2">
-        <TextField
-          label="Class"
-          value={cl.name}
-          onChange={(v) => set((t) => (t.name = v))}
-          className="min-w-[7rem] flex-1"
-        />
-        <NumberField
-          label="Level"
-          value={cl.level}
-          min={0}
-          onChange={(v) => {
-            const oldLevel = cl.level;
-            set((t, c) => {
-              t.level = v;
-              syncLevel(c);
-              if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
-            });
-            if (cl.compendiumId && v > oldLevel) {
-              const exclude = (cl.archetypes ?? []).flatMap((a) => a.replaces);
-              void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, cl.id, oldLevel, v, exclude);
-            }
-          }}
-          className="w-16"
-        />
-        <SelectField
-          label="Hit Die"
-          value={cl.hitDie ?? ""}
-          onChange={(v) => set((t) => (t.hitDie = v || undefined))}
-          options={[
-            { value: "", label: "—" },
-            { value: "d6", label: "d6" },
-            { value: "d8", label: "d8" },
-            { value: "d10", label: "d10" },
-            { value: "d12", label: "d12" },
-          ]}
-          className="w-20"
-        />
-        {gestalt && (
-          <SelectField
-            label="Track"
-            value={cl.track ?? "a"}
+      <div className="space-y-1.5 p-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <TextField
+            label="Class"
+            value={cl.name}
             onChange={(v) =>
               set((t, c) => {
-                t.track = v as "a" | "b";
-                c.identity.totalLevel = gestaltLevel(c);
-                if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
+                t.name = v;
+                // Keep a custom (hand-built) preset's display name in step with the field; compendium/catalog
+                // presets keep their canonical name (archetype scoping + recompute rely on it).
+                if (t.compendiumPreset?.key.startsWith("custom:")) t.compendiumPreset.name = v || "Class";
+                if (t.favoredClass) syncFavoredClasses(c);
               })
             }
-            options={[
-              { value: "a", label: "A" },
-              { value: "b", label: "B" },
-            ]}
+            className="min-w-0 flex-1 sm:max-w-[13rem]"
+          />
+          <NumberField
+            label="Level"
+            value={cl.level}
+            min={0}
+            onChange={(v) => {
+              const oldLevel = cl.level;
+              set((t, c) => {
+                t.level = v;
+                // Re-clamp the FCB tally to the new level so favoredClassHpBonus can't keep phantom HP.
+                if (t.favoredClassBonus) {
+                  t.favoredClassBonus.hp = Math.min(t.favoredClassBonus.hp, Math.max(0, v));
+                  t.favoredClassBonus.skill = Math.min(t.favoredClassBonus.skill, Math.max(0, v - t.favoredClassBonus.hp));
+                }
+                syncLevel(c);
+                syncFcbHp(c);
+                if (resolveClassPreset(t)) recomputeClassDerived(c, { hpMethod: "manual" });
+              });
+              if (cl.compendiumId && v > oldLevel) {
+                const exclude = (cl.archetypes ?? []).flatMap((a) => a.replaces);
+                void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, cl.id, oldLevel, v, exclude);
+              }
+            }}
             className="w-16"
           />
-        )}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={`${open ? "Hide" : "Show"} more details for ${cl.name}`}
-          className="flex h-10 items-center rounded-md px-1.5 text-muted-foreground hover:text-foreground"
-        >
-          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-        </button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Remove ${cl.name}`}
-          onClick={() =>
-            ed.update((c) => {
-              const removed = c.identity.classes[i];
-              c.identity.classes.splice(i, 1);
-              syncLevel(c);
-              if (removed?.presetKey || c.identity.classes.some((x) => x.presetKey)) {
-                recomputeClassDerived(c, { hpMethod: "manual" });
+          <div className="ml-auto flex items-center">
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-label={`${open ? "Hide" : "Edit"} ${displayName} details`}
+              className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {open ? "Done" : "Edit"}
+              <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Remove ${displayName}`}
+              onClick={() =>
+                ed.update((c) => {
+                  c.identity.classes.splice(i, 1);
+                  syncLevel(c);
+                  syncFavoredClasses(c);
+                  syncFcbHp(c);
+                  if (c.identity.classes.some((x) => resolveClassPreset(x))) recomputeClassDerived(c, { hpMethod: "manual" });
+                })
               }
-            })
-          }
-        >
-          <Trash2 className="size-4" />
-        </Button>
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Collapsed summary — the chip strip the engine reads. */}
+        <div className="flex flex-wrap items-center gap-1">
+          {cl.hitDie && <StatChip value={cl.hitDie} />}
+          {preset ? (
+            <>
+              <StatChip value={BAB_LABEL[preset.bab] ?? preset.bab} />
+              {(["fortitude", "reflex", "will"] as const).map((s) => (
+                <StatChip key={s} label={SAVE_LABEL[s]} value={preset.saves[s]} tone={preset.saves[s] === "good" ? "good" : "poor"} />
+              ))}
+              {preset.caster && <StatChip tone="rune" value={preset.caster.casterType} />}
+            </>
+          ) : (
+            <StatChip value="manual BAB / saves" />
+          )}
+          {gestalt && <StatChip value={`track ${(cl.track ?? "a").toUpperCase()}`} />}
+          {cl.favoredClass && (
+            <StatChip
+              tone="gold"
+              value={
+                <span className="flex items-center gap-0.5">
+                  <Star className="size-3 fill-current" /> favored
+                </span>
+              }
+            />
+          )}
+          {archetypes.map((a) => (
+            <StatChip key={a.compendiumId ?? a.name} tone="rune" value={a.name} />
+          ))}
+          {cl.archetype && <StatChip value={cl.archetype} />}
+        </div>
       </div>
+
       {open && (
-        <div className="border-t border-border/50 p-2">
-          <TextField
-            label="Archetype"
-            value={cl.archetype ?? ""}
-            onChange={(v) => set((t) => (t.archetype = v || undefined))}
-            className="w-full max-w-sm"
-          />
+        <div className="space-y-3 border-t border-border/50 p-2.5">
+          {/* Progression — every stat the engine uses, adjustable. */}
+          <div>
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Progression</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <SelectField label="BAB" value={preset?.bab ?? "three_quarter"} onChange={(v) => editPreset((p) => (p.bab = v as ClassPreset["bab"]))} options={BAB_OPTIONS} />
+              {(["fortitude", "reflex", "will"] as const).map((s) => (
+                <SelectField
+                  key={s}
+                  label={SAVE_LABEL[s]}
+                  value={preset?.saves[s] ?? "poor"}
+                  onChange={(v) => editPreset((p) => (p.saves[s] = v as "good" | "poor"))}
+                  options={SAVE_OPTIONS}
+                />
+              ))}
+              <SelectField
+                label="Hit Die"
+                value={STD_HIT_DICE.includes(cl.hitDie ?? "") ? cl.hitDie! : cl.hitDie ? "custom" : ""}
+                onChange={(v) =>
+                  set((t) => {
+                    if (v === "custom") t.hitDie = STD_HIT_DICE.includes(t.hitDie ?? "") || !t.hitDie ? "d20" : t.hitDie;
+                    else t.hitDie = v || undefined;
+                  })
+                }
+                options={[{ value: "", label: "—" }, ...STD_HIT_DICE.map((d) => ({ value: d, label: d })), { value: "custom", label: "Custom…" }]}
+              />
+              {cl.hitDie != null && !STD_HIT_DICE.includes(cl.hitDie) && (
+                <TextField label="Custom die" value={cl.hitDie} onChange={(v) => set((t) => (t.hitDie = v || undefined))} placeholder="d20" />
+              )}
+              <SelectField
+                label="Spellcasting"
+                value={preset?.caster?.casterType ?? ""}
+                onChange={(v) =>
+                  editPreset((p) => {
+                    if (!v) p.caster = undefined;
+                    else p.caster = { casterType: v as CasterType, castingAbility: p.caster?.castingAbility ?? "int", clProgression: p.caster?.clProgression ?? "full" };
+                  })
+                }
+                options={CASTER_TYPE_OPTIONS}
+              />
+              {preset?.caster && (
+                <>
+                  <SelectField
+                    label="Casting ability"
+                    value={preset.caster.castingAbility}
+                    onChange={(v) => editPreset((p) => p.caster && (p.caster.castingAbility = v as AbilityKey))}
+                    options={ABILITY_KEYS.map((a) => ({ value: a, label: a.toUpperCase() }))}
+                  />
+                  <SelectField
+                    label="Caster level"
+                    value={preset.caster.clProgression}
+                    onChange={(v) => editPreset((p) => p.caster && (p.caster.clProgression = v as "full" | "minus_three"))}
+                    options={CL_PROGRESSION_OPTIONS}
+                  />
+                </>
+              )}
+              {gestalt && (
+                <SelectField
+                  label="Gestalt track"
+                  value={cl.track ?? "a"}
+                  onChange={(v) =>
+                    set((t, c) => {
+                      t.track = v as "a" | "b";
+                      c.identity.totalLevel = gestaltLevel(c);
+                      if (resolveClassPreset(t)) recomputeClassDerived(c, { hpMethod: "manual" });
+                    })
+                  }
+                  options={[
+                    { value: "a", label: "A" },
+                    { value: "b", label: "B" },
+                  ]}
+                />
+              )}
+            </div>
+            {!preset && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">Set a progression to include this class in the BAB / save totals.</p>
+            )}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Hit Die &amp; Level feed Max HP — recompute it from the Health tab after changing them.
+            </p>
+          </div>
+
+          {/* Favored class + FCB split. */}
+          <div className="rounded-lg border border-border/60 bg-background/40 p-2">
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={!!cl.favoredClass}
+                onChange={(e) => toggleFavored(e.target.checked)}
+                className="size-4 rounded border-border accent-gold"
+              />
+              <span className="font-medium">Favored class</span>
+            </label>
+            {cl.favoredClass && (
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <NumberField label="+1 HP ×" value={fcb.hp} min={0} max={cl.level} onChange={(v) => setFcb(v, fcb.skill)} className="w-20" />
+                <NumberField label="+1 Skill ×" value={fcb.skill} min={0} max={cl.level} onChange={(v) => setFcb(fcb.hp, v)} className="w-20" />
+                <p className="pb-2 text-[11px] text-muted-foreground">
+                  {fcbRemaining} of {cl.level} unassigned. HP feeds computed Max HP; skill ranks are yours to spend in Skills.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Per-class archetypes — scoped to THIS class, supports multiple (conflict-checked in the picker). */}
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Archetypes{archetypes.length > 0 ? ` (${archetypes.length})` : ""}
+              </p>
+              <Button size="sm" variant={showArch ? "default" : "secondary"} onClick={() => setShowArch((v) => !v)}>
+                <Shield className="size-4" /> {showArch ? "Close" : "Add / manage"}
+              </Button>
+            </div>
+            {archetypes.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {archetypes.map((a) => (
+                  <span
+                    key={a.compendiumId ?? a.name}
+                    className="inline-flex items-center gap-1 rounded-md border border-rune/50 bg-rune/10 py-0.5 pl-1.5 pr-1 text-[11px]"
+                  >
+                    <span className="font-medium text-foreground">{a.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove archetype ${a.name}`}
+                      onClick={() => removeArchetype(a)}
+                      className="tap-target inline-flex size-4 items-center justify-center rounded text-muted-foreground hover:text-danger"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {showArch && (
+              <div className="mt-2">
+                <ArchetypePicker ed={ed} lockedClassId={cl.id} onClose={() => setShowArch(false)} />
+              </div>
+            )}
+            <div className="mt-2">
+              <TextField
+                label="Archetype note (freeform)"
+                value={cl.archetype ?? ""}
+                onChange={(v) => set((t) => (t.archetype = v || undefined))}
+                className="w-full max-w-sm"
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2755,13 +3055,9 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
 function IdentityEditor({ ed }: { ed: EditorApi }) {
   const id = ed.draft.identity;
   const prog = ed.draft.progression;
-  const [showCatalog, setShowCatalog] = useState(false);
   const [showClassCompendium, setShowClassCompendium] = useState(false);
-  const [showArchetypes, setShowArchetypes] = useState(false);
-  const [showPrestige, setShowPrestige] = useState(false);
   const [showRaces, setShowRaces] = useState(false);
-  const [applyMsg, setApplyMsg] = useState<string | null>(null);
-  const hasPresetClass = id.classes.some((c) => c.presetKey);
+  const hasPresetClass = id.classes.some((c) => resolveClassPreset(c));
 
   // Size is a controlled <select> over the 9 canonical sizes (matched case-insensitively, so
   // the engine's getSizeModifiers always resolves) — a typo'd legacy value is kept as an option.
@@ -2771,17 +3067,6 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
     value: s,
     label: s,
   }));
-  const [fav, setFav] = useState("");
-
-  const addFavored = () => {
-    const v = fav.trim();
-    if (!v) return;
-    ed.update((c) => {
-      if (!c.progression.favoredClasses.includes(v)) c.progression.favoredClasses.push(v);
-    });
-    setFav("");
-  };
-
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -2827,50 +3112,9 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             <Button
               size="sm"
               variant={showClassCompendium ? "default" : "secondary"}
-              onClick={() => {
-                setShowClassCompendium((v) => !v);
-                setShowCatalog(false);
-                setShowArchetypes(false);
-                setShowPrestige(false);
-              }}
+              onClick={() => setShowClassCompendium((v) => !v)}
             >
-              <Search className="size-4" /> Compendium
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setShowCatalog((v) => !v);
-                setShowClassCompendium(false);
-                setShowArchetypes(false);
-                setShowPrestige(false);
-              }}
-            >
-              <Sparkles className="size-4" /> From catalog
-            </Button>
-            <Button
-              size="sm"
-              variant={showArchetypes ? "default" : "secondary"}
-              onClick={() => {
-                setShowArchetypes((v) => !v);
-                setShowClassCompendium(false);
-                setShowCatalog(false);
-                setShowPrestige(false);
-              }}
-            >
-              <Sparkles className="size-4" /> Archetypes
-            </Button>
-            <Button
-              size="sm"
-              variant={showPrestige ? "default" : "secondary"}
-              onClick={() => {
-                setShowPrestige((v) => !v);
-                setShowClassCompendium(false);
-                setShowCatalog(false);
-                setShowArchetypes(false);
-              }}
-            >
-              <Sparkles className="size-4" /> Prestige
+              <Search className="size-4" /> Browse classes
             </Button>
             <Button
               size="sm"
@@ -2888,30 +3132,13 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             </Button>
           </div>
         </div>
+        <p className="mb-2 text-[11px] text-muted-foreground">
+          Browse base, core &amp; prestige classes from the compendium, or add a Custom class and dial in its
+          progression by hand. Archetypes live inside each class below.
+        </p>
         {showClassCompendium && (
           <div className="mb-3">
             <ClassCompendiumPicker ed={ed} onClose={() => setShowClassCompendium(false)} />
-          </div>
-        )}
-        {showArchetypes && (
-          <div className="mb-3">
-            <ArchetypePicker ed={ed} onClose={() => setShowArchetypes(false)} />
-          </div>
-        )}
-        {showPrestige && (
-          <div className="mb-3">
-            <PrestigePicker ed={ed} onClose={() => setShowPrestige(false)} />
-          </div>
-        )}
-        {showCatalog && (
-          <div className="mb-3">
-            <ClassPresetPicker
-              ed={ed}
-              onApplied={(r) => {
-                setShowCatalog(false);
-                setApplyMsg(r.wrote.join("; "));
-              }}
-            />
           </div>
         )}
         <div className="space-y-2">
@@ -2927,7 +3154,6 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Total level: <span className="font-semibold text-foreground">{id.totalLevel}</span>
         </p>
-        {applyMsg && <p className="mt-1 text-[11px] text-success">Applied — {applyMsg}.</p>}
       </div>
 
       <NumberField
@@ -2974,40 +3200,19 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         </div>
         <div className="mt-3">
           <span className="mb-1 block text-sm font-medium text-foreground">Favored classes</span>
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {prog.favoredClasses.length === 0 && <span className="text-sm text-muted-foreground">None.</span>}
-            {prog.favoredClasses.map((fc, i) => (
-              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-xs text-foreground">
-                {fc}
-                <button
-                  type="button"
-                  aria-label={`Remove ${fc}`}
-                  onClick={() => ed.update((c) => c.progression.favoredClasses.splice(i, 1))}
-                  className="tap-target -my-1.5 -mr-1.5 inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:text-danger"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex max-w-sm gap-2">
-            <input
-              value={fav}
-              placeholder="Class name…"
-              aria-label="Add favored class"
-              onChange={(e) => setFav(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addFavored();
-                }
-              }}
-              className="h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10"
-            />
-            <Button size="sm" variant="secondary" onClick={addFavored}>
-              Add
-            </Button>
-          </div>
+          {prog.favoredClasses.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">
+              None yet — tick <span className="text-foreground">Favored class</span> on a class above to set its bonus.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {prog.favoredClasses.map((fc, idx) => (
+                <Badge key={idx} variant="gold">
+                  {fc}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -3504,13 +3709,25 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
             ]}
             className="w-28"
           />
-          <NumberField
-            label="Favored-class HP"
-            value={ed.draft.health.favoredClassHpBonus}
-            min={0}
-            onChange={(v) => ed.update((c) => (c.health.favoredClassHpBonus = v))}
-            className="w-32"
-          />
+          {ed.draft.identity.classes.some((x) => x.favoredClassBonus) ? (
+            // Per-class FCB is in use → it is the single source of truth; show the derived sum read-only so the
+            // two controls can't clobber each other.
+            <div className="space-y-1">
+              <span className="block text-sm font-medium leading-none text-foreground">Favored-class HP</span>
+              <div className="flex h-10 w-32 items-center gap-1 rounded-lg border border-border bg-surface-sunken px-3 text-sm">
+                <span className="font-semibold tabular-nums text-foreground">{ed.draft.health.favoredClassHpBonus}</span>
+                <span className="text-[11px] text-muted-foreground">· set per-class</span>
+              </div>
+            </div>
+          ) : (
+            <NumberField
+              label="Favored-class HP"
+              value={ed.draft.health.favoredClassHpBonus}
+              min={0}
+              onChange={(v) => ed.update((c) => (c.health.favoredClassHpBonus = v))}
+              className="w-32"
+            />
+          )}
           <div className="pb-1.5 text-sm text-muted-foreground">
             ={" "}
             <span className="font-semibold text-foreground">{hpFromLevels.total} HP</span>{" "}

@@ -146,6 +146,64 @@ export function FeatureTypeChip({ type }: { type?: string | null }) {
   );
 }
 
+/** A compact stat chip — a muted UPPERCASE label + a foreground value (e.g. "BAB full", "Fort good"). The
+ * tone tints the border/background only; the value stays `text-foreground` so it keeps WCAG contrast on every
+ * theme (the lesson from the parchment audits). Reused for the collapsed class summary + future row summaries. */
+export function StatChip({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label?: string;
+  value: ReactNode;
+  tone?: "neutral" | "good" | "poor" | "rune" | "gold";
+}) {
+  const tones: Record<string, string> = {
+    neutral: "border-border bg-surface-sunken",
+    good: "border-success/50 bg-success/10",
+    poor: "border-danger/40 bg-danger/5",
+    rune: "border-rune/50 bg-rune/10",
+    gold: "border-gold/50 bg-gold/10",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${tones[tone]}`}>
+      {label && <span className="font-medium uppercase tracking-wide text-muted-foreground">{label}</span>}
+      <span className="font-semibold tabular-nums text-foreground">{value}</span>
+    </span>
+  );
+}
+
+/** A small segmented (pill) toggle — picker mode filters (e.g. Base / Prestige) and other binary/few-way picks. */
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+  ariaLabel: string;
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="inline-flex rounded-lg border border-border bg-background p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            value === o.value ? "bg-rune/15 text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** The detail-panel wrapper: a back affordance + title, then the bespoke content. */
 export function PickerDetail({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
   return (
