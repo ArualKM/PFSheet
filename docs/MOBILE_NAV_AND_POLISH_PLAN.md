@@ -57,6 +57,12 @@ trigger; accordion of the 11 groups) → content → **floating back-to-top** (a
   open and returns to the trigger on close; Tab/Shift-Tab trapped; **Esc closes**. Rows ≥44px (already
   `tap-target`). Prefer native `<dialog>` semantics where practical (free focus-trap + Esc).
 
+> **Shipped deviation (A3):** the strip locks sticky at `top-14` (56px, flush under the header) as specified,
+> but **shrink-on-scroll was intentionally NOT implemented** — the collapsed bar is already a single thin text
+> row, so an IntersectionObserver shrink buys ~8px for real complexity. On the narrowest phones (~360px) the
+> stats can gracefully wrap to a second line (the section trigger was slimmed — icon + ≤5.5rem label — to
+> minimise this); we favour full HP/AC/Init/save visibility over a rigid ≤56px cap. Revisit if it bothers in use.
+
 ### A3 — Lock the Live-values strip at the very top (sticky, shrink-on-scroll)
 - **What:** On mobile, render `LivePreviewBar` FIRST (above the section trigger), pinned flush under the
   56px app header; shrink-on-scroll-down / expand-on-scroll-up (do NOT hide — players want HP/AC visible

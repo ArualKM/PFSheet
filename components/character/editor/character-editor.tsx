@@ -20,7 +20,7 @@ import {
   Sigma,
   Calculator,
   ChevronDown,
-  ChevronsUpDown,
+  Menu,
   ChevronsLeft,
   PanelLeftClose,
   PanelLeftOpen,
@@ -506,20 +506,19 @@ export function CharacterEditor({
       </div>
 
       <div className="min-w-0">
-        {/* Mobile section picker (< md) — a bottom sheet listing all sections. */}
-        <div className="mb-3 md:hidden">
-          <SectionSheet
-            sections={sections}
-            activeKey={activeSection}
-            onSelect={(sKey, subKey) => {
-              setActiveSection(sKey);
-              setActiveSub(subKey);
-            }}
-          />
-        </div>
-
-        {/* Live values — sticky top bar (all breakpoints), expands inline to the full preview. */}
-        <LivePreviewBar ed={ed} characterId={characterId} advanced={advanced} />
+        {/* Live values — sticky top bar (all breakpoints), expands inline to the full preview. On mobile its
+            left holds the section hamburger (bottom sheet); the desktop left rail handles sections at md+. */}
+        <LivePreviewBar
+          ed={ed}
+          characterId={characterId}
+          advanced={advanced}
+          sections={sections}
+          activeSection={activeSection}
+          onSelectSection={(sKey, subKey) => {
+            setActiveSection(sKey);
+            setActiveSub(subKey);
+          }}
+        />
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {section.items.length > 1 ? (
@@ -627,17 +626,16 @@ function SectionSheet({
 }) {
   const [open, setOpen] = useState(false);
   const active = sections.find((s) => s.key === activeKey) ?? sections[0]!;
-  const ActiveIcon = active.icon;
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="tap-target flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-medium"
+          aria-label={`Sheet sections — currently ${active.label}`}
+          className="tap-target flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-sm font-medium"
         >
-          <ActiveIcon className="size-4 text-gold" />
-          <span className="text-foreground">{active.label}</span>
-          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+          <Menu className="size-4 shrink-0 text-gold" />
+          <span className="max-w-[5.5rem] truncate text-foreground">{active.label}</span>
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -681,18 +679,37 @@ function SectionSheet({
 /** Live values top bar (all breakpoints): a sticky collapsed stat row that expands inline to the full
  *  LivePreview — the "edit a field, watch the math" loop, now across the top so the editor gets full
  *  column width (replaces the old lg right-hand sidebar). */
-function LivePreviewBar({ ed, characterId, advanced }: { ed: EditorApi; characterId: string; advanced: boolean }) {
+function LivePreviewBar({
+  ed,
+  characterId,
+  advanced,
+  sections,
+  activeSection,
+  onSelectSection,
+}: {
+  ed: EditorApi;
+  characterId: string;
+  advanced: boolean;
+  sections: SheetSection[];
+  activeSection: string;
+  onSelectSection: (sectionKey: string, subKey: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const s = ed.computed.summary;
   return (
-    <div className="sticky top-20 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls="editor-live-preview"
-        className="tap-target flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs"
-      >
+    <div className="sticky top-14 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur md:top-20">
+      <div className="flex items-stretch">
+        {/* Mobile section hamburger → bottom sheet; the desktop left rail handles sections at md+. */}
+        <div className="flex shrink-0 items-center border-r border-border pl-1 pr-0.5 md:hidden">
+          <SectionSheet sections={sections} activeKey={activeSection} onSelect={onSelectSection} />
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="editor-live-preview"
+          className="tap-target flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs"
+        >
         <span className="tnum font-semibold text-foreground">
           HP {s.hp.current}/{s.hp.max}
         </span>
@@ -701,11 +718,12 @@ function LivePreviewBar({ ed, characterId, advanced }: { ed: EditorApi; characte
         <span className="tnum text-muted-foreground">
           F {formatModifier(s.fortitude)} · R {formatModifier(s.reflex)} · W {formatModifier(s.will)}
         </span>
-        <span className="ml-auto inline-flex items-center gap-1 text-rune">
-          {open ? "Hide" : "Live values"}
-          <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-        </span>
-      </button>
+          <span className="ml-auto inline-flex items-center gap-1 text-rune">
+            {open ? "Hide" : "Live values"}
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+          </span>
+        </button>
+      </div>
       {/* Always render the region so aria-controls resolves; only mount the (heavier)
           preview when expanded. */}
       <div

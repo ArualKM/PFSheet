@@ -3,6 +3,7 @@ import { Logo } from "@/components/brand/logo";
 import { SidebarNav } from "./sidebar-nav";
 import { CollapsibleSidebar } from "./collapsible-sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { BackToTop } from "./back-to-top";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -50,7 +51,7 @@ export function AppShell({
             <Logo href="/dashboard" />
           </div>
           <div className="ml-auto flex items-center gap-1 md:hidden">
-            <ThemeToggle />
+            <ThemeToggle size="icon-touch" />
             <AccountMenu email={user.email} displayName={user.displayName} />
           </div>
         </header>
@@ -60,6 +61,7 @@ export function AppShell({
         </main>
       </div>
 
+      <BackToTop />
       <MobileBottomNav />
     </div>
   );

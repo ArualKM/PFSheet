@@ -23,7 +23,7 @@ function useMounted() {
   );
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ size = "icon" }: { size?: "icon" | "icon-touch" }) {
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
 
@@ -40,7 +40,7 @@ export function ThemeToggle() {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size={size}
       onClick={cycle}
       aria-label={`Theme: ${label}. Click to switch.`}
       title={`Theme: ${label}`}
