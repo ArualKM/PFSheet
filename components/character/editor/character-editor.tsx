@@ -111,6 +111,7 @@ import { ClassPresetPicker } from "./class-preset-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { ArchetypePicker } from "./archetype-picker";
 import { PrestigePicker } from "./prestige-picker";
+import { RacePicker } from "./race-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
@@ -2758,6 +2759,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   const [showClassCompendium, setShowClassCompendium] = useState(false);
   const [showArchetypes, setShowArchetypes] = useState(false);
   const [showPrestige, setShowPrestige] = useState(false);
+  const [showRaces, setShowRaces] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const hasPresetClass = id.classes.some((c) => c.presetKey);
 
@@ -2795,6 +2797,17 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         <TextField label="Age" value={id.age ?? ""} onChange={(v) => ed.update((c) => (c.identity.age = v || undefined))} />
         <TextField label="Height" value={id.height ?? ""} onChange={(v) => ed.update((c) => (c.identity.height = v || undefined))} />
         <TextField label="Weight" value={id.weight ?? ""} onChange={(v) => ed.update((c) => (c.identity.weight = v || undefined))} />
+      </div>
+
+      <div>
+        <Button size="sm" variant={showRaces ? "default" : "secondary"} onClick={() => setShowRaces((v) => !v)}>
+          <Search className="size-4" /> Browse races
+        </Button>
+        {showRaces && (
+          <div className="mt-2">
+            <RacePicker ed={ed} onClose={() => setShowRaces(false)} />
+          </div>
+        )}
       </div>
 
       <div>

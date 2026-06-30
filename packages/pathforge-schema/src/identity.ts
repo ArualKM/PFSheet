@@ -35,11 +35,23 @@ export const characterClassSchema = z.object({
 });
 export type CharacterClass = z.infer<typeof characterClassSchema>;
 
+/** Provenance for a race applied via the compendium builder — so re-applying a different race first reverts
+ * the prior race's ability modifiers (added to score) + removes its standard-traits feature. */
+export const raceAppliedSchema = z.object({
+  name: z.string(),
+  compendiumId: z.string().optional(),
+  abilityMods: z.record(z.string(), z.number()).default({}),
+  traitFeatureId: z.string().optional(),
+});
+export type RaceApplied = z.infer<typeof raceAppliedSchema>;
+
 export const characterIdentitySchema = z.object({
   name: z.string().default("New Character"),
   playerName: z.string().optional(),
   alignment: z.string().optional(),
   race: z.string().optional(),
+  /** Set by the race builder (additive to the free-text `race`). */
+  raceApplied: raceAppliedSchema.optional(),
   ethnicity: z.string().optional(),
   deity: z.string().optional(),
   homeland: z.string().optional(),

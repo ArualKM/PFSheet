@@ -81,3 +81,6 @@ export type { CompendiumFeatureRow, ApplyCompendiumClassResult } from "./class-b
 // Phase 5 — archetypes
 export { applyArchetype, parseReplaces, archetypeReplaces, findArchetypeConflicts } from "./class-builder";
 export type { ArchetypeFeatureRow, ApplyArchetypeResult } from "./class-builder";
+// Phase 7 — races
+export { parseAbilityMods, applyRace } from "./race-builder";
+export type { RaceApplyResult } from "./race-builder";
