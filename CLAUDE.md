@@ -522,12 +522,24 @@ first**.
   HP 900→920.** Two adversarial reviews (15 + 11 confirmed → fixed); 375 tests incl. 2 end-to-end compute
   tests. **The thin slice (Phases 0→3, the owner-signed "ship first" target) is COMPLETE.**
 
-**Next — Phase 4 (the keystone): the progression-driven class builder.** Pick a class + level → the engine
-applies its `class_progression` (BAB/saves/casting) + grants `class_feature`/`class_option` rows at each
-level (with their `feature_effect` automation via the same mapper). Then archetypes/prestige/races/mythic/
-companions (Phases 5–9); the class-option/race/archetype/prestige **pickers fold into those builder phases**
-(they apply more than one entry). The plan says *reassess before Phase 4*. See [[pathforge-pfcore-epic]] +
-`docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
+- **Phase 4 — the keystone progression-driven class builder: COMPLETE** (6 steps; status doc
+  `docs/PFcore Update/PHASE4_STATUS.md`). Additive, no-double-count architecture: the existing
+  `recomputeClassDerived` does 100% of the class math, so Phase 4 is an **adapter** — `parseProgression` +
+  `compendiumRowToPreset` (`packages/pathforge-schema/src/class-compendium.ts`) turn a `class_progression` row
+  into a `ClassPreset` **cached on the row** (`CharacterClass.compendiumPreset`; `resolveClassPreset` resolves
+  it — no session registry). Proven byte-identical to the catalog at L1/5/11/20. `applyCompendiumClass` +
+  `grantClassFeatures` (`packages/pathforge-rules-pf1e/src/class-builder.ts`) reuse `applyClassPreset` + the
+  Phase 3 `seedsToAutomationEffects` to apply the class + grant each level's `class_feature_compendium` features
+  (automation from `feature_effect`). UI: `<ClassCompendiumPicker>` (Identity editor; `lib/character/
+  class-compendium.ts` parsers), level-up regrant in `ClassRow`, `<ClassOptionsPicker>` (Features editor).
+  **Verified live: Fighter L5 → BAB+5/saves/HP + 3 features; Oracle (non-catalog) parsed right.** Two adversarial
+  reviews (the Step-4 one caught the critical `class_features`→`class_feature_compendium` table-name bug —
+  features had silently failed; fixed + re-verified). 396 tests. **Deferred to polish:** per-level accordion viz,
+  cleaner names for book-ref option types, smarter non-core caster-stat defaults.
+
+**Next — Phases 5–9:** archetypes (replace/alter stacking) → prestige (prereq-gated) → races → mythic depth →
+linked-subsheet companions; the race/archetype/prestige pickers fold into those builder phases. See
+[[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +

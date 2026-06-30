@@ -27,15 +27,23 @@ the class-derived math** (BAB / Fort-Ref-Will / HP / caster level, with fraction
    `compendiumRowToPreset`. **Proven: parser output matches CLASS_CATALOG for all 11 core classes.**
 2. **Recompute hook + equivalence** ✅ DONE (`eec43b2`). `resolveClassPreset` + the recompute wiring. **Proven:
    a compendium Fighter recomputes byte-identical BAB/saves/HP to the catalog Fighter at L1/5/11/20.**
-3. **Feature granter** — `grantClassFeatures(character, {classKey, fromLevel, toLevel, featureRows})` (idempotent,
-   dedup by compendiumId, automation via `seedsToAutomationEffects`) + `applyCompendiumClass` (wraps
-   `applyClassPreset` with the synthetic preset, sets compendiumId + compendiumPreset, then grants L1..level).
-4. **Picker UI** — `class-compendium-picker.tsx` in `IdentityEditor` (beside the catalog `ClassPresetPicker`):
-   search `search_class_compendium` → detail (level + HP method + apply-report preview) → apply. RPC reads in
-   `lib/character/class-compendium.ts` (hit_die "d10"→10, class_skills → keys, caster fields). Real-browser verify.
-5. **Progression accordion + level-up regrant** — per-level tree (features as Su/Ex/Sp color-chips, locked levels
-   dimmed); `ClassRow` level-change → `grantClassFeatures` for the delta.
-6. **Choosable `class_options` sub-picker** — Discoveries / Rogue Talents / Hexes "pick N" → `FeatureEntry`.
+3. **Feature granter** ✅ DONE (`db2d174`). `grantClassFeatures` (idempotent, dedup by compendiumId, automation
+   via `seedsToAutomationEffects`) + `applyCompendiumClass` (pre-seeds the row with the cached preset so
+   `applyClassPreset` adopts it by name → one recompute, no manual-class warning; grants L1..level).
+4. **Picker UI** ✅ DONE (`15e22f1` + review fixes `87352cc`). `class-compendium-picker.tsx` in `IdentityEditor`:
+   search → parse-preview → apply. `lib/character/class-compendium.ts` parsers. **Verified live: Fighter L5 →
+   BAB +5/Fort +4/Ref +1/Will +1 + "Granted 3 class features".** (Review caught the table was
+   `class_feature_compendium` not `class_features` — features had silently failed; fixed + re-verified.)
+5. **Level-up feature regrant** ✅ DONE (`44244c5`). `ClassRow` level-up → `grantClassFeatures` for the delta;
+   level-down leaves features (the chosen default). The **visual per-level accordion is deferred to the UI
+   polish pass** (per the owner's "polish after functionality" note).
+6. **Choosable `class_options` sub-picker** ✅ DONE (`87352cc`). `class-options-picker.tsx` in the Features
+   editor — scoped to the character's classes, filter by option type + search → `FeatureEntry`.
+
+**PHASE 4 IS FUNCTIONALLY COMPLETE.** Deferred to polish/later: the per-level progression accordion
+visualization; cleaner names for the few option types whose dataset row stores a book ref in `name` (Fighter
+advanced training, Witch patrons — common types like Rogue Talents/Discoveries/Hexes are clean); smarter
+caster-stat defaults for non-core casters (today defaults int/prepared, user-confirmed in the picker).
 
 ## Decisions (owner trusts judgment; defaults taken)
 
