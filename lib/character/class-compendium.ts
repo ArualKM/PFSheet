@@ -52,6 +52,40 @@ export function parseClassSkills(raw: string | null | undefined): string[] {
   return [...keys];
 }
 
+export type ProgressionLevel = { level: number; bab: string; fort: string; ref: string; will: string; special: string };
+
+/** Parse `class_progression.json_data` into per-level display rows (for the progression accordion). Locates
+ * columns by header label so it's robust to the dataset's column drift; rows without an ordinal level are skipped. */
+export function parseProgressionTable(jsonData: unknown): ProgressionLevel[] {
+  const rows: unknown[][] = Array.isArray(jsonData) ? (jsonData as unknown[][]).filter(Array.isArray) : [];
+  const headerIdx = rows.findIndex(
+    (r) => r.some((c) => /^level$/i.test(String(c).trim())) && r.some((c) => /base attack|^bab$/i.test(String(c).trim())),
+  );
+  if (headerIdx < 0) return [];
+  const header = rows[headerIdx]!.map((c) => String(c ?? "").trim().toLowerCase());
+  const col = (re: RegExp) => header.findIndex((h) => re.test(h));
+  const li = col(/^level$/);
+  const bi = col(/base attack|^bab$/);
+  const fi = col(/fort/);
+  const ri = col(/ref/);
+  const wi = col(/will/);
+  const si = col(/special/);
+  const out: ProgressionLevel[] = [];
+  for (const r of rows) {
+    const m = String(r[li] ?? "").match(/^(\d+)(st|nd|rd|th)/i);
+    if (!m) continue;
+    out.push({
+      level: parseInt(m[1]!, 10),
+      bab: String(r[bi] ?? "").trim(),
+      fort: String(r[fi] ?? "").trim(),
+      ref: String(r[ri] ?? "").trim(),
+      will: String(r[wi] ?? "").trim(),
+      special: si >= 0 ? String(r[si] ?? "").trim() : "",
+    });
+  }
+  return out.sort((a, b) => a.level - b.level);
+}
+
 /** Sensible caster defaults: a matching core class supplies the real ability/type; else int/prepared. */
 export function casterDefaults(className: string): { castingAbility: AbilityKey; casterType: CasterType } {
   const cat = CLASS_CATALOG.find((c) => c.name.toLowerCase() === className.toLowerCase());
