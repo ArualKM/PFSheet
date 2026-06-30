@@ -23,6 +23,7 @@ import { TriangleAlert } from "lucide-react";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
 import { TalentRow } from "./talent-row";
+import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -272,47 +273,88 @@ export function CharacterDashboard({
 
           {vm.feats && vm.feats.length > 0 && (
             <SectionCard title="Feats" icon={Sparkles}>
-              <ShowMore cap={12} noun="feats" className="flex flex-wrap gap-1.5">
-                {vm.feats.map((f, i) => (
-                  <Badge key={i} variant="outline">
-                    {f.name}
-                    {f.type && f.type.trim() && (
-                      <span className="ml-1 text-muted-foreground">({f.type})</span>
-                    )}
-                  </Badge>
-                ))}
+              <ShowMore cap={12} noun="feats" className="space-y-1.5">
+                {vm.feats.map((f, i) => {
+                  const hasDetail = !!(f.prerequisites || f.benefit || f.special || f.normal || f.notes);
+                  return (
+                    <EntryDetailRow
+                      key={i}
+                      name={f.name}
+                      badges={
+                        f.type && f.type.trim() ? (
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {f.type}
+                          </Badge>
+                        ) : undefined
+                      }
+                      details={
+                        hasDetail ? (
+                          <>
+                            <DetailPara label="Prerequisites" value={f.prerequisites} />
+                            <DetailPara value={f.benefit} />
+                            <DetailPara label="Special" value={f.special} />
+                            <DetailPara label="Normal" value={f.normal} />
+                            <DetailPara label="Notes" value={f.notes} tone="gold" />
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  );
+                })}
               </ShowMore>
             </SectionCard>
           )}
 
           {vm.features && vm.features.length > 0 && (
             <SectionCard title="Features" icon={ScrollText}>
-              <ul className="space-y-1 text-sm text-muted-foreground">
+              <ShowMore cap={12} noun="features" className="space-y-1.5">
                 {vm.features.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-foreground">{f.name}</span>
-                    {f.uses && (
-                      <span className="tnum shrink-0 text-xs text-gold">
-                        {f.uses.remaining}/{f.uses.max}
-                        <span className="text-muted-foreground">/{f.uses.per === "day" ? "day" : f.uses.per}</span>
-                      </span>
-                    )}
-                  </li>
+                  <EntryDetailRow
+                    key={i}
+                    name={f.name}
+                    badges={
+                      <>
+                        {f.level != null && (
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            Lv {f.level}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="shrink-0 text-[10px] capitalize">
+                          {f.category.replace(/_/g, " ")}
+                        </Badge>
+                        {f.uses && (
+                          <span className="tnum shrink-0 text-xs text-gold">
+                            {f.uses.remaining}/{f.uses.max}
+                            <span className="text-muted-foreground">/{f.uses.per === "day" ? "day" : f.uses.per}</span>
+                          </span>
+                        )}
+                      </>
+                    }
+                    details={f.description ? <DetailPara value={f.description} /> : undefined}
+                  />
                 ))}
-              </ul>
+              </ShowMore>
             </SectionCard>
           )}
 
           {vm.traits && vm.traits.length > 0 && (
             <SectionCard title="Traits" icon={Sparkles}>
-              <ul className="space-y-1 text-sm">
+              <div className="space-y-1.5">
                 {vm.traits.map((t, i) => (
-                  <li key={i} className="text-foreground">
-                    {t.name}
-                    {t.type && <span className="ml-1 text-xs text-muted-foreground">({t.type})</span>}
-                  </li>
+                  <EntryDetailRow
+                    key={i}
+                    name={t.name}
+                    badges={
+                      t.type ? (
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                          {t.type}
+                        </Badge>
+                      ) : undefined
+                    }
+                    details={t.description ? <DetailPara value={t.description} /> : undefined}
+                  />
                 ))}
-              </ul>
+              </div>
             </SectionCard>
           )}
 

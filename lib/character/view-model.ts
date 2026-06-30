@@ -190,13 +190,25 @@ export type CharacterViewModel = {
   /** Full-attack iterative routine (top bonus + each -5) for the general melee/ranged bonus. */
   fullAttack: { bab: number; melee: number[]; ranged: number[] };
   skills: Array<{ key: string; label: string; total: number; ranks: number }> | null;
-  feats: Array<{ name: string; type?: string }> | null;
+  feats: Array<{
+    name: string;
+    type?: string;
+    prerequisites?: string;
+    benefit?: string;
+    special?: string;
+    normal?: string;
+    /** Owner-only tactical notes. */
+    notes?: string;
+  }> | null;
   features: Array<{
     name: string;
     category: string;
+    description?: string;
+    /** Class level the feature is gained at (per-level grouping). */
+    level?: number;
     uses?: { max: number; remaining: number; per: string };
   }> | null;
-  traits: Array<{ name: string; type?: string }> | null;
+  traits: Array<{ name: string; type?: string; description?: string }> | null;
   /** Known languages + the PF1e bonus-language budget. Always visible (not a private section). */
   languages: { known: string[]; budget: LanguageBudget };
   /** Defensive abilities — DR, energy resistance, immunities, SR, conditions, nonlethal. */
@@ -626,7 +638,16 @@ export function buildCharacterViewModel(
     skills,
     feats: gate(
       "feats",
-      character.feats.list.map((f) => ({ name: f.name, type: f.type })),
+      character.feats.list.map((f) => ({
+        name: f.name,
+        type: f.type,
+        prerequisites: f.prerequisites,
+        benefit: f.benefit,
+        special: f.special,
+        normal: f.normal,
+        // Tactical notes are owner-only (mirrors spells/buffs).
+        notes: isOwnerView ? f.notes : undefined,
+      })),
     ),
     features: gate(
       "features",
@@ -635,6 +656,8 @@ export function buildCharacterViewModel(
         return {
           name: f.name,
           category: f.category,
+          description: f.description,
+          level: f.level,
           ...(max && max > 0
             ? { uses: { max, remaining: f.uses?.current ?? max, per: f.uses?.per ?? "day" } }
             : {}),
@@ -643,7 +666,7 @@ export function buildCharacterViewModel(
     ),
     traits: gate(
       "features",
-      character.traits.list.map((t) => ({ name: t.name, type: t.type })),
+      character.traits.list.map((t) => ({ name: t.name, type: t.type, description: t.description })),
     ),
     languages: {
       known: character.languages.known,
