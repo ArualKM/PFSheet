@@ -42,7 +42,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title={`Welcome back, ${firstName}`}
-        description="Your command center. Create a character, browse the spell compendium, or pick up where you left off."
+        description="Your command center. Create a character, browse the compendium, or pick up where you left off."
         actions={
           <Button asChild>
             <Link href="/characters/new">
@@ -75,16 +75,17 @@ export default async function DashboardPage() {
           <CardContent className="flex h-full flex-col justify-between gap-3 p-5">
             <div className="flex items-center gap-2 text-gold">
               <Sparkles className="size-5" />
-              <span className="font-semibold">Spell Compendium</span>
+              <span className="font-semibold">Compendium</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              3,000+ Pathfinder 1e spells, searchable by name, school, and class.
+              The complete PF1e reference — feats, spells, races, archetypes, spheres &amp; more, ready to
+              drop onto your sheet.
             </p>
             <Link
-              href="/spells"
+              href="/compendium"
               className="inline-flex items-center gap-1 text-sm font-medium text-rune hover:underline"
             >
-              Browse spells <ArrowRight className="size-4" />
+              Open compendium <ArrowRight className="size-4" />
             </Link>
           </CardContent>
         </Card>
