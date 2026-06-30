@@ -537,9 +537,22 @@ first**.
   features had silently failed; fixed + re-verified). 396 tests. **Deferred to polish:** per-level accordion viz,
   cleaner names for book-ref option types, smarter non-core caster-stat defaults.
 
-**Next — Phases 5–9:** archetypes (replace/alter stacking) → prestige (prereq-gated) → races → mythic depth →
-linked-subsheet companions; the race/archetype/prestige pickers fold into those builder phases. See
-[[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
+- **Phase 5 (archetypes) DONE** — `applyArchetype` (`packages/pathforge-rules-pf1e/src/class-builder.ts`):
+  conflict-check (two archetypes can't both replace the same standard feature → block + explain), remove the
+  replaced features, grant the archetype's features, record `replaces` on the row; `grantClassFeatures` gained
+  `exclude` so a level-up doesn't re-grant a replaced feature. `<ArchetypePicker>` with live conflict blocking.
+  Verified live (Acrobat→Rogue replaced Trapfinding/Trap Sense; Cutpurse blocked; Burglar stacked). A review
+  fixed the level-up regrant race (capture classId + exclude at click time; match the row by id, not index).
+- **Phase 6 (prestige) DONE** — `<PrestigePicker>` reuses `applyCompendiumClass` for BAB/saves/HP with
+  `suppressCaster` (prestige casting is "+N level of existing class", not a new caster). Honest scope given the
+  data: all 118 `requirements` are empty → no auto-gating (show the description for self-assessment); no
+  prestige feature table. Fixed `parseProgression` save inference for prestige (good saves start at +1 not +2 →
+  any positive L1 base is "good"; base classes unaffected). Verified live (Arcane Trickster: ½ BAB, good
+  Ref/Will, no spurious caster). 402 tests.
+
+**Next — Phases 7–9:** races (`race_compendium` + alt-traits + FCB) → mythic depth → linked-subsheet companions
+(owner-signed Option A: `parent_character_id` + `companion_type`). See [[pathforge-pfcore-epic]] +
+`docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
