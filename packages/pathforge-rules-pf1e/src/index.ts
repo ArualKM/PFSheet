@@ -78,3 +78,6 @@ export type { CompendiumEffectSeed } from "./effect-seeds";
 // Phase 4 — progression-driven class builder mutation layer
 export { grantClassFeatures, applyCompendiumClass } from "./class-builder";
 export type { CompendiumFeatureRow, ApplyCompendiumClassResult } from "./class-builder";
+// Phase 5 — archetypes
+export { applyArchetype, parseReplaces, archetypeReplaces, findArchetypeConflicts } from "./class-builder";
+export type { ArchetypeFeatureRow, ApplyArchetypeResult } from "./class-builder";

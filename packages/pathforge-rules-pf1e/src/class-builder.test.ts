@@ -1,7 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { createDefaultCharacter, CLASS_CATALOG } from "@pathforge/schema";
 import { computeCharacter } from "./compute";
-import { grantClassFeatures, applyCompendiumClass, type CompendiumFeatureRow } from "./class-builder";
+import {
+  grantClassFeatures,
+  applyCompendiumClass,
+  applyArchetype,
+  parseReplaces,
+  type CompendiumFeatureRow,
+  type ArchetypeFeatureRow,
+} from "./class-builder";
 
 const FIGHTER_FEATURES: CompendiumFeatureRow[] = [
   { id: "f-bonusfeat-1", feature: "Bonus Feat", level: 1, type: "Ex" },
@@ -94,5 +101,73 @@ describe("applyCompendiumClass", () => {
     applyCompendiumClass(c, { input: fighterInput(), level: 5, hpMethod: "average", features: FIGHTER_FEATURES });
     expect(c.identity.classes.filter((x) => x.compendiumId === "pfcore:fighter")).toHaveLength(1);
     expect(c.features.list.filter((f) => f.category === "class_feature")).toHaveLength(3);
+  });
+});
+
+const ROGUE_FEATURES: CompendiumFeatureRow[] = [
+  { id: "rf-trapfinding-1", feature: "Trapfinding", level: 1, type: "Ex" },
+  { id: "rf-sneak-1", feature: "Sneak Attack", level: 1, type: "Ex" },
+  { id: "rf-trapsense-3", feature: "Trap Sense", level: 3, type: "Ex" },
+];
+const ACROBAT: ArchetypeFeatureRow[] = [
+  { slug: "af-acrobat-expert", archetype: "Acrobat", feature: "Expert Acrobat", level: 1, type: "Ex", replaces: "trapfinding" },
+  { slug: "af-acrobat-second", archetype: "Acrobat", feature: "Second Chance", level: 3, type: "Ex", replaces: "trap sense" },
+  { slug: "af-acrobat-note", archetype: "Acrobat", feature: "Rogue Talents", level: null, replaces: "" }, // note-only
+];
+const rogue5 = () => {
+  const c = createDefaultCharacter();
+  c.identity.classes = [{ id: "rogue1", name: "Rogue", level: 5 }];
+  grantClassFeatures(c, { features: ROGUE_FEATURES, toLevel: 5 });
+  return c;
+};
+
+describe("archetypes (Phase 5)", () => {
+  it("parseReplaces splits on comma / semicolon / and", () => {
+    expect(parseReplaces("trapfinding, trap sense")).toEqual(["trapfinding", "trap sense"]);
+    expect(parseReplaces("uncanny dodge and improved uncanny dodge")).toEqual(["uncanny dodge", "improved uncanny dodge"]);
+    expect(parseReplaces("")).toEqual([]);
+  });
+
+  it("applies an archetype: removes replaced features, grants archetype features, records replaces", () => {
+    const c = rogue5();
+    const res = applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    expect(res.conflicts).toEqual([]);
+    expect(res.replaced.sort()).toEqual(["Trap Sense (Ex)", "Trapfinding (Ex)"]);
+    expect(res.added).toEqual(["Expert Acrobat", "Second Chance"]); // the note-only row is skipped
+    const names = c.features.list.map((f) => f.name);
+    expect(names).not.toContain("Trapfinding (Ex)");
+    expect(names).toContain("Expert Acrobat (Ex)");
+    expect(names).toContain("Sneak Attack (Ex)"); // not replaced → kept
+    expect([...(c.identity.classes[0]!.archetypes?.[0]?.replaces ?? [])].sort()).toEqual(["trap sense", "trapfinding"]);
+  });
+
+  it("blocks a second archetype that replaces an already-replaced feature (nothing mutates)", () => {
+    const c = rogue5();
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    const before = c.features.list.length;
+    const conflicting: ArchetypeFeatureRow[] = [{ slug: "af-x", archetype: "X", feature: "Y", level: 1, replaces: "trapfinding" }];
+    const res = applyArchetype(c, { classId: "rogue1", archetype: { name: "X", compendiumId: "x-rogue" }, features: conflicting });
+    expect(res.conflicts).toEqual(["trapfinding"]);
+    expect(c.features.list).toHaveLength(before);
+    expect(c.identity.classes[0]!.archetypes).toHaveLength(1);
+  });
+
+  it("stacks a compatible archetype that replaces a different feature", () => {
+    const c = rogue5();
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    const compatible: ArchetypeFeatureRow[] = [{ slug: "af-z", archetype: "Z", feature: "Zfeat", level: 1, replaces: "sneak attack" }];
+    const res = applyArchetype(c, { classId: "rogue1", archetype: { name: "Z", compendiumId: "z-rogue" }, features: compatible });
+    expect(res.conflicts).toEqual([]);
+    expect(c.identity.classes[0]!.archetypes).toHaveLength(2);
+    expect(c.features.list.map((f) => f.name)).not.toContain("Sneak Attack (Ex)");
+  });
+
+  it("level-up excludes archetype-replaced features (no re-grant)", () => {
+    const c = createDefaultCharacter();
+    c.identity.classes = [{ id: "rogue1", name: "Rogue", level: 1 }];
+    grantClassFeatures(c, { features: ROGUE_FEATURES, toLevel: 1 });
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    grantClassFeatures(c, { features: ROGUE_FEATURES, fromLevel: 1, toLevel: 5, exclude: ["trapfinding", "trap sense"] });
+    expect(c.features.list.map((f) => f.name)).not.toContain("Trap Sense (Ex)");
   });
 });

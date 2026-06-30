@@ -2643,7 +2643,9 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
     ]);
     const rows = buildFeatureRows(feats ?? [], fx ?? []);
     ed.update((c) => {
-      grantClassFeatures(c, { features: rows, fromLevel, toLevel });
+      const row = c.identity.classes[i];
+      const exclude = (row?.archetypes ?? []).flatMap((a) => a.replaces);
+      grantClassFeatures(c, { features: rows, fromLevel, toLevel, exclude });
     });
   };
 

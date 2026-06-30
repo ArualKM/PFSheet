@@ -1,11 +1,23 @@
 import { z } from "zod";
 import { sourceRefSchema, classPresetSchema } from "./common";
 
+/** An archetype applied to a class via the compendium builder — its name + the standard class features it
+ * replaces (lowercased base names), used to suppress those features on level-up + to conflict-check a second
+ * archetype (two archetypes can't both replace the same feature). The legacy `archetype` free-text stays. */
+export const characterArchetypeSchema = z.object({
+  name: z.string(),
+  compendiumId: z.string().optional(),
+  replaces: z.array(z.string()).default([]),
+});
+export type CharacterArchetype = z.infer<typeof characterArchetypeSchema>;
+
 /** §6.1 Identity */
 export const characterClassSchema = z.object({
   id: z.string(),
   name: z.string(),
   archetype: z.string().optional(),
+  /** Structured archetypes applied via the builder (additive to the legacy free-text `archetype`). */
+  archetypes: z.array(characterArchetypeSchema).optional(),
   level: z.number().int().min(0),
   hitDie: z.string().optional(),
   favoredClass: z.boolean().optional(),

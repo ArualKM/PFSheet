@@ -1,6 +1,7 @@
 import {
   applyClassPreset,
   compendiumRowToPreset,
+  type CharacterArchetype,
   type CompendiumClassInput,
   type HpMethod,
   type PathForgeCharacterV1,
@@ -34,14 +35,17 @@ export type CompendiumFeatureRow = {
  */
 export function grantClassFeatures(
   character: PathForgeCharacterV1,
-  opts: { features: CompendiumFeatureRow[]; toLevel: number; fromLevel?: number },
+  opts: { features: CompendiumFeatureRow[]; toLevel: number; fromLevel?: number; exclude?: string[] },
 ): string[] {
   const from = opts.fromLevel ?? 0;
+  // Standard features an applied archetype replaces — never (re-)grant them (e.g. on level-up).
+  const exclude = new Set((opts.exclude ?? []).map((s) => s.toLowerCase()));
   const have = new Set(character.features.list.map((f) => f.compendiumId).filter(Boolean) as string[]);
   const added: string[] = [];
   for (const row of opts.features) {
     if (row.level <= from || row.level > opts.toLevel) continue;
     if (have.has(row.id)) continue;
+    if (exclude.has(row.feature.trim().toLowerCase())) continue;
     character.features.list.push({
       id: `feat_${row.id}`,
       name: row.type ? `${row.feature} (${row.type})` : row.feature,
@@ -94,7 +98,10 @@ export function applyCompendiumClass(
   }
 
   const report = applyClassPreset(character, { preset, level, hpMethod });
-  const featuresAdded = features ? grantClassFeatures(character, { features, fromLevel: 0, toLevel: level }) : [];
+  // If the class already carries archetypes, don't re-grant the features they replace.
+  const row = character.identity.classes.find((c) => c.compendiumId === input.key);
+  const exclude = (row?.archetypes ?? []).flatMap((a) => a.replaces);
+  const featuresAdded = features ? grantClassFeatures(character, { features, fromLevel: 0, toLevel: level, exclude }) : [];
 
   return {
     wrote: report.wrote,
@@ -103,4 +110,101 @@ export function applyCompendiumClass(
     skillRankBudget: report.skillRankBudget,
     featuresAdded,
   };
+}
+
+// ---- Phase 5: archetypes (replace standard features, conflict-check, grant archetype features) ----
+
+/** An `archetype_feature_compendium` row the builder applies. */
+export type ArchetypeFeatureRow = {
+  slug: string;
+  archetype: string;
+  feature: string;
+  type?: string | null;
+  level?: number | string | null;
+  /** The standard class feature(s) this row replaces (lowercased base names, in the dataset). */
+  replaces?: string | null;
+  text?: string | null;
+};
+
+/** Split a `replaces` cell into lowercased base feature names (comma / semicolon / "and" separated). */
+export function parseReplaces(raw: string | null | undefined): string[] {
+  return String(raw ?? "")
+    .split(/[,;]|\band\b/i)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Every standard feature an archetype's rows replace (deduped, lowercased). */
+export function archetypeReplaces(features: ArchetypeFeatureRow[]): string[] {
+  return [...new Set(features.flatMap((f) => parseReplaces(f.replaces)))];
+}
+
+/** Replaced features that an already-applied archetype on this class also replaced → a hard conflict
+ * (two archetypes can't both replace the same standard feature). */
+export function findArchetypeConflicts(existing: CharacterArchetype[] | undefined, newReplaces: string[]): string[] {
+  const taken = new Set((existing ?? []).flatMap((a) => a.replaces));
+  return [...new Set(newReplaces.filter((r) => taken.has(r)))];
+}
+
+const TYPE_SUFFIX = /\s*\((?:Ex|Su|Sp|Ex\/Su|Su\/Sp|Sp\/Su)\)\s*$/i;
+const baseName = (name: string) => name.replace(TYPE_SUFFIX, "").trim().toLowerCase();
+
+export type ApplyArchetypeResult = { added: string[]; replaced: string[]; conflicts: string[] };
+
+/**
+ * Apply an archetype to a class row: conflict-check vs already-applied archetypes; if clear, remove the
+ * standard class features it replaces, grant its leveled features (category "archetype_feature", no automation —
+ * the dataset gives prose, not effect seeds), and record it (with its `replaces`) on the class row. Idempotent
+ * by archetype compendiumId. On conflict it mutates nothing and returns the conflicting feature names.
+ */
+export function applyArchetype(
+  character: PathForgeCharacterV1,
+  opts: { classId: string; archetype: { name: string; compendiumId?: string }; features: ArchetypeFeatureRow[] },
+): ApplyArchetypeResult {
+  const row = character.identity.classes.find((c) => c.id === opts.classId);
+  if (!row) return { added: [], replaced: [], conflicts: [] };
+
+  // Idempotent: already applied?
+  if (opts.archetype.compendiumId && (row.archetypes ?? []).some((a) => a.compendiumId === opts.archetype.compendiumId)) {
+    return { added: [], replaced: [], conflicts: [] };
+  }
+
+  const replaces = archetypeReplaces(opts.features);
+  const conflicts = findArchetypeConflicts(row.archetypes, replaces);
+  if (conflicts.length) return { added: [], replaced: [], conflicts };
+
+  // Remove the standard class features this archetype replaces.
+  const replacedSet = new Set(replaces);
+  const replaced: string[] = [];
+  character.features.list = character.features.list.filter((f) => {
+    if (f.category === "class_feature" && replacedSet.has(baseName(f.name))) {
+      replaced.push(f.name);
+      return false;
+    }
+    return true;
+  });
+
+  // Grant the archetype's leveled features (note-only rows with no numeric level are skipped).
+  const have = new Set(character.features.list.map((f) => f.compendiumId).filter(Boolean) as string[]);
+  const added: string[] = [];
+  for (const f of opts.features) {
+    const lvl = Number(f.level);
+    // note-only rows (e.g. "Rogue Talents") have empty/null level → Number(...) is 0/NaN, not a real level.
+    if (!Number.isFinite(lvl) || lvl < 1) continue;
+    if (have.has(f.slug)) continue;
+    character.features.list.push({
+      id: `arch_${f.slug}`,
+      name: f.type ? `${f.feature} (${f.type})` : f.feature,
+      category: "archetype_feature",
+      compendiumId: f.slug,
+      level: lvl,
+      description: f.text ?? undefined,
+      automation: [],
+    });
+    have.add(f.slug);
+    added.push(f.feature);
+  }
+
+  row.archetypes = [...(row.archetypes ?? []), { name: opts.archetype.name, compendiumId: opts.archetype.compendiumId, replaces }];
+  return { added, replaced, conflicts: [] };
 }
