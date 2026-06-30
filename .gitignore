@@ -51,6 +51,9 @@ next-env.d.ts
 /tmp
 *.local.md
 
+# Claude Code local config (preview launch.json, agent worktrees) — machine-local, not app code.
+.claude/
+
 # Spheres source research — scraped wiki HTML + downloaded page assets (bulky, not app code).
 # The 6 normalized TSVs ARE versioned (the compendium import source); the raw pages are not.
 **/downloaded source web pages/
