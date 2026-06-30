@@ -550,9 +550,25 @@ first**.
   any positive L1 base is "good"; base classes unaffected). Verified live (Arcane Trickster: ½ BAB, good
   Ref/Will, no spurious caster). 402 tests.
 
-**Next — Phases 7–9:** races (`race_compendium` + alt-traits + FCB) → mythic depth → linked-subsheet companions
-(owner-signed Option A: `parent_character_id` + `companion_type`). See [[pathforge-pfcore-epic]] +
-`docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
+- **Phase 7 (races) DONE** — `<RacePicker>` ("Browse races" in Identity); `applyRace`
+  (`packages/pathforge-rules-pf1e/src/race-builder.ts`) adds ability mods (parseAbilityMods handles every dash
+  incl. the data's EN-DASH penalty; sign now required so prose numbers can't over-match) to the base score, sets
+  size + speed, grants standard traits as a feature, records `identity.raceApplied` for revert-on-reapply; alt-
+  traits added as features. Verified live (Dwarves → +2 Con/+2 Wis/-2 Cha). Review found edge cases (point-buy
+  interaction, manual-edit-between-races, size revert) — **spawned as a polish follow-up**; common path works.
+- **Phase 8 (mythic depth) — NOT BUILT (honest skip).** The mythic CORE already shipped (S4 + V1·3·3:
+  tier/path/pool/surge/ability-boosts/Hard-to-Kill/manual path abilities). A compendium picker isn't viable:
+  ALL 431 `mythic_path_ability_compendium.name` values are book references (the scrape lost the real names) —
+  unusable for selection. Documented; no low-value picker built on bad data.
+- **Phase 9 (companions) DONE** — **migration 0025** (characters gains `parent_character_id` self-FK [ON DELETE
+  SET NULL] + `companion_type` + not-own-parent CHECK + partial index; owner RLS covers it — advisors clean).
+  `createCompanionAction` (`lib/actions/characters.ts`) + `<CompanionsCard>` on the character overview (owner-
+  only): list linked companions (each a real, separately-editable character) + create one (6 types) → jumps to
+  its sheet. Verified live (Test Wolf → linked row → appears in the parent's card). **Migrations now through 0025.**
+
+**M12 (PFcore compendium-driven builder) is COMPLETE** — 9 of 10 phases shipped + reviewed + live-verified;
+Phase 8's compendium picker honestly skipped (data + the core already exists). ~410 tests. See
+[[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
