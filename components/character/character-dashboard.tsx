@@ -965,7 +965,25 @@ function HeroCard({ vm, actions }: { vm: CharacterViewModel; actions?: ReactNode
         <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           {vm.header.name}
         </h1>
-        <p className="text-muted-foreground">{vm.header.classLine}</p>
+        {vm.header.classes.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+            {vm.header.classes.map((c, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5">
+                {i > 0 && <span className="text-border">·</span>}
+                <span>
+                  {c.name} {c.level}
+                </span>
+                {c.archetypes.map((a) => (
+                  <Badge key={a} variant="outline" className="text-[10px]">
+                    {a}
+                  </Badge>
+                ))}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">{vm.header.classLine}</p>
+        )}
         {vm.header.playerName && (
           <p className="text-xs text-muted-foreground/60">Played by {vm.header.playerName}</p>
         )}

@@ -136,6 +136,9 @@ export type CharacterViewModel = {
     /** Real-world player name (PII) — owner/editor view only, never on public shares. */
     playerName?: string;
     classLine: string;
+    /** Per-class breakdown for the header — name + level + the archetypes applied to that class (public; the
+     * favored-class marker stays owner-only in `advancement`). */
+    classes: Array<{ name: string; level: number; archetypes: string[] }>;
     totalLevel: number;
     race?: string;
     alignment?: string;
@@ -380,6 +383,17 @@ export function buildCharacterViewModel(
 
   const classLine =
     character.identity.classes.map((c) => `${c.name} ${c.level}`).join(" / ") || "Unleveled";
+  const classBreakdown = character.identity.classes.map((c) => ({
+    name: c.name,
+    level: c.level,
+    // Structured archetypes (from the builder) + the legacy free-text archetype, deduped.
+    archetypes: [
+      ...new Set([
+        ...(c.archetypes?.map((a) => a.name) ?? []),
+        ...(c.archetype?.trim() ? [c.archetype.trim()] : []),
+      ]),
+    ],
+  }));
 
   const abilities = ABILITY_KEYS.map((key) => {
     const a = computed.abilities[key];
@@ -566,6 +580,7 @@ export function buildCharacterViewModel(
       // PII: only the owner/editor sees the real player's name, never public/party/GM shares.
       playerName: isOwnerView ? character.identity.playerName : undefined,
       classLine,
+      classes: classBreakdown,
       totalLevel: character.identity.totalLevel,
       race: character.identity.race,
       alignment: character.identity.alignment,
