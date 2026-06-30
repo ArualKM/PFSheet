@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Flag } from "@/components/ui/game-icons";
 import { Badge } from "@/components/ui/badge";
-import { CompendiumBrowser, Meta, plain, type CompendiumConfig } from "@/components/compendium/compendium-browser";
+import { CompendiumBrowser, hasText, Meta, Prose, type CompendiumConfig } from "@/components/compendium/compendium-browser";
 
 export const metadata: Metadata = { title: "Prestige Classes" };
 
@@ -16,7 +16,8 @@ const config: CompendiumConfig = {
   placeholder: "Search prestige classes — e.g. Arcane Trickster, Eldritch Knight…",
   basePath: "/prestige",
   rowKey: (r) => String(r.slug),
-  renderRow: (r) => (
+  summaryLabel: (r) => String(r.name),
+  renderSummary: (r) => (
     <>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-foreground">{String(r.name)}</h2>
@@ -26,7 +27,13 @@ const config: CompendiumConfig = {
       <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <Meta label="Requirements" value={r.requirements} />
       </dl>
-      {r.description ? <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{plain(r.description)}</p> : null}
+    </>
+  ),
+  hasDetail: (r) => hasText(r.description) || hasText(r.role),
+  renderDetail: (r) => (
+    <>
+      <Prose label="Role" value={r.role} />
+      <Prose value={r.description} />
     </>
   ),
 };

@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   CompendiumBrowser,
   distinctValues,
-  plain,
+  hasText,
+  Prose,
   type CompendiumConfig,
 } from "@/components/compendium/compendium-browser";
 
@@ -21,16 +22,16 @@ const base: Omit<CompendiumConfig, "filters"> = {
   placeholder: "Search races — e.g. Dwarf, Aasimar, Tiefling…",
   basePath: "/races",
   rowKey: (r) => String(r.slug),
-  renderRow: (r) => (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-semibold text-foreground">{String(r.name)}</h2>
-        {r.category ? <Badge variant="gold">{String(r.category)}</Badge> : null}
-        {r.source ? <span className="ml-auto text-xs text-muted-foreground">{String(r.source)}</span> : null}
-      </div>
-      {r.details ? <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{plain(r.details)}</p> : null}
-    </>
+  summaryLabel: (r) => String(r.name),
+  renderSummary: (r) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <h2 className="text-base font-semibold text-foreground">{String(r.name)}</h2>
+      {r.category ? <Badge variant="gold">{String(r.category)}</Badge> : null}
+      {r.source ? <span className="ml-auto text-xs text-muted-foreground">{String(r.source)}</span> : null}
+    </div>
   ),
+  hasDetail: (r) => hasText(r.details),
+  renderDetail: (r) => <Prose value={r.details} />,
 };
 
 export default async function RacesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { Sparkles } from "@/components/ui/game-icons";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { hasText, Prose } from "@/components/compendium/compendium-browser";
 
 export const metadata: Metadata = { title: "Spell Compendium" };
 
@@ -158,40 +159,58 @@ export default async function SpellsPage({
           {spells.map((spell) => {
             const lvl = minLevel(spell.class_levels);
             const classes = Object.keys(spell.class_levels ?? {}).slice(0, 6);
+            const summary = (
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-foreground">{spell.name}</h2>
+                  <Badge variant="rune">{spell.school}</Badge>
+                  {spell.subschool && <Badge>{spell.subschool}</Badge>}
+                  {lvl !== null && <Badge variant="gold">Lvl {lvl}</Badge>}
+                  {spell.source && (
+                    <span className="ml-auto text-xs text-muted-foreground">{spell.source}</span>
+                  )}
+                </div>
+
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-4">
+                  <SpellMeta label="Casting" value={spell.casting_time} />
+                  <SpellMeta label="Components" value={spell.components} />
+                  <SpellMeta label="Range" value={spell.range} />
+                  <SpellMeta label="Duration" value={spell.duration} />
+                  <SpellMeta label="Save" value={spell.saving_throw} />
+                  <SpellMeta label="SR" value={spell.spell_resistance} />
+                </dl>
+
+                {classes.length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Classes:</span> {classes.join(", ")}
+                  </p>
+                )}
+              </div>
+            );
+            if (!hasText(spell.description)) {
+              return (
+                <Card key={spell.id}>
+                  <CardContent className="p-5">{summary}</CardContent>
+                </Card>
+              );
+            }
             return (
-              <Card key={spell.id}>
-                <CardContent className="p-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold text-foreground">{spell.name}</h2>
-                    <Badge variant="rune">{spell.school}</Badge>
-                    {spell.subschool && <Badge>{spell.subschool}</Badge>}
-                    {lvl !== null && <Badge variant="gold">Lvl {lvl}</Badge>}
-                    {spell.source && (
-                      <span className="ml-auto text-xs text-muted-foreground">{spell.source}</span>
-                    )}
+              <Card key={spell.id} className="overflow-hidden">
+                <details className="group">
+                  <summary
+                    aria-label={spell.name}
+                    className="flex cursor-pointer list-none items-start gap-3 p-5 transition-colors hover:bg-surface-raised/40 [&::-webkit-details-marker]:hidden"
+                  >
+                    {summary}
+                    <ChevronDown
+                      aria-hidden
+                      className="mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="border-t border-border/60 px-5 pb-5 pt-4">
+                    <Prose value={spell.description} />
                   </div>
-
-                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-4">
-                    <SpellMeta label="Casting" value={spell.casting_time} />
-                    <SpellMeta label="Components" value={spell.components} />
-                    <SpellMeta label="Range" value={spell.range} />
-                    <SpellMeta label="Duration" value={spell.duration} />
-                    <SpellMeta label="Save" value={spell.saving_throw} />
-                    <SpellMeta label="SR" value={spell.spell_resistance} />
-                  </dl>
-
-                  {classes.length > 0 && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Classes:</span> {classes.join(", ")}
-                    </p>
-                  )}
-
-                  {spell.description && (
-                    <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-                      {spell.description}
-                    </p>
-                  )}
-                </CardContent>
+                </details>
               </Card>
             );
           })}

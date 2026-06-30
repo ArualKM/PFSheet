@@ -31,6 +31,7 @@ const ICON_FILES = {
   // nav · sheet sections
   dashboard: "lorc/treasure-map",
   character: "delapouite/character",
+  classes: "caro-asercion/warlord-helmet",
   skills: "delapouite/skills",
   settings: "delapouite/settings-knobs",
   // wealth · inventory
@@ -105,5 +106,6 @@ export const EyeOff = make("eye-off");
 export const TreasureMap = make("dashboard");
 export const ConcentrationOrb = make("sphere");
 export const User = make("character");
+export const Helmet = make("classes");
 export const Target = make("skills");
 export const Settings = make("settings");

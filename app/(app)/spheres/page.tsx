@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { ConcentrationOrb } from "@/components/ui/game-icons";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { hasText, Prose } from "@/components/compendium/compendium-browser";
 
 export const metadata: Metadata = { title: "Spheres Compendium" };
 
@@ -170,9 +171,9 @@ export default async function SpheresPage({
         </Card>
       ) : (
         <div className="space-y-3">
-          {talents.map((t) => (
-            <Card key={t.id}>
-              <CardContent className="p-5">
+          {talents.map((t) => {
+            const summary = (
+              <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-base font-semibold text-foreground">{t.talent_name}</h2>
                   <Badge variant="rune">{t.sphere_name}</Badge>
@@ -190,15 +191,35 @@ export default async function SpheresPage({
                   <Meta label="Prerequisites" value={t.prerequisites} />
                   <Meta label="Subcategory" value={t.subcategory} />
                 </dl>
-
-                {t.description && (
-                  <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-muted-foreground">
-                    {t.description.replace(/<br>/g, " ")}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+            if (!hasText(t.description)) {
+              return (
+                <Card key={t.id}>
+                  <CardContent className="p-5">{summary}</CardContent>
+                </Card>
+              );
+            }
+            return (
+              <Card key={t.id} className="overflow-hidden">
+                <details className="group">
+                  <summary
+                    aria-label={t.talent_name}
+                    className="flex cursor-pointer list-none items-start gap-3 p-5 transition-colors hover:bg-surface-raised/40 [&::-webkit-details-marker]:hidden"
+                  >
+                    {summary}
+                    <ChevronDown
+                      aria-hidden
+                      className="mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="border-t border-border/60 px-5 pb-5 pt-4">
+                    <Prose value={t.description} />
+                  </div>
+                </details>
+              </Card>
+            );
+          })}
 
           <div className="flex items-center justify-between pt-2 text-sm">
             <span className="text-muted-foreground">

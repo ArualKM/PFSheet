@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,8 +28,16 @@ export type CompendiumConfig = {
   pageSize?: number;
   rankedLimit?: number;
   filters?: CompendiumFilter[];
-  /** Inner card content for a row (the browser wraps it in <Card><CardContent>). */
-  renderRow: (row: Record<string, unknown>) => ReactNode;
+  /** Always-visible collapsed content: name + badges + source + short key meta (prereqs/requirements).
+   * Rendered inside the `<summary>`, so keep it scannable. */
+  renderSummary: (row: Record<string, unknown>) => ReactNode;
+  /** Terse accessible name for the disclosure toggle (defaults to the whole summary subtree text, which
+   * includes badges + source). Set to the entry name to keep the button's a11y name name-first. */
+  summaryLabel?: (row: Record<string, unknown>) => string;
+  /** The expanded, full, untruncated detail (prose + secondary meta). Omit for non-expandable entries. */
+  renderDetail?: (row: Record<string, unknown>) => ReactNode;
+  /** Whether this row has detail to expand — drives the accordion chevron vs. a flat card. */
+  hasDetail?: (row: Record<string, unknown>) => boolean;
   rowKey: (row: Record<string, unknown>) => string;
 };
 
@@ -135,11 +143,33 @@ export async function CompendiumBrowser({
         </Card>
       ) : (
         <div className="space-y-3">
-          {rows.map((row) => (
-            <Card key={config.rowKey(row)}>
-              <CardContent className="p-5">{config.renderRow(row)}</CardContent>
-            </Card>
-          ))}
+          {rows.map((row) => {
+            const expandable = Boolean(config.renderDetail && (config.hasDetail?.(row) ?? true));
+            if (!expandable) {
+              return (
+                <Card key={config.rowKey(row)}>
+                  <CardContent className="p-5">{config.renderSummary(row)}</CardContent>
+                </Card>
+              );
+            }
+            return (
+              <Card key={config.rowKey(row)} className="overflow-hidden p-0">
+                <details className="group">
+                  <summary
+                    aria-label={config.summaryLabel?.(row)}
+                    className="flex cursor-pointer list-none items-start gap-3 p-5 transition-colors hover:bg-surface-raised/40 [&::-webkit-details-marker]:hidden"
+                  >
+                    <div className="min-w-0 flex-1">{config.renderSummary(row)}</div>
+                    <ChevronDown
+                      aria-hidden
+                      className="mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="space-y-3 border-t border-border/60 px-5 pb-5 pt-4">{config.renderDetail!(row)}</div>
+                </details>
+              </Card>
+            );
+          })}
 
           <div className="flex items-center justify-between pt-2 text-sm">
             <span className="text-muted-foreground">
@@ -179,6 +209,31 @@ export function Meta({ label, value }: { label: string; value: unknown }) {
 /** Strip the `<br>` tokens from compendium prose for inline display. */
 export function plain(value: unknown): string {
   return value ? String(value).replace(/<br>/g, " ") : "";
+}
+
+/** True when `value` has visible text after stripping `<br>` + trimming — i.e. whether `<Prose>` (or a `<Meta>`)
+ * would render anything. Use in `hasDetail` so the accordion chevron never appears over an empty body. */
+export function hasText(value: unknown): boolean {
+  return value != null && String(value).replace(/<br\s*\/?>/gi, "").trim() !== "";
+}
+
+/** Full, untruncated compendium prose for the expanded accordion body. Converts the data's `<br>` tokens to
+ * real line breaks and preserves them with `whitespace-pre-wrap`. Renders nothing when empty. */
+export function Prose({ label, value }: { label?: string; value: unknown }) {
+  if (value === null || value === undefined || value === "") return null;
+  const text = String(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!text) return null;
+  return (
+    <div>
+      {label ? (
+        <div className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-foreground">{label}</div>
+      ) : null}
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{text}</p>
+    </div>
+  );
 }
 
 /** Sorted distinct values of a compendium column — for building `<select>` filter options. Uses the

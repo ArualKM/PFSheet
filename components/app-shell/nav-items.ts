@@ -18,6 +18,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", description: "Your jumping-off point & recent activity", icon: TreasureMap, mobile: true },
   { href: "/characters", label: "Characters", description: "Build, edit & share character sheets", icon: User, mobile: true },
   { href: "/campaigns", label: "Campaigns", description: "Run tables, rosters & GM approvals", icon: Flag, mobile: true },
-  { href: "/compendium", label: "Compendium", shortLabel: "Library", description: "Search every PF1e rules element — feats, spells, spheres, races, archetypes & more", icon: ScrollText, mobile: true },
+  { href: "/compendium", label: "Compendium", shortLabel: "Library", description: "Search every PF1e rules element — classes, feats, spells, spheres, races, archetypes & more", icon: ScrollText, mobile: true },
   { href: "/settings", label: "Settings", description: "Profile, API keys & preferences", icon: Settings },
 ];

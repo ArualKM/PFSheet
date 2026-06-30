@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   CompendiumBrowser,
   distinctValues,
+  hasText,
   Meta,
-  plain,
+  Prose,
   type CompendiumConfig,
 } from "@/components/compendium/compendium-browser";
 
@@ -23,7 +24,8 @@ const base: Omit<CompendiumConfig, "filters"> = {
   placeholder: "Search options — e.g. Bleeding Attack, Vivisectionist, Beast Totem…",
   basePath: "/class-options",
   rowKey: (r) => String(r.slug),
-  renderRow: (r) => (
+  summaryLabel: (r) => String(r.name),
+  renderSummary: (r) => (
     <>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-semibold text-foreground">{String(r.name)}</h2>
@@ -35,9 +37,10 @@ const base: Omit<CompendiumConfig, "filters"> = {
         <Meta label="Group" value={r.group} />
         <Meta label="Subtype" value={r.subtype} />
       </dl>
-      {r.description ? <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-muted-foreground">{plain(r.description)}</p> : null}
     </>
   ),
+  hasDetail: (r) => hasText(r.description),
+  renderDetail: (r) => <Prose value={r.description} />,
 };
 
 export default async function ClassOptionsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

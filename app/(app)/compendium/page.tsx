@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { Wand2, ConcentrationOrb, Swords, ScrollText, User, Shield, Flag, Target } from "@/components/ui/game-icons";
+import { Wand2, ConcentrationOrb, Swords, ScrollText, User, Shield, Flag, Target, Helmet } from "@/components/ui/game-icons";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata: Metadata = { title: "Compendium" };
 
 const ENTRIES: { href: string; label: string; desc: string; Icon: ComponentType<{ className?: string }> }[] = [
+  { href: "/classes", label: "Classes", desc: "Base, core & hybrid classes", Icon: Helmet },
   { href: "/feats", label: "Feats", desc: "3,300+ feats, with prerequisites", Icon: Swords },
   { href: "/traits", label: "Traits", desc: "1,900+ character traits", Icon: ScrollText },
   { href: "/races", label: "Races", desc: "Every Pathfinder race", Icon: User },
