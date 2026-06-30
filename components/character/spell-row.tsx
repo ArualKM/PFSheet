@@ -54,6 +54,11 @@ export function SpellRow({ spell, right }: { spell: SpellView; right?: ReactNode
             L{spell.level}
             {spell.effectiveLevel != null && spell.effectiveLevel !== spell.level ? `→${spell.effectiveLevel}` : ""}
           </Badge>
+          {spell.atWill && (
+            <Badge variant="rune" className="shrink-0 text-[10px]">
+              at will
+            </Badge>
+          )}
           {spell.metamagic?.length ? (
             <span
               className="shrink-0 truncate text-[11px] font-medium text-rune"

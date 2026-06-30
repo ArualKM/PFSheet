@@ -596,6 +596,14 @@ export function CharacterDashboard({
                     ))}
                   </div>
                 )}
+                {vm.advancement.favoredClassSkill > 0 && (
+                  <p className="pt-0.5 text-xs text-muted-foreground">
+                    Favored-class bonus:{" "}
+                    <span className="font-medium text-foreground">
+                      +{vm.advancement.favoredClassSkill} skill rank{vm.advancement.favoredClassSkill === 1 ? "" : "s"}
+                    </span>
+                  </p>
+                )}
               </div>
             </SectionCard>
           )}

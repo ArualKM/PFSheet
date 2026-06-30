@@ -121,6 +121,8 @@ export type SpellView = {
   spellResistance?: string;
   description?: string;
   notes?: string;
+  /** Cast at will (known spells, e.g. a bloodline/SLA-style at-will). */
+  atWill?: boolean;
   /** Applied metamagic feat names (prepared spells only). */
   metamagic?: string[];
   /** Slot level after metamagic, when it differs from the base level. */
@@ -293,6 +295,8 @@ export type CharacterViewModel = {
     nextLevelXp?: number;
     xpTrack?: string;
     favoredClasses: string[];
+    /** Total favored-class bonus skill ranks taken across all classes (the +1-skill FCB choice). */
+    favoredClassSkill: number;
   } | null;
   /** Senses — vision modes + special senses + perception. Always visible (informational). */
   senses: { vision: string[]; special: string[]; perception: number | null; notes?: string };
@@ -491,7 +495,7 @@ export function buildCharacterViewModel(
                 };
               })
             : null,
-          known: sp.knownSpells.map((k) => ({ ...toSpellView(k), casterId: k.casterId })),
+          known: sp.knownSpells.map((k) => ({ ...toSpellView(k), casterId: k.casterId, atWill: k.atWill })),
           spellbook: sp.spellbook.length ? sp.spellbook.map((b) => toSpellView(b)) : null,
           slas: sp.spellLikeAbilities.map((s) => ({
             name: s.name,
@@ -809,6 +813,7 @@ export function buildCharacterViewModel(
             nextLevelXp: character.progression.nextLevelXp,
             xpTrack: character.progression.xpTrack,
             favoredClasses: character.progression.favoredClasses,
+            favoredClassSkill: character.identity.classes.reduce((s, c) => s + (c.favoredClassBonus?.skill ?? 0), 0),
           }
         : null,
     senses: {
