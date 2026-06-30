@@ -116,6 +116,12 @@ export function CharacterDashboard({
                 </div>
               ))}
             </div>
+            {vm.racialMods && vm.racialMods.length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Racial:</span>{" "}
+                {vm.racialMods.map((m) => `${m.key.toUpperCase()} ${m.value >= 0 ? "+" : ""}${m.value}`).join(", ")}
+              </p>
+            )}
           </SectionCard>
 
           <SectionCard title="Combat" icon={Swords}>
@@ -249,13 +255,19 @@ export function CharacterDashboard({
                     </p>
                     <div className="space-y-0.5">
                       {vm.spellcasting.slas.map((s, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="min-w-0 truncate text-foreground">{s.name}</span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {s.usesPerDay == null
-                              ? "At will"
-                              : `${Math.max(0, s.usesPerDay - s.used)}/${s.usesPerDay}/day`}
-                          </span>
+                        <div key={i} className="text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="min-w-0 truncate text-foreground">{s.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {s.casterLevel != null && s.casterLevel > 0 && (
+                                <span className="text-rune">CL {s.casterLevel} · </span>
+                              )}
+                              {s.usesPerDay == null
+                                ? "At will"
+                                : `${Math.max(0, s.usesPerDay - s.used)}/${s.usesPerDay}/day`}
+                            </span>
+                          </div>
+                          {s.notes && <p className="whitespace-pre-wrap text-[11px] text-gold">{s.notes}</p>}
                         </div>
                       ))}
                     </div>

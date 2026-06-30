@@ -181,6 +181,9 @@ export type CharacterViewModel = {
     saves: { fortitude: number; reflex: number; will: number };
   };
   abilities: Array<{ key: string; label: string; score: number; modifier: number }>;
+  /** Racial ability modifiers applied by the character's race (informational — already baked into the scores
+   * above). Null when the abilities section is private; empty when no race is tracked. */
+  racialMods: Array<{ key: string; value: number }> | null;
   buffs: Array<{ name: string; enabled: boolean; remainingRounds?: number; category?: string }> | null;
   attacks: Array<{
     name: string;
@@ -327,7 +330,7 @@ export type CharacterViewModel = {
     known: Array<SpellView & { casterId?: string }>;
     spellbook: SpellView[] | null;
     /** Spell-like abilities (name + uses/day; at-will when usesPerDay is null). */
-    slas: Array<{ name: string; usesPerDay: number | null; used: number }>;
+    slas: Array<{ name: string; usesPerDay: number | null; used: number; casterLevel?: number; notes?: string }>;
     counts: { known: number; prepared: number; spellbook: number };
   } | null;
   profile: {
@@ -408,6 +411,10 @@ export function buildCharacterViewModel(
       modifier: a?.modifier ?? 0,
     };
   });
+  const raceMods = character.identity.raceApplied?.abilityMods;
+  const racialMods = raceMods
+    ? ABILITY_KEYS.filter((k) => (raceMods[k] ?? 0) !== 0).map((k) => ({ key: k as string, value: raceMods[k]! }))
+    : [];
 
   const buffs = gate(
     "buffs",
@@ -500,6 +507,8 @@ export function buildCharacterViewModel(
           slas: sp.spellLikeAbilities.map((s) => ({
             name: s.name,
             usesPerDay: typeof s.usesPerDay === "number" ? s.usesPerDay : null,
+            casterLevel: s.casterLevel,
+            notes: isOwnerView ? s.notes : undefined,
             used: s.used ?? 0,
           })),
           counts: {
@@ -635,6 +644,7 @@ export function buildCharacterViewModel(
     // Gate abilities like every other content section — owners marking the abilities
     // section private must not have ability scores leak through the public API.
     abilities: gate("abilities", abilities) ?? [],
+    racialMods: gate("abilities", racialMods),
     buffs,
     attacks: gate(
       "attacks",
