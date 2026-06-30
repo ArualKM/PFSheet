@@ -77,10 +77,19 @@ export type ApplyCompendiumClassResult = {
  */
 export function applyCompendiumClass(
   character: PathForgeCharacterV1,
-  opts: { input: CompendiumClassInput; level: number; hpMethod?: HpMethod; features?: CompendiumFeatureRow[] },
+  opts: {
+    input: CompendiumClassInput;
+    level: number;
+    hpMethod?: HpMethod;
+    features?: CompendiumFeatureRow[];
+    /** Prestige classes advance an EXISTING caster ("+1 level of existing class"), not a new one — set this
+     * so the apply doesn't create a spurious caster from the progression's spell columns. */
+    suppressCaster?: boolean;
+  },
 ): ApplyCompendiumClassResult {
-  const { input, level, hpMethod = "manual", features } = opts;
+  const { input, level, hpMethod = "manual", features, suppressCaster } = opts;
   const { preset, warnings } = compendiumRowToPreset(input);
+  if (suppressCaster) delete preset.caster;
 
   const existing = character.identity.classes.find((c) => c.compendiumId === input.key || c.presetKey === preset.key);
   if (existing) {

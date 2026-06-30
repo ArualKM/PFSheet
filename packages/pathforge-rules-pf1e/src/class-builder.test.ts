@@ -102,6 +102,20 @@ describe("applyCompendiumClass", () => {
     expect(c.identity.classes.filter((x) => x.compendiumId === "pfcore:fighter")).toHaveLength(1);
     expect(c.features.list.filter((f) => f.category === "class_feature")).toHaveLength(3);
   });
+
+  it("re-applying a class with an applied archetype keeps the replaced feature excluded", () => {
+    const c = createDefaultCharacter();
+    applyCompendiumClass(c, { input: fighterInput(), level: 5, hpMethod: "average", features: FIGHTER_FEATURES });
+    const classId = c.identity.classes.find((x) => x.compendiumId === "pfcore:fighter")!.id;
+    applyArchetype(c, {
+      classId,
+      archetype: { name: "Mutation Warrior", compendiumId: "mw-fighter" },
+      features: [{ slug: "af-mw", archetype: "Mutation Warrior", feature: "Mutagen", level: 2, replaces: "bravery" }],
+    });
+    expect(c.features.list.map((f) => f.name)).not.toContain("Bravery (Ex)"); // removed by the archetype
+    applyCompendiumClass(c, { input: fighterInput(), level: 5, hpMethod: "average", features: FIGHTER_FEATURES });
+    expect(c.features.list.filter((f) => f.name === "Bravery (Ex)")).toHaveLength(0); // not re-granted
+  });
 });
 
 const ROGUE_FEATURES: CompendiumFeatureRow[] = [

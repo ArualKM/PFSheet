@@ -32,9 +32,10 @@ function babProgFromTop(topBab: number, topLevel: number): BabProgression {
   return "half";
 }
 
-/** good = ⌊L/2⌋+2 (so +2 at L1), poor = ⌊L/3⌋ (so +0 at L1). Prefer the unambiguous L1 value. */
+/** good vs poor from the L1 base: a poor save is +0 at L1, a good save is +2 (base classes) OR +1 (prestige
+ * classes, whose good saves start a point lower) — so any positive L1 base means "good". */
 function saveProg(l1: number | null, top: number | null, topLevel: number): SaveProgression {
-  if (l1 != null) return l1 >= 2 ? "good" : "poor";
+  if (l1 != null) return l1 >= 1 ? "good" : "poor";
   if (top != null && topLevel > 0) {
     const good = Math.floor(topLevel / 2) + 2;
     const poor = Math.floor(topLevel / 3);

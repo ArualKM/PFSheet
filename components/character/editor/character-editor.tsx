@@ -110,6 +110,7 @@ import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { ArchetypePicker } from "./archetype-picker";
+import { PrestigePicker } from "./prestige-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
@@ -2635,7 +2636,9 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   };
   // Leveling a compendium class up grants the newly-reached levels' features (idempotent; level-down leaves
   // existing features in place per the builder's decision). Fetches the class's features on demand.
-  const regrantFeatures = async (className: string, fromLevel: number, toLevel: number) => {
+  // classId + exclude are captured at click time (passed in) — never read live after the async fetch, and
+  // the row is matched by id (not array index) so a concurrent class add/remove can't corrupt the grant.
+  const regrantFeatures = async (className: string, classId: string, fromLevel: number, toLevel: number, exclude: string[]) => {
     const [{ data: feats }, { data: fx }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
@@ -2644,8 +2647,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
     ]);
     const rows = buildFeatureRows(feats ?? [], fx ?? []);
     ed.update((c) => {
-      const row = c.identity.classes[i];
-      const exclude = (row?.archetypes ?? []).flatMap((a) => a.replaces);
+      if (!c.identity.classes.some((r) => r.id === classId)) return; // the class was removed during the fetch
       grantClassFeatures(c, { features: rows, fromLevel, toLevel, exclude });
     });
   };
@@ -2671,7 +2673,8 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
               if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
             });
             if (cl.compendiumId && v > oldLevel) {
-              void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, oldLevel, v);
+              const exclude = (cl.archetypes ?? []).flatMap((a) => a.replaces);
+              void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, cl.id, oldLevel, v, exclude);
             }
           }}
           className="w-16"
@@ -2754,6 +2757,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   const [showCatalog, setShowCatalog] = useState(false);
   const [showClassCompendium, setShowClassCompendium] = useState(false);
   const [showArchetypes, setShowArchetypes] = useState(false);
+  const [showPrestige, setShowPrestige] = useState(false);
   const [applyMsg, setApplyMsg] = useState<string | null>(null);
   const hasPresetClass = id.classes.some((c) => c.presetKey);
 
@@ -2814,6 +2818,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 setShowClassCompendium((v) => !v);
                 setShowCatalog(false);
                 setShowArchetypes(false);
+                setShowPrestige(false);
               }}
             >
               <Search className="size-4" /> Compendium
@@ -2825,6 +2830,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 setShowCatalog((v) => !v);
                 setShowClassCompendium(false);
                 setShowArchetypes(false);
+                setShowPrestige(false);
               }}
             >
               <Sparkles className="size-4" /> From catalog
@@ -2836,9 +2842,22 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 setShowArchetypes((v) => !v);
                 setShowClassCompendium(false);
                 setShowCatalog(false);
+                setShowPrestige(false);
               }}
             >
               <Sparkles className="size-4" /> Archetypes
+            </Button>
+            <Button
+              size="sm"
+              variant={showPrestige ? "default" : "secondary"}
+              onClick={() => {
+                setShowPrestige((v) => !v);
+                setShowClassCompendium(false);
+                setShowCatalog(false);
+                setShowArchetypes(false);
+              }}
+            >
+              <Sparkles className="size-4" /> Prestige
             </Button>
             <Button
               size="sm"
@@ -2864,6 +2883,11 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         {showArchetypes && (
           <div className="mb-3">
             <ArchetypePicker ed={ed} onClose={() => setShowArchetypes(false)} />
+          </div>
+        )}
+        {showPrestige && (
+          <div className="mb-3">
+            <PrestigePicker ed={ed} onClose={() => setShowPrestige(false)} />
           </div>
         )}
         {showCatalog && (
