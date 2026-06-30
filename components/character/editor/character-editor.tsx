@@ -114,6 +114,7 @@ import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
+import { ClassOptionsPicker } from "./class-options-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2636,7 +2637,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   const regrantFeatures = async (className: string, fromLevel: number, toLevel: number) => {
     const [{ data: feats }, { data: fx }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("class_features").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
+      (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
     ]);
@@ -2802,10 +2803,24 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
                 Recompute
               </Button>
             )}
-            <Button size="sm" variant={showClassCompendium ? "default" : "secondary"} onClick={() => setShowClassCompendium((v) => !v)}>
+            <Button
+              size="sm"
+              variant={showClassCompendium ? "default" : "secondary"}
+              onClick={() => {
+                setShowClassCompendium((v) => !v);
+                setShowCatalog(false);
+              }}
+            >
               <Search className="size-4" /> Compendium
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => setShowCatalog((v) => !v)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setShowCatalog((v) => !v);
+                setShowClassCompendium(false);
+              }}
+            >
               <Sparkles className="size-4" /> From catalog
             </Button>
             <Button
@@ -4222,6 +4237,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
   const features = ed.draft.features.list;
   const [featPickerOpen, setFeatPickerOpen] = useState(false);
   const [traitPickerOpen, setTraitPickerOpen] = useState(false);
+  const [optionsPickerOpen, setOptionsPickerOpen] = useState(false);
   const addedTraitIds = new Set(ed.draft.traits.list.map((t) => t.compendiumId).filter(Boolean) as string[]);
 
   const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
@@ -4349,25 +4365,39 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
       </section>
 
       <section>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">Features &amp; abilities</h3>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              ed.update((c) =>
-                c.features.list.push({
-                  id: newId("feature"),
-                  name: "New Feature",
-                  category: "class_feature",
-                  automation: [],
-                }),
-              )
-            }
-          >
-            <Plus className="size-4" /> Add feature
-          </Button>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant={optionsPickerOpen ? "default" : "secondary"}
+              onClick={() => setOptionsPickerOpen((o) => !o)}
+            >
+              <Search className="size-4" /> Class options
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                ed.update((c) =>
+                  c.features.list.push({
+                    id: newId("feature"),
+                    name: "New Feature",
+                    category: "class_feature",
+                    automation: [],
+                  }),
+                )
+              }
+            >
+              <Plus className="size-4" /> Add feature
+            </Button>
+          </div>
         </div>
+        {optionsPickerOpen && (
+          <div className="mb-3">
+            <ClassOptionsPicker ed={ed} onClose={() => setOptionsPickerOpen(false)} />
+          </div>
+        )}
         {features.length === 0 && (
           <p className="text-sm text-muted-foreground">No racial traits or class features yet.</p>
         )}

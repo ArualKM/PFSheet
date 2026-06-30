@@ -12,16 +12,18 @@ export type ClassCompendiumRow = {
   source: string | null;
 };
 
-/** "d10." → 10. Defaults to 8 (the engine's own default for a hit-die-less class). */
+/** "d10." → 10. Prefers the die size after "d" (so "2d6" → 6, not 26). Defaults to 8. */
 export function parseHitDie(raw: string | null | undefined): 6 | 8 | 10 | 12 {
-  const n = parseInt(String(raw ?? "").replace(/[^0-9]/g, ""), 10);
+  const s = String(raw ?? "");
+  const m = s.match(/d\s*(\d+)/i);
+  const n = m ? parseInt(m[1]!, 10) : parseInt(s.replace(/[^0-9]/g, ""), 10);
   return n === 6 || n === 8 || n === 10 || n === 12 ? n : 8;
 }
 
-/** "2 + Int modifier." → 2 (the base; the engine adds the Int modifier itself). */
+/** "2 + Int modifier." → 2 (the base; the engine adds the Int modifier itself). Min 1 per PF1e. */
 export function parseSkillPoints(raw: string | null | undefined): number {
   const n = parseInt(String(raw ?? "").trim(), 10);
-  return Number.isFinite(n) ? n : 2;
+  return Number.isFinite(n) && n >= 1 ? n : 2;
 }
 
 const TRAILING_ABILITY = /\s*\((?:str|dex|con|int|wis|cha)\)\s*\.?\s*$/i;

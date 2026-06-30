@@ -68,11 +68,18 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
     setReport(null);
     setParsed(null);
     setProgression(null);
+    setQ("");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any).from("class_progression").select("json_data").eq("class", row.name).maybeSingle();
+    const { data, error: e } = await (supabase as any).from("class_progression").select("json_data").eq("class", row.name).maybeSingle();
+    if (e) {
+      setError(e.message);
+      return;
+    }
     const prog = data?.json_data ?? null;
     setProgression(prog);
-    setParsed(parseProgression(prog));
+    const p = parseProgression(prog);
+    if (!prog) p.warnings.push("No progression data for this class in the compendium — BAB/saves default to ¾/poor.");
+    setParsed(p);
     const def = casterDefaults(row.name);
     setCastingAbility(def.castingAbility);
     setCasterType(def.casterType);
@@ -81,16 +88,21 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
   const apply = async () => {
     if (!selected || !progression) return;
     setApplying(true);
-    const [{ data: feats }, { data: fx }] = await Promise.all([
+    const [featRes, fxRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("class_features").select("slug,feature,level,type,description").eq("class", selected.name).eq("category", "Main"),
+      (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", selected.name).eq("category", "Main"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", selected.name),
     ]);
+    if (featRes.error || fxRes.error) {
+      setError(featRes.error?.message ?? fxRes.error?.message ?? "Could not load class features");
+      setApplying(false);
+      return;
+    }
     // input always carries castingAbility/casterType; compendiumRowToPreset only uses them when
     // parseProgression detects a caster, so a martial class simply ignores them.
     const input = buildClassInput(selected, progression, { castingAbility, casterType });
-    const featureRows = buildFeatureRows(feats ?? [], fx ?? []);
+    const featureRows = buildFeatureRows(featRes.data ?? [], fxRes.data ?? []);
     let res: ApplyCompendiumClassResult | undefined;
     ed.update((c) => {
       res = applyCompendiumClass(c, { input, level, hpMethod, features: featureRows });
@@ -138,6 +150,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 <button
                   type="button"
                   onClick={() => select(r)}
+                  aria-label={`Select ${r.name}`}
                   className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-left hover:border-rune/50"
                 >
                   <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
@@ -197,6 +210,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                     <select
                       value={castingAbility}
                       onChange={(e) => setCastingAbility(e.target.value as AbilityKey)}
+                      aria-label="Casting ability"
                       className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground"
                     >
                       {ABILITY_KEYS.map((a) => (
@@ -211,6 +225,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                     <select
                       value={casterType}
                       onChange={(e) => setCasterType(e.target.value as CasterType)}
+                      aria-label="Caster type"
                       className="h-9 rounded-lg border border-border bg-background px-2 text-sm capitalize text-foreground"
                     >
                       {CASTER_TYPES.map((t) => (
@@ -221,12 +236,21 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                     </select>
                   </label>
                   <p className="w-full text-[11px] text-muted-foreground">
-                    The dataset doesn&apos;t record the casting stat — confirm it (defaulted from the core class).
+                    The dataset doesn&apos;t record the casting stat — confirm it (the default is often wrong for
+                    non-core classes).
                   </p>
                 </div>
               )}
 
-              <Button size="sm" disabled={applying} onClick={apply}>
+              {parsed.warnings.length > 0 && (
+                <ul className="ml-4 list-disc text-[11px] text-warning">
+                  {parsed.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              )}
+
+              <Button size="sm" disabled={applying || !progression} onClick={apply}>
                 {applying ? <Loader2 className="size-4 animate-spin" /> : null}
                 Apply {selected.name} {level}
               </Button>
