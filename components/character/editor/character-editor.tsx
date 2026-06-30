@@ -75,6 +75,7 @@ import {
   type CasterType,
   type PathForgeCharacterV1,
   type AbilityKey,
+  type AutomationEffect,
   type ModifierEntry,
   type OptionalRuleModule,
   type RuleModuleGroup,
@@ -115,7 +116,7 @@ import { ArchetypePicker } from "./archetype-picker";
 import { RacePicker } from "./race-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
-import { AutomationEffectsEditor } from "./automation-effects-editor";
+import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS } from "./automation-effects-editor";
 import { StatChip } from "./picker-shell";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
@@ -2840,7 +2841,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label={`${open ? "Hide" : "Edit"} ${displayName} details`}
+              aria-label={`${open ? "Done" : "Edit"} editing ${displayName} details`}
               className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               {open ? "Done" : "Edit"}
@@ -4508,12 +4509,95 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+/** A human label for an automation effect, e.g. "Will +2" or "Attack ƒx" — for the collapsed chip strip. */
+function summarizeEffect(e: AutomationEffect): string {
+  const label = AUTOMATION_TARGET_OPTIONS.find((o) => o.target === e.target)?.label ?? e.target.split(".").pop() ?? e.target;
+  const sign = e.operation === "subtract" ? "−" : "+";
+  return `${label} ${typeof e.value === "string" ? "ƒx" : `${sign}${e.value}`}`;
+}
+
+/** Up to 4 automation-effect chips (formula = gold, numeric = rune) + a "+N more" overflow chip; null when empty. */
+function effectChips(effects: AutomationEffect[]): ReactNode {
+  if (!effects.length) return null;
+  const shown = effects.slice(0, 4);
+  return (
+    <>
+      {shown.map((e) => (
+        <StatChip key={e.id} tone={typeof e.value === "string" ? "gold" : "rune"} value={summarizeEffect(e)} />
+      ))}
+      {effects.length > shown.length && <StatChip value={`+${effects.length - shown.length} more`} />}
+    </>
+  );
+}
+
+/**
+ * Shared editor row for a feat / feature / trait (and any future entry): COLLAPSED shows a compact name + a chip
+ * strip summarising the entry (type/category, automated effects, uses); the chevron opens the caller's full
+ * editor (description fields + the automation editor). Mirrors ClassRow so the whole edit UI reads the same way —
+ * beautiful chips by default, a disclosure to customise every aspect, mobile-friendly.
+ */
+function EntryCard({
+  name,
+  onNameChange,
+  chips,
+  onRemove,
+  removeLabel,
+  defaultOpen = false,
+  children,
+}: {
+  name: string;
+  onNameChange: (v: string) => void;
+  chips?: ReactNode;
+  onRemove: () => void;
+  removeLabel: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  // Open when the parent signals this row should edit (e.g. just-added) — render-phase "adjust on prop change",
+  // robust to the ed.update re-render ordering that a mount-only initial value loses to. Never force-closes,
+  // so a user's manual toggle sticks.
+  const [prevDefaultOpen, setPrevDefaultOpen] = useState(defaultOpen);
+  if (defaultOpen !== prevDefaultOpen) {
+    setPrevDefaultOpen(defaultOpen);
+    if (defaultOpen) setOpen(true);
+  }
+  return (
+    <div className="rounded-lg border border-border">
+      <div className="space-y-1.5 p-2">
+        <div className="flex flex-wrap items-end gap-2">
+          <TextField label="Name" value={name} onChange={onNameChange} className="min-w-0 flex-1 sm:max-w-[18rem]" />
+          <div className="ml-auto flex items-center">
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-label={`${open ? "Done" : "Edit"} editing ${name} details`}
+              className="flex h-10 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              {open ? "Done" : "Edit"}
+              <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+            </button>
+            <Button variant="ghost" size="icon" aria-label={removeLabel} onClick={onRemove}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+        {chips && <div className="flex flex-wrap items-center gap-1">{chips}</div>}
+      </div>
+      {open && <div className="space-y-3 border-t border-border/50 p-2.5">{children}</div>}
+    </div>
+  );
+}
+
 function FeatsEditor({ ed }: { ed: EditorApi }) {
   const feats = ed.draft.feats.list;
   const features = ed.draft.features.list;
   const [featPickerOpen, setFeatPickerOpen] = useState(false);
   const [traitPickerOpen, setTraitPickerOpen] = useState(false);
   const [optionsPickerOpen, setOptionsPickerOpen] = useState(false);
+  // The id of a just-added entry, so its EntryCard mounts already-open for editing (custom add = full editor).
+  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const addedTraitIds = new Set(ed.draft.traits.list.map((t) => t.compendiumId).filter(Boolean) as string[]);
 
   const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
@@ -4568,16 +4652,11 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() =>
-                ed.update((c) =>
-                  c.feats.list.push({
-                    id: newId("feat"),
-                    name: "New Feat",
-                    tags: [],
-                    automation: [],
-                  }),
-                )
-              }
+              onClick={() => {
+                const id = newId("feat");
+                ed.update((c) => c.feats.list.push({ id, name: "New Feat", tags: [], automation: [] }));
+                setOpenEntryId(id);
+              }}
             >
               <Plus className="size-4" /> Add feat
             </Button>
@@ -4590,53 +4669,44 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
         )}
         {feats.length === 0 && <p className="text-sm text-muted-foreground">No feats yet.</p>}
         <div className="space-y-2">
-          {feats.map((f, i) => (
-            <div key={f.id} className="space-y-2 rounded-lg border border-border p-2">
-              <div className="flex items-end gap-2">
-                <TextField
-                  label="Name"
-                  value={f.name}
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const t = c.feats.list[i];
-                      if (t) t.name = v;
-                    })
-                  }
-                  className="flex-1"
-                />
-                <TextField
-                  label="Type"
-                  value={f.type ?? ""}
-                  placeholder="Combat, General…"
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const t = c.feats.list[i];
-                      if (t) t.type = v;
-                    })
-                  }
-                  className="w-36"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove feat"
-                  onClick={() => ed.update((c) => c.feats.list.splice(i, 1))}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-              <AutomationEffectsEditor
-                effects={f.automation}
-                idPrefix="featfx"
-                onChange={(next) =>
-                  ed.update((c) => {
-                    const t = c.feats.list[i];
-                    if (t) t.automation = next;
-                  })
+          {feats.map((f, i) => {
+            const setFeat = (mut: (t: (typeof feats)[number]) => void) =>
+              ed.update((c) => {
+                const t = c.feats.list[i];
+                if (t) mut(t);
+              });
+            const hasChips = !!(f.type || f.automation.length);
+            return (
+              <EntryCard
+                key={f.id}
+                name={f.name}
+                onNameChange={(v) => setFeat((t) => (t.name = v))}
+                onRemove={() => ed.update((c) => c.feats.list.splice(i, 1))}
+                removeLabel={`Remove ${f.name}`}
+                defaultOpen={f.id === openEntryId}
+                chips={
+                  hasChips ? (
+                    <>
+                      {f.type && <StatChip value={f.type} />}
+                      {effectChips(f.automation)}
+                    </>
+                  ) : undefined
                 }
-              />
-            </div>
-          ))}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <TextField label="Type" value={f.type ?? ""} placeholder="Combat, General…" onChange={(v) => setFeat((t) => (t.type = v || undefined))} />
+                  <TextField label="Prerequisites" value={f.prerequisites ?? ""} placeholder="e.g. Str 13, Power Attack" onChange={(v) => setFeat((t) => (t.prerequisites = v || undefined))} />
+                </div>
+                <TextAreaField label="Benefit" value={f.benefit ?? ""} rows={3} onChange={(v) => setFeat((t) => (t.benefit = v || undefined))} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <TextAreaField label="Special" rows={2} value={f.special ?? ""} onChange={(v) => setFeat((t) => (t.special = v || undefined))} />
+                  <TextAreaField label="Normal" rows={2} value={f.normal ?? ""} onChange={(v) => setFeat((t) => (t.normal = v || undefined))} />
+                </div>
+                <TextField label="Notes" value={f.notes ?? ""} onChange={(v) => setFeat((t) => (t.notes = v || undefined))} />
+                <AutomationEffectsEditor effects={f.automation} idPrefix="featfx" onChange={(next) => setFeat((t) => (t.automation = next))} />
+              </EntryCard>
+            );
+          })}
         </div>
       </section>
 
@@ -4654,16 +4724,11 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() =>
-                ed.update((c) =>
-                  c.features.list.push({
-                    id: newId("feature"),
-                    name: "New Feature",
-                    category: "class_feature",
-                    automation: [],
-                  }),
-                )
-              }
+              onClick={() => {
+                const id = newId("feature");
+                ed.update((c) => c.features.list.push({ id, name: "New Feature", category: "class_feature", automation: [] }));
+                setOpenEntryId(id);
+              }}
             >
               <Plus className="size-4" /> Add feature
             </Button>
@@ -4678,108 +4743,83 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
           <p className="text-sm text-muted-foreground">No racial traits or class features yet.</p>
         )}
         <div className="space-y-2">
-          {features.map((f, i) => (
-            <div key={f.id} className="space-y-2 rounded-lg border border-border p-2">
-              <div className="flex items-end gap-2">
-                <TextField
-                  label="Name"
-                  value={f.name}
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const t = c.features.list[i];
-                      if (t) t.name = v;
-                    })
-                  }
-                  className="flex-1"
-                />
-                <div className="w-44 space-y-1">
-                  <span className="block text-sm font-medium leading-none text-foreground">Category</span>
-                  <select
-                    value={f.category}
-                    aria-label="Feature category"
-                    onChange={(e) =>
-                      ed.update((c) => {
-                        const t = c.features.list[i];
-                        if (t) t.category = e.target.value as (typeof FEATURE_CATEGORIES)[number];
-                      })
-                    }
-                    className="h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground"
-                  >
-                    {FEATURE_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove feature"
-                  onClick={() => ed.update((c) => c.features.list.splice(i, 1))}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-
-              {/* Daily-use tracker — for domain/bloodline/revelation powers (e.g. "Touch of Law 7/day"). */}
-              <div className="flex flex-wrap items-end gap-2 border-t border-border/40 pt-2">
-                <NumberField
-                  label="Uses"
-                  value={featureMax(f)}
-                  min={0}
-                  onChange={(v) => setFeatureMax(i, v)}
-                  className="w-20"
-                />
-                <SelectField
-                  label="Per"
-                  value={f.uses?.per ?? "day"}
-                  onChange={(v) => setFeaturePer(i, v)}
-                  options={[
-                    { value: "day", label: "/ day" },
-                    { value: "encounter", label: "/ encounter" },
-                    { value: "hour", label: "/ hour" },
-                    { value: "minute", label: "/ minute" },
-                    { value: "round", label: "/ round" },
-                    { value: "rest", label: "/ rest" },
-                  ]}
-                  className="w-32"
-                />
-                {featureMax(f) > 0 && (
-                  <div className="flex items-center gap-1.5 pb-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={featureRemaining(f) <= 0}
-                      aria-label={`Use ${f.name}`}
-                      onClick={() => spendFeatureUse(i, 1)}
-                    >
-                      Use
-                    </Button>
-                    <span className="tnum text-sm text-muted-foreground">
-                      {featureRemaining(f)}/{featureMax(f)} left
-                    </span>
-                    <Button size="sm" variant="ghost" aria-label={`Restore ${f.name}`} onClick={() => spendFeatureUse(i, -1)}>
-                      +
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => resetFeature(i)}>
-                      Reset
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <AutomationEffectsEditor
-                effects={f.automation}
-                idPrefix="featurefx"
-                onChange={(next) =>
-                  ed.update((c) => {
-                    const t = c.features.list[i];
-                    if (t) t.automation = next;
-                  })
+          {features.map((f, i) => {
+            const setFeature = (mut: (t: (typeof features)[number]) => void) =>
+              ed.update((c) => {
+                const t = c.features.list[i];
+                if (t) mut(t);
+              });
+            const usesMax = featureMax(f);
+            return (
+              <EntryCard
+                key={f.id}
+                name={f.name}
+                onNameChange={(v) => setFeature((t) => (t.name = v))}
+                onRemove={() => ed.update((c) => c.features.list.splice(i, 1))}
+                removeLabel={`Remove ${f.name}`}
+                defaultOpen={f.id === openEntryId}
+                chips={
+                  <>
+                    <StatChip value={f.category.replace(/_/g, " ")} />
+                    {usesMax > 0 && <StatChip tone="gold" value={`${featureRemaining(f)}/${usesMax} ${f.uses?.per ?? "day"}`} />}
+                    {effectChips(f.automation)}
+                  </>
                 }
-              />
-            </div>
-          ))}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <SelectField
+                    label="Category"
+                    value={f.category}
+                    onChange={(v) => setFeature((t) => (t.category = v as (typeof FEATURE_CATEGORIES)[number]))}
+                    options={FEATURE_CATEGORIES.map((cat) => ({ value: cat, label: cat.replace(/_/g, " ") }))}
+                  />
+                  <NumberField
+                    label="Gained at level"
+                    value={f.level ?? 0}
+                    min={0}
+                    onChange={(v) => setFeature((t) => (t.level = Number.isFinite(v) && v > 0 ? v : undefined))}
+                  />
+                </div>
+                <TextAreaField label="Description" value={f.description ?? ""} rows={3} onChange={(v) => setFeature((t) => (t.description = v || undefined))} />
+
+                {/* Daily-use tracker — for domain/bloodline/revelation powers (e.g. "Touch of Law 7/day"). */}
+                <div className="flex flex-wrap items-end gap-2 border-t border-border/40 pt-2">
+                  <NumberField label="Uses" value={usesMax} min={0} onChange={(v) => setFeatureMax(i, v)} className="w-20" />
+                  <SelectField
+                    label="Per"
+                    value={f.uses?.per ?? "day"}
+                    onChange={(v) => setFeaturePer(i, v)}
+                    options={[
+                      { value: "day", label: "/ day" },
+                      { value: "encounter", label: "/ encounter" },
+                      { value: "hour", label: "/ hour" },
+                      { value: "minute", label: "/ minute" },
+                      { value: "round", label: "/ round" },
+                      { value: "rest", label: "/ rest" },
+                    ]}
+                    className="w-32"
+                  />
+                  {usesMax > 0 && (
+                    <div className="flex items-center gap-1.5 pb-1.5">
+                      <Button size="sm" variant="outline" disabled={featureRemaining(f) <= 0} aria-label={`Use ${f.name}`} onClick={() => spendFeatureUse(i, 1)}>
+                        Use
+                      </Button>
+                      <span className="tnum text-sm text-muted-foreground">
+                        {featureRemaining(f)}/{usesMax} left
+                      </span>
+                      <Button size="sm" variant="ghost" aria-label={`Restore ${f.name}`} onClick={() => spendFeatureUse(i, -1)}>
+                        +
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => resetFeature(i)}>
+                        Reset
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <AutomationEffectsEditor effects={f.automation} idPrefix="featurefx" onChange={(next) => setFeature((t) => (t.automation = next))} />
+              </EntryCard>
+            );
+          })}
         </div>
       </section>
 
@@ -4797,15 +4837,11 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() =>
-                ed.update((c) =>
-                  c.traits.list.push({
-                    id: newId("trait"),
-                    name: "New Trait",
-                    automation: [],
-                  }),
-                )
-              }
+              onClick={() => {
+                const id = newId("trait");
+                ed.update((c) => c.traits.list.push({ id, name: "New Trait", automation: [] }));
+                setOpenEntryId(id);
+              }}
             >
               <Plus className="size-4" /> Add trait
             </Button>
@@ -4845,53 +4881,36 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
           <p className="text-sm text-muted-foreground">No traits yet (most characters take two).</p>
         )}
         <div className="space-y-2">
-          {ed.draft.traits.list.map((t, i) => (
-            <div key={t.id} className="space-y-2 rounded-lg border border-border p-2">
-              <div className="flex items-end gap-2">
-                <TextField
-                  label="Name"
-                  value={t.name}
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const e = c.traits.list[i];
-                      if (e) e.name = v;
-                    })
-                  }
-                  className="flex-1"
-                />
-                <TextField
-                  label="Type"
-                  value={t.type ?? ""}
-                  placeholder="Combat, Social, Faith…"
-                  onChange={(v) =>
-                    ed.update((c) => {
-                      const e = c.traits.list[i];
-                      if (e) e.type = v || undefined;
-                    })
-                  }
-                  className="w-40"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove trait"
-                  onClick={() => ed.update((c) => c.traits.list.splice(i, 1))}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-              <AutomationEffectsEditor
-                effects={t.automation}
-                idPrefix="traitfx"
-                onChange={(next) =>
-                  ed.update((c) => {
-                    const e = c.traits.list[i];
-                    if (e) e.automation = next;
-                  })
+          {ed.draft.traits.list.map((t, i) => {
+            const setTrait = (mut: (e: (typeof ed.draft.traits.list)[number]) => void) =>
+              ed.update((c) => {
+                const e = c.traits.list[i];
+                if (e) mut(e);
+              });
+            const hasChips = !!(t.type || t.automation.length);
+            return (
+              <EntryCard
+                key={t.id}
+                name={t.name}
+                onNameChange={(v) => setTrait((e) => (e.name = v))}
+                onRemove={() => ed.update((c) => c.traits.list.splice(i, 1))}
+                removeLabel={`Remove ${t.name}`}
+                defaultOpen={t.id === openEntryId}
+                chips={
+                  hasChips ? (
+                    <>
+                      {t.type && <StatChip value={t.type} />}
+                      {effectChips(t.automation)}
+                    </>
+                  ) : undefined
                 }
-              />
-            </div>
-          ))}
+              >
+                <TextField label="Type" value={t.type ?? ""} placeholder="Combat, Social, Faith, Drawback…" onChange={(v) => setTrait((e) => (e.type = v || undefined))} />
+                <TextAreaField label="Description" value={t.description ?? ""} rows={3} onChange={(v) => setTrait((e) => (e.description = v || undefined))} />
+                <AutomationEffectsEditor effects={t.automation} idPrefix="traitfx" onChange={(next) => setTrait((e) => (e.automation = next))} />
+              </EntryCard>
+            );
+          })}
         </div>
       </section>
     </div>
