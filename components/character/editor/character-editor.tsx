@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
@@ -96,7 +96,7 @@ import {
   milestoneJobReward,
   type PrivacyLevel,
 } from "@pathforge/schema";
-import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS } from "@pathforge/rules-pf1e";
+import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures } from "@pathforge/rules-pf1e";
 import type { ComputedValue } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
@@ -109,6 +109,8 @@ import { SpellcastingEditor } from "./spellcasting-editor";
 import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassPresetPicker } from "./class-preset-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
+import { createClient } from "@/lib/supabase/client";
+import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor } from "./automation-effects-editor";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
@@ -2620,6 +2622,7 @@ type ClassEntry = PathForgeCharacterV1["identity"]["classes"][number];
 function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
   const [open, setOpen] = useState(false);
   const gestalt = isGestalt(ed.draft);
+  const supabase = useMemo(() => createClient(), []);
   const set = (mut: (t: ClassEntry, c: PathForgeCharacterV1) => void) =>
     ed.update((c) => {
       const t = c.identity.classes[i];
@@ -2627,6 +2630,20 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
     });
   const syncLevel = (c: PathForgeCharacterV1) => {
     c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
+  };
+  // Leveling a compendium class up grants the newly-reached levels' features (idempotent; level-down leaves
+  // existing features in place per the builder's decision). Fetches the class's features on demand.
+  const regrantFeatures = async (className: string, fromLevel: number, toLevel: number) => {
+    const [{ data: feats }, { data: fx }] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("class_features").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
+    ]);
+    const rows = buildFeatureRows(feats ?? [], fx ?? []);
+    ed.update((c) => {
+      grantClassFeatures(c, { features: rows, fromLevel, toLevel });
+    });
   };
 
   return (
@@ -2642,13 +2659,17 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
           label="Level"
           value={cl.level}
           min={0}
-          onChange={(v) =>
+          onChange={(v) => {
+            const oldLevel = cl.level;
             set((t, c) => {
               t.level = v;
               syncLevel(c);
               if (t.presetKey) recomputeClassDerived(c, { hpMethod: "manual" });
-            })
-          }
+            });
+            if (cl.compendiumId && v > oldLevel) {
+              void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, oldLevel, v);
+            }
+          }}
           className="w-16"
         />
         <SelectField
