@@ -74,3 +74,7 @@ export type { CompendiumPrereq, PrereqContext, PrereqStatus, PrereqCheck } from 
 // Compendium effect-seed → editable automation mapping (Phase 3 automation hooks)
 export { seedToAutomationEffect, seedsToAutomationEffects, normalizeEffectTarget, normalizeFormula } from "./effect-seeds";
 export type { CompendiumEffectSeed } from "./effect-seeds";
+
+// Phase 4 — progression-driven class builder mutation layer
+export { grantClassFeatures, applyCompendiumClass } from "./class-builder";
+export type { CompendiumFeatureRow, ApplyCompendiumClassResult } from "./class-builder";
