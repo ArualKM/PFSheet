@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, X, Plus, Check } from "lucide-react";
+import { Plus, Check, User } from "lucide-react";
 import { applyRace, parseAbilityMods, type RaceApplyResult } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type RaceRow = { slug: string; name: string; category: string | null };
@@ -106,76 +107,54 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     });
 
   return (
-    <div className="rounded-lg border border-rune/40 bg-surface-raised p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Search className="size-4" /> Races
-        </h4>
-        <Button variant="ghost" size="icon" aria-label="Close races" onClick={onClose}>
-          <X className="size-4" />
-        </Button>
-      </div>
-
-      {error && <p className="mb-2 text-xs text-danger">{error}</p>}
-
+    <PickerShell icon={<User />} title="Races" onClose={onClose}>
       {!selected ? (
         <>
-          <div className="relative">
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search races — e.g. Dwarves, Tiefling, Aasimar…"
-              aria-label="Search races"
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground"
-            />
-            {loading && <Loader2 className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
-          </div>
-          <ul className="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto">
-            {rows.length === 0 && !loading ? (
-              <li className="px-1 py-2 text-sm text-muted-foreground">{q.trim().length === 1 ? "Keep typing…" : "No races found."}</li>
-            ) : (
-              rows.map((r) => (
-                <li key={r.slug}>
-                  <button
-                    type="button"
-                    onClick={() => select(r)}
-                    aria-label={`Select ${r.name}`}
-                    className="flex w-full items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-left hover:border-rune/50"
-                  >
-                    <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                    {r.category && <Badge variant="gold">{r.category}</Badge>}
-                  </button>
-                </li>
-              ))
-            )}
-          </ul>
+          <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label="Search races" placeholder="Search races — e.g. Dwarves, Tiefling, Aasimar…" />
+          <PickerError message={error} />
+          <PickerList isEmpty={rows.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No races found."}>
+            {rows.map((r) => (
+              <PickerRow key={r.slug} onClick={() => select(r)} ariaLabel={`Select ${r.name}`}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                  {r.category && <Badge variant="gold">{r.category}</Badge>}
+                </span>
+              </PickerRow>
+            ))}
+          </PickerList>
         </>
       ) : (
-        <div className="space-y-3 rounded-md border border-border/70 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-foreground">{selected.name}</span>
-            <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
-              ← Back
-            </Button>
-          </div>
-
+        <PickerDetail title={selected.name} onBack={() => setSelected(null)}>
+          <PickerError message={error} />
           {!trait ? (
             <p className="text-xs text-muted-foreground">Loading racial traits…</p>
           ) : (
             <>
+              {/* Ability-mod tiles — big foreground number (WCAG-safe), sign carried by the border tint. */}
+              {Object.keys(mods).length > 0 && (
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                  {Object.entries(mods).map(([k, v]) => (
+                    <div
+                      key={k}
+                      className={`flex flex-col items-center rounded-lg border bg-background py-1.5 ${v >= 0 ? "border-success/50" : "border-danger/50"}`}
+                    >
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {v >= 0 ? "+" : ""}
+                        {v}
+                      </span>
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{ABBR[k] ?? k}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                {Object.entries(mods).map(([k, v]) => (
-                  <Badge key={k} variant={v >= 0 ? "success" : "danger"}>
-                    {v >= 0 ? "+" : ""}
-                    {v} {ABBR[k] ?? k}
-                  </Badge>
-                ))}
                 {trait.size && <Badge variant="outline">{trait.size}</Badge>}
-                {trait.speed && <Badge variant="outline">{trait.speed} ft</Badge>}
+                {trait.speed && <Badge variant="outline">{trait.speed} ft speed</Badge>}
               </div>
               {Object.keys(mods).length === 0 && trait.ability_modifiers && (
-                <p className="text-[11px] text-warning">Flexible ability bonus — assign it yourself after applying.</p>
+                <p className="rounded border border-gold/40 bg-gold/10 px-2 py-1 text-[11px] text-foreground">
+                  Flexible ability bonus — assign it yourself after applying.
+                </p>
               )}
 
               <Button size="sm" onClick={apply}>
@@ -219,8 +198,8 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
               )}
             </>
           )}
-        </div>
+        </PickerDetail>
       )}
-    </div>
+    </PickerShell>
   );
 }
