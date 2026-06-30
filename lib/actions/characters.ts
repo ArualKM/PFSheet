@@ -84,6 +84,49 @@ export async function createCharacterAction(
   redirect(`/characters/${data.id}`);
 }
 
+const COMPANION_TYPES = ["animal_companion", "familiar", "eidolon", "cohort", "mount", "other"] as const;
+type CompanionType = (typeof COMPANION_TYPES)[number];
+
+/**
+ * Phase 9 (PFcore M12): create a linked companion — a normal character owned by the same user, linked to its
+ * parent via parent_character_id. RLS (owner-based) covers it; we also verify the caller owns the parent.
+ */
+export async function createCompanionAction(
+  parentId: string,
+  companionType: string,
+  name: string,
+): Promise<{ error?: string; id?: string }> {
+  const { supabase, user } = await authedClient();
+  if (!COMPANION_TYPES.includes(companionType as CompanionType)) return { error: "Invalid companion type." };
+
+  const { data: parent } = await supabase.from("characters").select("id, owner_id").eq("id", parentId).maybeSingle();
+  if (!parent || parent.owner_id !== user.id) return { error: "Parent character not found." };
+
+  const finalName = name.trim() || "Companion";
+  const sheet = createDefaultCharacter({ name: finalName, playerName: userDisplayName(user) });
+  const computed = computeCharacter(sheet);
+
+  const { data, error } = await supabase
+    .from("characters")
+    .insert({
+      owner_id: user.id,
+      name: finalName,
+      system_key: "pf1e",
+      schema_version: sheet.schemaVersion,
+      sheet_data: sheet as unknown as Json,
+      computed_summary: computed.summary as unknown as Json,
+      last_calculated_at: new Date().toISOString(),
+      parent_character_id: parentId,
+      companion_type: companionType,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return { error: error?.message ?? "Could not create companion." };
+  revalidatePath(`/characters/${parentId}`);
+  return { id: data.id };
+}
+
 export type VisibilityState = { error?: string; slug?: string | null; visibility?: Visibility };
 
 /**

@@ -11,6 +11,7 @@ import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { loadCampaignFeedback } from "@/lib/character/campaign-feedback";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
 import { CampaignFeedback } from "@/components/character/campaign-feedback";
+import { CompanionsCard } from "@/components/character/companions-card";
 import { ShareControls } from "@/components/character/share-controls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,10 +66,13 @@ export default async function CharacterOverviewPage({
   const vm = buildCharacterViewModel(result.character, computed, "owner", data.visibility);
 
   // GM feedback is owner-facing; only load it for the character's owner.
-  const feedback =
-    data.owner_id === user.id
-      ? await loadCampaignFeedback(characterId, user.id, result.character)
-      : [];
+  const isOwner = data.owner_id === user.id;
+  const feedback = isOwner ? await loadCampaignFeedback(characterId, user.id, result.character) : [];
+
+  // Companions (linked character rows) — owner-only. A companion isn't itself a companion-parent here.
+  const companions = isOwner
+    ? ((await supabase.from("characters").select("id, name, companion_type").eq("parent_character_id", characterId).order("created_at")).data ?? [])
+    : [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -96,6 +100,7 @@ export default async function CharacterOverviewPage({
         }
       />
       <CampaignFeedback items={feedback} characterId={characterId} />
+      {isOwner && <CompanionsCard parentId={characterId} companions={companions} />}
     </div>
   );
 }

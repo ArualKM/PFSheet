@@ -27,8 +27,9 @@ export function parseAbilityMods(raw: string | null | undefined): Record<string,
   // explicit escapes, not literal source chars: + / - / − / �.
   // Negative ability mods in the dataset use a dash that may be a hyphen, figure/en/em-dash, true minus, or a
   // mangled replacement char — match them all (built via RegExp so the escapes are explicit, not source chars).
+  // The sign is REQUIRED so a stray "1 Strength" in prose can't be misread as a +1 mod (real mods are signed).
   const re = new RegExp(
-    "([+\\u2012\\u2013\\u2014\\u2212\\uFFFD-])?\\s*(\\d+)\\s*(strength|dexterity|constitution|intelligence|wisdom|charisma)",
+    "([+\\u2012\\u2013\\u2014\\u2212\\uFFFD-])\\s*(\\d+)\\s*(strength|dexterity|constitution|intelligence|wisdom|charisma)",
     "gi",
   );
   let m: RegExpExecArray | null;

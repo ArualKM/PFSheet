@@ -620,6 +620,7 @@ export type Database = {
       characters: {
         Row: {
           active_theme: Json
+          companion_type: string | null
           computed_summary: Json
           computed_values: Json
           created_at: string | null
@@ -629,6 +630,7 @@ export type Database = {
           last_calculated_at: string | null
           name: string
           owner_id: string
+          parent_character_id: string | null
           privacy_map: Json
           public_slug: string | null
           schema_version: string
@@ -640,6 +642,7 @@ export type Database = {
         }
         Insert: {
           active_theme?: Json
+          companion_type?: string | null
           computed_summary?: Json
           computed_values?: Json
           created_at?: string | null
@@ -649,6 +652,7 @@ export type Database = {
           last_calculated_at?: string | null
           name?: string
           owner_id: string
+          parent_character_id?: string | null
           privacy_map?: Json
           public_slug?: string | null
           schema_version?: string
@@ -660,6 +664,7 @@ export type Database = {
         }
         Update: {
           active_theme?: Json
+          companion_type?: string | null
           computed_summary?: Json
           computed_values?: Json
           created_at?: string | null
@@ -669,6 +674,7 @@ export type Database = {
           last_calculated_at?: string | null
           name?: string
           owner_id?: string
+          parent_character_id?: string | null
           privacy_map?: Json
           public_slug?: string | null
           schema_version?: string
