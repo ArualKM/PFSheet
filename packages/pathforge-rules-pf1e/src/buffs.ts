@@ -109,28 +109,50 @@ export function detectStackingConflicts(character: PathForgeCharacterV1): Stacki
 
 export type BuffDeltaRow = { label: string; before: number; after: number; delta: number };
 
-function summaryValues(summary: ReturnType<typeof computeCharacter>["summary"]): Record<string, number> {
-  const out: Record<string, number> = {
-    AC: summary.ac,
-    Touch: summary.touch,
-    "Flat-footed": summary.flatFooted,
-    CMD: summary.cmd,
-    Fortitude: summary.fortitude,
-    Reflex: summary.reflex,
-    Will: summary.will,
-    Initiative: summary.initiative,
-    Speed: summary.speed.total,
+/** Rows keyed by a STABLE namespaced id (stat:/ability:/skill:<key>) so a skill whose display
+ * label matches a stat row ("AC") or another skill's label (two Perform specialties) can never
+ * merge with it; the human label rides along for the delta rows. */
+type SummaryEntry = { label: string; value: number };
+
+function summaryValues(
+  computed: ReturnType<typeof computeCharacter>,
+  character: PathForgeCharacterV1,
+): Record<string, SummaryEntry> {
+  const summary = computed.summary;
+  const out: Record<string, SummaryEntry> = {
+    "stat:ac": { label: "AC", value: summary.ac },
+    "stat:touch": { label: "Touch", value: summary.touch },
+    "stat:flatfooted": { label: "Flat-footed", value: summary.flatFooted },
+    "stat:cmd": { label: "CMD", value: summary.cmd },
+    "stat:fortitude": { label: "Fortitude", value: summary.fortitude },
+    "stat:reflex": { label: "Reflex", value: summary.reflex },
+    "stat:will": { label: "Will", value: summary.will },
+    "stat:initiative": { label: "Initiative", value: summary.initiative },
+    "stat:speed": { label: "Speed", value: summary.speed.total },
   };
-  for (const [k, v] of Object.entries(summary.abilityMods)) out[`${k.toUpperCase()} mod`] = v;
+  for (const [k, v] of Object.entries(summary.abilityMods)) {
+    out[`ability:${k}`] = { label: `${k.toUpperCase()} mod`, value: v };
+  }
+  // Per-skill totals so skill-targeted effects (skill.<key>, skill.<ability>.all, skill.all)
+  // surface in the delta preview. diffSummaries only reports CHANGED values, so unaffected
+  // skills never clutter the list.
+  const skillLabels = new Map(
+    character.skills.list.map((s) => [s.key, s.specialty ? `${s.label} (${s.specialty})` : s.label]),
+  );
+  for (const [key, cv] of Object.entries(computed.skills)) {
+    out[`skill:${key}`] = { label: skillLabels.get(key) ?? key, value: cv.value };
+  }
   return out;
 }
 
-function diffSummaries(before: Record<string, number>, after: Record<string, number>): BuffDeltaRow[] {
+function diffSummaries(
+  before: Record<string, SummaryEntry>,
+  after: Record<string, SummaryEntry>,
+): BuffDeltaRow[] {
   const rows: BuffDeltaRow[] = [];
-  for (const label of Object.keys(after)) {
-    const b = before[label] ?? 0;
-    const a = after[label] ?? 0;
-    if (a !== b) rows.push({ label, before: b, after: a, delta: a - b });
+  for (const [key, entry] of Object.entries(after)) {
+    const b = before[key]?.value ?? 0;
+    if (entry.value !== b) rows.push({ label: entry.label, before: b, after: entry.value, delta: entry.value - b });
   }
   return rows;
 }
@@ -144,8 +166,8 @@ export function activeBuffDelta(character: PathForgeCharacterV1, buffId: string)
       active: character.buffs.active.map((b) => (b.id === buffId ? { ...b, enabled } : b)),
     },
   });
-  const off = summaryValues(computeCharacter(withEnabled(false)).summary);
-  const on = summaryValues(computeCharacter(withEnabled(true)).summary);
+  const off = summaryValues(computeCharacter(withEnabled(false)), character);
+  const on = summaryValues(computeCharacter(withEnabled(true)), character);
   return diffSummaries(off, on);
 }
 
@@ -155,7 +177,7 @@ export function previewBuffEffects(
   effects: AutomationEffect[],
   name = "Preview",
 ): BuffDeltaRow[] {
-  const base = summaryValues(computeCharacter(character).summary);
+  const base = summaryValues(computeCharacter(character), character);
   const augmented: PathForgeCharacterV1 = {
     ...character,
     buffs: {
@@ -163,6 +185,6 @@ export function previewBuffEffects(
       active: [...character.buffs.active, { id: "__preview__", name, enabled: true, effects }],
     },
   };
-  const withBuff = summaryValues(computeCharacter(augmented).summary);
+  const withBuff = summaryValues(computeCharacter(augmented), augmented);
   return diffSummaries(base, withBuff);
 }

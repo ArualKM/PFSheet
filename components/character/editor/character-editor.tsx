@@ -116,7 +116,7 @@ import { ArchetypePicker } from "./archetype-picker";
 import { RacePicker } from "./race-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
-import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS } from "./automation-effects-editor";
+import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS, skillTargetOptions } from "./automation-effects-editor";
 import { ModifierListEditor } from "./modifier-list-editor";
 import { StatChip } from "./picker-shell";
 import { EntryCard } from "./entry-card";
@@ -2923,7 +2923,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label={`${open ? "Done" : "Edit"} editing ${displayName} details`}
+              aria-label={open ? `Done editing ${displayName} details` : `Edit ${displayName} details`}
               className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-10"
             >
               {open ? "Done" : "Edit"}
@@ -4210,18 +4210,42 @@ function SaveRow({
   const overridden = abilityKey !== defaultAbility;
   const abilityMod = ed.computed.abilities[abilityKey]?.modifier ?? 0;
   const modCount = entry.misc.length + entry.conditionalModifiers.length;
+  // An imported sheet may carry a FLAT save formula (e.g. "12") — base/ability/modifier edits
+  // can't reach it, so the controls would silently no-op. Detect it and offer a rebuild.
+  const formula = entry.formula ?? "0";
+  const usesTerms =
+    formula.includes(`@{saves.${k}.base}`) ||
+    formula.includes(`@{abilities.${defaultAbility}.mod}`) ||
+    formula.includes(`@{saves.${k}.misc}`);
+  // The ability override binds by rewriting the DEFAULT ability ref in the stored formula — a
+  // customized formula without that ref leaves the override inert.
+  const overrideBinds = !overridden || formula.includes(`@{abilities.${defaultAbility}.mod}`);
+  const rebuildFormula = () =>
+    ed.update((c) => {
+      const e = c.defenses.savingThrows[k];
+      e.formula = `@{saves.${k}.base} + @{abilities.${defaultAbility}.mod} + @{saves.${k}.misc}`;
+      // Preserve the current total: seed base from the flat value minus the (effective) ability
+      // mod; misc-bucket contributions add on top, so review the base after rebuilding.
+      e.base = cv.value - abilityMod;
+    });
 
   return (
     <div className="rounded-lg border border-border">
       <div className="flex flex-wrap items-center gap-2 p-2.5">
         <span className="text-sm font-semibold text-foreground">{label}</span>
         <div className="flex min-w-0 flex-wrap items-center gap-1">
-          <StatChip label="base" value={formatModifier(entry.base)} />
-          <StatChip
-            label={abilityKey.toUpperCase()}
-            value={formatModifier(abilityMod)}
-            tone={overridden ? "rune" : "neutral"}
-          />
+          {usesTerms ? (
+            <>
+              <StatChip label="base" value={formatModifier(entry.base)} />
+              <StatChip
+                label={abilityKey.toUpperCase()}
+                value={formatModifier(abilityMod)}
+                tone={overridden ? "rune" : "neutral"}
+              />
+            </>
+          ) : (
+            <StatChip label="fixed" value={formatModifier(cv.value)} tone="gold" />
+          )}
           {modCount > 0 && <StatChip label="mods" value={modCount} />}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -4230,7 +4254,7 @@ function SaveRow({
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            aria-label={`${open ? "Done" : "Edit"} editing ${label} save`}
+            aria-label={open ? `Done editing ${label} save` : `Edit ${label} save`}
             className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-9"
           >
             {open ? "Done" : "Edit"}
@@ -4241,6 +4265,17 @@ function SaveRow({
 
       {open && (
         <div className="space-y-3 border-t border-border/50 p-2.5">
+          {!usesTerms && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 p-2.5">
+              <p className="min-w-0 flex-1 text-xs text-foreground">
+                This save was imported as a <strong>fixed total</strong> — the controls below won&apos;t
+                change it until the formula is rebuilt (the current total is preserved as Base).
+              </p>
+              <Button size="sm" variant="outline" onClick={rebuildFormula}>
+                Rebuild formula
+              </Button>
+            </div>
+          )}
           <div className="flex flex-wrap items-end gap-2">
             <NumberField
               label="Base (class progression)"
@@ -4271,6 +4306,12 @@ function SaveRow({
                   </option>
                 ))}
               </select>
+              {!overrideBinds && (
+                <p className="max-w-[16rem] text-[11px] text-warning">
+                  This save&apos;s custom formula doesn&apos;t reference {ABILITY_NAMES[defaultAbility]}, so
+                  the override can&apos;t apply — rebuild the formula or edit it directly.
+                </p>
+              )}
             </div>
           </div>
 
@@ -4481,11 +4522,14 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
   const [addAbility, setAddAbility] = useState<string>("int");
 
   const manualMiscId = (id: string) => `${id}-manual-misc`;
+  const manualMisc = (s: (typeof skills)[number]) => s.misc.find((x) => x.id === manualMiscId(s.id));
   const miscValue = (s: (typeof skills)[number]) => {
-    const m = s.misc.find((x) => x.id === manualMiscId(s.id));
+    const m = manualMisc(s);
     return typeof m?.value === "number" ? m.value : 0;
   };
-  const setMisc = (i: number, val: number) =>
+  // A string value is a ƒx formula (kept even while empty so the input doesn't flip modes
+  // mid-typing — the engine safely ignores an unevaluable string); numeric 0 clears the entry.
+  const setMisc = (i: number, val: number | string) =>
     ed.update((c) => {
       const t = c.skills.list[i];
       if (!t) return;
@@ -4504,10 +4548,17 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
       const t = c.skills.list[i];
       if (t) t.classSkill = v;
     });
+  // Custom skills edit their base ability; standard skills record an OVERRIDE (Str-based
+  // Acrobatics etc.), cleared when re-picking the default so the sheet stays canonical.
   const setAbility = (i: number, v: string) =>
     ed.update((c) => {
       const t = c.skills.list[i];
-      if (t) t.ability = v;
+      if (!t) return;
+      if (t.custom) {
+        if (v) t.ability = v;
+      } else {
+        t.abilityOverride = v && v !== t.ability ? v : undefined;
+      }
     });
   const removeSkill = (i: number) => ed.update((c) => void c.skills.list.splice(i, 1));
   const intOr0 = (v: string) => {
@@ -4602,27 +4653,27 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                     )}
                   </td>
                   <td className="px-2 py-1.5 text-center text-[11px] uppercase text-muted-foreground">
-                    {s.custom ? (
-                      <select
-                        value={s.ability}
-                        aria-label={`${skillDisplayLabel(s)} ability`}
-                        onChange={(e) =>
-                          ed.update((c) => {
-                            const t = c.skills.list[i];
-                            if (t) t.ability = e.target.value;
-                          })
-                        }
-                        className="rounded border border-border bg-background px-1 py-0.5 text-[11px] uppercase"
-                      >
-                        {SKILL_ABILITIES.map((a) => (
-                          <option key={a} value={a}>
-                            {a}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      s.ability
-                    )}
+                    <select
+                      value={s.custom ? s.ability : (s.abilityOverride ?? "")}
+                      aria-label={`${skillDisplayLabel(s)} key ability`}
+                      title={
+                        s.custom ? undefined : `Default ${s.ability.toUpperCase()} — pick another to override`
+                      }
+                      onChange={(e) => setAbility(i, e.target.value)}
+                      className={cn(
+                        "rounded border bg-background px-1 py-0.5 text-[11px] uppercase",
+                        !s.custom && s.abilityOverride
+                          ? "border-gold/50 font-semibold text-gold"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
+                      {!s.custom && <option value="">{s.ability}</option>}
+                      {SKILL_ABILITIES.filter((a) => s.custom || a !== s.ability).map((a) => (
+                        <option key={a} value={a}>
+                          {a}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-2 py-1.5 text-center">
                     <input
@@ -4679,16 +4730,44 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                     </td>
                   )}
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      value={miscValue(s)}
-                      aria-label={`${skillDisplayLabel(s)} misc bonus`}
-                      onChange={(e) => {
-                        const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
-                        if (!Number.isNaN(n)) setMisc(i, n);
-                      }}
-                      className="tnum h-8 w-14 rounded-md border border-border bg-background px-2 text-sm"
-                    />
+                    <div className="flex items-center gap-1">
+                      {typeof manualMisc(s)?.value === "string" ? (
+                        <input
+                          type="text"
+                          value={String(manualMisc(s)?.value ?? "")}
+                          aria-label={`${skillDisplayLabel(s)} misc bonus formula`}
+                          placeholder="[[@{level.total}/2]]"
+                          onChange={(e) => setMisc(i, e.target.value)}
+                          className="h-8 w-32 rounded-md border border-gold/40 bg-background px-2 font-mono text-xs"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          value={miscValue(s)}
+                          aria-label={`${skillDisplayLabel(s)} misc bonus`}
+                          onChange={(e) => {
+                            const n = e.target.value === "" ? 0 : Math.trunc(Number(e.target.value));
+                            if (!Number.isNaN(n)) setMisc(i, n);
+                          }}
+                          className="tnum h-8 w-14 rounded-md border border-border bg-background px-2 text-sm"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        aria-pressed={typeof manualMisc(s)?.value === "string"}
+                        aria-label={`Toggle ${skillDisplayLabel(s)} misc formula`}
+                        title="Use a formula value — e.g. [[@{level.total}*2]]+[[@{abilities.int.mod}]]"
+                        onClick={() => setMisc(i, typeof manualMisc(s)?.value === "string" ? 0 : "@{level.total}")}
+                        className={cn(
+                          "h-8 shrink-0 rounded-md border px-1.5 text-[11px] font-medium transition-colors",
+                          typeof manualMisc(s)?.value === "string"
+                            ? "border-gold/40 bg-gold/10 text-gold"
+                            : "border-border text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        ƒx
+                      </button>
+                    </div>
                   </td>
                   <td className="tnum px-3 py-1.5 text-right font-semibold text-rune">
                     {formatModifier(total)}
@@ -4737,23 +4816,27 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                   />
                   Class
                 </label>
-                {s.custom && (
-                  <label className="text-[10px] uppercase text-muted-foreground">
-                    Ability
-                    <select
-                      value={s.ability}
-                      aria-label={`${skillDisplayLabel(s)} ability`}
-                      onChange={(e) => setAbility(i, e.target.value)}
-                      className="ml-1 h-11 rounded border border-border bg-background px-1 text-[11px] uppercase text-foreground"
-                    >
-                      {SKILL_ABILITIES.map((a) => (
-                        <option key={a} value={a}>
-                          {a}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+                <label className="text-[10px] uppercase text-muted-foreground">
+                  Ability
+                  <select
+                    value={s.custom ? s.ability : (s.abilityOverride ?? "")}
+                    aria-label={`${skillDisplayLabel(s)} key ability`}
+                    onChange={(e) => setAbility(i, e.target.value)}
+                    className={cn(
+                      "ml-1 h-11 rounded border bg-background px-1 text-[11px] uppercase",
+                      !s.custom && s.abilityOverride
+                        ? "border-gold/50 font-semibold text-gold"
+                        : "border-border text-foreground",
+                    )}
+                  >
+                    {!s.custom && <option value="">{s.ability}</option>}
+                    {SKILL_ABILITIES.filter((a) => s.custom || a !== s.ability).map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="text-[10px] uppercase text-muted-foreground">
                   {bgEnabled ? "Adv" : "Ranks"}
                   <input
@@ -4790,16 +4873,44 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                 )}
                 <label className="text-[10px] uppercase text-muted-foreground">
                   Misc
-                  <input
-                    type="number"
-                    value={miscValue(s)}
-                    aria-label={`${skillDisplayLabel(s)} misc bonus`}
-                    onChange={(e) => {
-                      const n = intOr0(e.target.value);
-                      if (n !== null) setMisc(i, n);
-                    }}
-                    className="tnum mt-0.5 block h-11 w-16 rounded-md border border-border bg-background px-2 text-sm"
-                  />
+                  <span className="mt-0.5 flex items-center gap-1">
+                    {typeof manualMisc(s)?.value === "string" ? (
+                      <input
+                        type="text"
+                        value={String(manualMisc(s)?.value ?? "")}
+                        aria-label={`${skillDisplayLabel(s)} misc bonus formula`}
+                        placeholder="[[@{level.total}/2]]"
+                        onChange={(e) => setMisc(i, e.target.value)}
+                        className="block h-11 w-36 rounded-md border border-gold/40 bg-background px-2 font-mono text-xs"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        value={miscValue(s)}
+                        aria-label={`${skillDisplayLabel(s)} misc bonus`}
+                        onChange={(e) => {
+                          const n = intOr0(e.target.value);
+                          if (n !== null) setMisc(i, n);
+                        }}
+                        className="tnum block h-11 w-16 rounded-md border border-border bg-background px-2 text-sm"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      aria-pressed={typeof manualMisc(s)?.value === "string"}
+                      aria-label={`Toggle ${skillDisplayLabel(s)} misc formula`}
+                      title="Use a formula value — e.g. [[@{level.total}*2]]+[[@{abilities.int.mod}]]"
+                      onClick={() => setMisc(i, typeof manualMisc(s)?.value === "string" ? 0 : "@{level.total}")}
+                      className={cn(
+                        "h-11 shrink-0 rounded-md border px-2 text-xs font-medium transition-colors",
+                        typeof manualMisc(s)?.value === "string"
+                          ? "border-gold/40 bg-gold/10 text-gold"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
+                      ƒx
+                    </button>
+                  </span>
                 </label>
                 {s.custom && (
                   <button
@@ -4876,25 +4987,45 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
-/** A human label for an automation effect, e.g. "Will +2" or "Attack ƒx" — for the collapsed chip strip. */
-function summarizeEffect(e: AutomationEffect): string {
-  const label = AUTOMATION_TARGET_OPTIONS.find((o) => o.target === e.target)?.label ?? e.target.split(".").pop() ?? e.target;
+/** A human label for an automation effect, e.g. "Will +2" or "Attack ƒx" — for the collapsed chip strip.
+ * `skillLabels` (target → display label, from skillTargetOptions) names specialty/custom skills whose
+ * generated keys would otherwise render raw. */
+function summarizeEffect(e: AutomationEffect, skillLabels?: Map<string, string>): string {
+  const t = e.target.toLowerCase();
+  const group = t.match(/^skills?\.(str|dex|con|int|wis|cha)\.all$/);
+  const label =
+    AUTOMATION_TARGET_OPTIONS.find((o) => o.target === e.target)?.label ??
+    skillLabels?.get(e.target) ??
+    (group?.[1]
+      ? `${group[1].toUpperCase()} skills`
+      : (t.match(/^skills?\.([a-z0-9_]+)/)?.[1]?.replace(/_/g, " ") ??
+        e.target.split(".").pop() ??
+        e.target));
   const sign = e.operation === "subtract" ? "−" : "+";
   return `${label} ${typeof e.value === "string" ? "ƒx" : `${sign}${e.value}`}`;
 }
 
 /** Up to 4 automation-effect chips (formula = gold, numeric = rune) + a "+N more" overflow chip; null when empty. */
-function effectChips(effects: AutomationEffect[]): ReactNode {
+function effectChips(effects: AutomationEffect[], skillLabels?: Map<string, string>): ReactNode {
   if (!effects.length) return null;
   const shown = effects.slice(0, 4);
   return (
     <>
       {shown.map((e) => (
-        <StatChip key={e.id} tone={typeof e.value === "string" ? "gold" : "rune"} value={summarizeEffect(e)} />
+        <StatChip
+          key={e.id}
+          tone={typeof e.value === "string" ? "gold" : "rune"}
+          value={summarizeEffect(e, skillLabels)}
+        />
       ))}
       {effects.length > shown.length && <StatChip value={`+${effects.length - shown.length} more`} />}
     </>
   );
+}
+
+/** target → display label for every skill-scoped target on this sheet (memo-free; cheap Map build). */
+function skillLabelMap(c: PathForgeCharacterV1): Map<string, string> {
+  return new Map(skillTargetOptions(c).map((o) => [o.target, o.label]));
 }
 
 function FeatsEditor({ ed }: { ed: EditorApi }) {
@@ -4995,7 +5126,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   hasChips ? (
                     <>
                       {f.type && <StatChip value={f.type} />}
-                      {effectChips(f.automation)}
+                      {effectChips(f.automation, skillLabelMap(ed.draft))}
                     </>
                   ) : undefined
                 }
@@ -5010,7 +5141,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   <TextAreaField label="Normal" rows={2} value={f.normal ?? ""} onChange={(v) => setFeat((t) => (t.normal = v || undefined))} />
                 </div>
                 <TextField label="Notes" value={f.notes ?? ""} onChange={(v) => setFeat((t) => (t.notes = v || undefined))} />
-                <AutomationEffectsEditor effects={f.automation} idPrefix="featfx" onChange={(next) => setFeat((t) => (t.automation = next))} />
+                <AutomationEffectsEditor effects={f.automation} idPrefix="featfx" skillTargets={skillTargetOptions(ed.draft)} onChange={(next) => setFeat((t) => (t.automation = next))} />
               </EntryCard>
             );
           })}
@@ -5069,7 +5200,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   <>
                     <StatChip value={f.category.replace(/_/g, " ")} />
                     {usesMax > 0 && <StatChip tone="gold" value={`${featureRemaining(f)}/${usesMax} ${f.uses?.per ?? "day"}`} />}
-                    {effectChips(f.automation)}
+                    {effectChips(f.automation, skillLabelMap(ed.draft))}
                   </>
                 }
               >
@@ -5123,7 +5254,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                     </div>
                   )}
                 </div>
-                <AutomationEffectsEditor effects={f.automation} idPrefix="featurefx" onChange={(next) => setFeature((t) => (t.automation = next))} />
+                <AutomationEffectsEditor effects={f.automation} idPrefix="featurefx" skillTargets={skillTargetOptions(ed.draft)} onChange={(next) => setFeature((t) => (t.automation = next))} />
               </EntryCard>
             );
           })}
@@ -5207,14 +5338,14 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   hasChips ? (
                     <>
                       {t.type && <StatChip value={t.type} />}
-                      {effectChips(t.automation)}
+                      {effectChips(t.automation, skillLabelMap(ed.draft))}
                     </>
                   ) : undefined
                 }
               >
                 <TextField label="Type" value={t.type ?? ""} placeholder="Combat, Social, Faith, Drawback…" onChange={(v) => setTrait((e) => (e.type = v || undefined))} />
                 <TextAreaField label="Description" value={t.description ?? ""} rows={3} onChange={(v) => setTrait((e) => (e.description = v || undefined))} />
-                <AutomationEffectsEditor effects={t.automation} idPrefix="traitfx" onChange={(next) => setTrait((e) => (e.automation = next))} />
+                <AutomationEffectsEditor effects={t.automation} idPrefix="traitfx" skillTargets={skillTargetOptions(ed.draft)} onChange={(next) => setTrait((e) => (e.automation = next))} />
               </EntryCard>
             );
           })}

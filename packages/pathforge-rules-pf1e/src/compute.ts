@@ -102,6 +102,21 @@ type IndexedMod = StackInput & { bonusType: BonusType };
 
 export function classifyTarget(target: string): string | null {
   const t = target.toLowerCase();
+  // Anchored, explicitly-namespaced targets FIRST — they are unambiguous, and the fuzzy
+  // substring heuristics below would otherwise hijack them (a generated skill key containing
+  // "cmb"/"will"/"speed" — e.g. "skill.craft_mcmbx1" — must route to that skill, not the stat).
+  if (t === "skills" || t === "skill.all" || t === "skills.all" || t === "all_skills") return "skill.all";
+  // Ability-keyed skill groups ("all Strength-based skills") — before the generic skill match,
+  // which would otherwise read "skill.str.all" as a skill literally named "str".
+  const abilityGroup = t.match(/^skills?\.(str|dex|con|int|wis|cha)\.all$/);
+  if (abilityGroup?.[1]) return `skill.${abilityGroup[1]}.all`;
+  const skill = t.match(/^skills?\.([a-z0-9_]+)/);
+  if (skill?.[1]) return `skill.${skill[1]}`;
+  // Full segment (not just 3 chars) so it round-trips with the key computeAbilities reads — custom
+  // ability keys longer than 3 chars (e.g. an imported "corruption") would otherwise be dropped.
+  const ability = t.match(/^abilities?\.([a-z0-9_]+)/);
+  if (ability?.[1]) return `ability.${ability[1]}`;
+  // Fuzzy heuristics for free-typed / imported targets.
   if (t.includes("armorclass") || t === "ac" || t.startsWith("defenses.armorclass")) return "ac";
   if (t.includes("cmd")) return "cmd";
   if (t.includes("fortitude")) return "save.fortitude";
@@ -115,13 +130,6 @@ export function classifyTarget(target: string): string | null {
   if (t.includes("ranged")) return "attack.ranged";
   if (t.includes("cmb")) return "attack.cmb";
   if (t.includes("attack")) return "attack.all";
-  if (t === "skills" || t === "skill.all" || t === "skills.all" || t === "all_skills") return "skill.all";
-  const skill = t.match(/^skills?\.([a-z0-9_]+)/);
-  if (skill?.[1]) return `skill.${skill[1]}`;
-  // Full segment (not just 3 chars) so it round-trips with the key computeAbilities reads — custom
-  // ability keys longer than 3 chars (e.g. an imported "corruption") would otherwise be dropped.
-  const ability = t.match(/^abilities?\.([a-z0-9_]+)/);
-  if (ability?.[1]) return `ability.${ability[1]}`;
   return null;
 }
 
@@ -212,7 +220,14 @@ function abpToughening(level: number): number {
 
 export type ModifierIndex = Map<string, IndexedMod[]>;
 
-export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: Resolver): ModifierIndex {
+/** A formula-valued directly-entered stat modifier, collected for late evaluation (see computeCharacter). */
+type DeferredDirectMod = { domain: string; source: string; entry: ModifierEntry };
+
+export function buildModifierIndex(
+  character: PathForgeCharacterV1,
+  resolver?: Resolver,
+  deferredDirect?: DeferredDirectMod[],
+): ModifierIndex {
   const index: ModifierIndex = new Map();
   const push = (domain: string | null, mod: IndexedMod | null): void => {
     if (!domain || !mod) return;
@@ -367,9 +382,20 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
   }
 
   // Always-on modifiers entered directly on a stat (entries with no condition). These are
-  // user-entered lists, so a string value is treated as a formula (resolver-evaluated).
+  // user-entered lists, so a string value is treated as a formula. When the caller supplies a
+  // `deferredDirect` collector (computeCharacter does), formula-valued entries are handed back
+  // for LATE evaluation against the full resolver — so "@{abilities.str.mod}" on a Fortitude
+  // modifier sees buffed Strength, consistent with ƒx skill-misc rows. These domains
+  // (ac/save.*/init) never feed computeAbilities, so late insertion is safe.
+  const direct = (domain: string, source: string, m: ModifierEntry): void => {
+    if (deferredDirect && typeof m.value === "string" && !m.condition && m.enabled !== false) {
+      deferredDirect.push({ domain, source, entry: m });
+      return;
+    }
+    push(domain, modifierEntryToMod(source, m, resolver));
+  };
   for (const m of character.defenses.armorClass.conditionalModifiers) {
-    push("ac", modifierEntryToMod("Armor Class", m, resolver));
+    direct("ac", "Armor Class", m);
   }
   const saves = character.defenses.savingThrows;
   for (const [key, domain] of [
@@ -377,11 +403,11 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
     ["reflex", "save.reflex"],
     ["will", "save.will"],
   ] as const) {
-    for (const m of saves[key].misc) push(domain, modifierEntryToMod(`${key} save`, m, resolver));
-    for (const m of saves[key].conditionalModifiers) push(domain, modifierEntryToMod(`${key} save`, m, resolver));
+    for (const m of saves[key].misc) direct(domain, `${key} save`, m);
+    for (const m of saves[key].conditionalModifiers) direct(domain, `${key} save`, m);
   }
   for (const m of character.combat.initiative.conditionalModifiers) {
-    push("init", modifierEntryToMod("Initiative", m, resolver));
+    direct("init", "Initiative", m);
   }
 
   return index;
@@ -881,9 +907,25 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // (character base stats, no buff-derived modifiers) to avoid circular deps,
   // then build the full index with those values resolved.
   const baseResolver = new CharacterResolver(character, computeAbilities(character), new Map() as ModifierIndex);
-  const index = buildModifierIndex(character, baseResolver);
+  const deferredDirect: { domain: string; source: string; entry: ModifierEntry }[] = [];
+  const index = buildModifierIndex(character, baseResolver, deferredDirect);
   const abilities = computeAbilities(character, index);
   const resolver = new CharacterResolver(character, abilities, index);
+
+  // Formula-valued modifiers entered DIRECTLY on a stat (save/AC/initiative lists) evaluate
+  // late, against the full resolver — they see buffed abilities and populated buckets, like ƒx
+  // skill-misc rows. Evaluate all BEFORE inserting so no deferred formula sees another deferred
+  // entry's contribution (bounded, order-independent).
+  const resolvedDeferred = deferredDirect.map((d) => ({
+    domain: d.domain,
+    mod: modifierEntryToMod(d.source, d.entry, resolver),
+  }));
+  for (const { domain, mod } of resolvedDeferred) {
+    if (!mod) continue;
+    const arr = index.get(domain);
+    if (arr) arr.push(mod);
+    else index.set(domain, [mod]);
+  }
 
   const ac = character.defenses.armorClass.formulas;
   const saves = character.defenses.savingThrows;
@@ -949,27 +991,37 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // Dishonored characters take −2 on Charisma-based skill checks (the Will half is in the index).
   const dishonored = isModuleKeyEnabled(character, "honor") && honorScore(character) <= 0;
   for (const skill of character.skills.list) {
-    const abilityMod = abilities[skill.ability]?.modifier ?? 0;
+    // The effective key ability: the per-skill override (Str-based Acrobatics, Int-based
+    // Perception, …) when set, else the skill's default. Drives the modifier, the dishonored
+    // Cha penalty, and the ability-group buff bucket below.
+    const effAbility = (skill.abilityOverride ?? "").trim().toLowerCase() || skill.ability;
+    const abilityMod = abilities[effAbility]?.modifier ?? 0;
     const classSkillBonus = skill.classSkill && skill.ranks > 0 ? classBonusDefault : 0;
-    const miscMods: IndexedMod[] = [
-      ...skill.misc
-        .map((m) => modifierEntryToMod(skill.label, m, resolver))
-        .filter((m): m is IndexedMod => m !== null),
-      ...(dishonored && skill.ability === "cha"
-        ? [{ id: "honor-skill", label: "Dishonored", source: "Dishonored", value: -2, bonusType: "untyped" as BonusType }]
-        : []),
-      ...(index.get(`skill.${skill.key}`) ?? []),
-      ...(index.get("skill.all") ?? []),
-    ];
-    const miscTotal = applyStacking(miscMods).total;
+    // Set the row's local scope BEFORE evaluating misc entries, so a ƒx misc formula referencing
+    // @{ranks}/@{abilityMod} sees THIS row (not the previous iteration's stale overlay). @{misc}
+    // is pinned to 0 here — a misc formula referencing the misc total would be self-referential —
+    // and patched to the real total below before the row formula evaluates.
     resolver.local = {
       // Background Skills: adventuring ranks + ranks bought from the background pool both count.
       ranks: skill.ranks + (skill.backgroundRanks ?? 0),
       abilityMod,
       classSkillBonus,
       armorCheckPenalty: skill.armorCheckPenalty ? -equippedAcp : 0,
-      misc: miscTotal,
+      misc: 0,
     };
+    const miscMods: IndexedMod[] = [
+      ...skill.misc
+        .map((m) => modifierEntryToMod(skill.label, m, resolver))
+        .filter((m): m is IndexedMod => m !== null),
+      ...(dishonored && effAbility === "cha"
+        ? [{ id: "honor-skill", label: "Dishonored", source: "Dishonored", value: -2, bonusType: "untyped" as BonusType }]
+        : []),
+      ...(index.get(`skill.${skill.key}`) ?? []),
+      ...(index.get(`skill.${effAbility}.all`) ?? []),
+      ...(index.get("skill.all") ?? []),
+    ];
+    const miscTotal = applyStacking(miscMods).total;
+    resolver.local.misc = miscTotal;
     // Skill rows persist their own formula (the factory seeds one per skill at create time), so
     // sheets created before ACP support stored a formula WITHOUT @{armorCheckPenalty} — the term
     // would never reach them. Inject it when an ACP-affected skill's stored formula omits it

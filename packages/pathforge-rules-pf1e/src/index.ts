@@ -40,6 +40,7 @@ export {
   buildModifierIndex,
   CharacterResolver,
   computeCharacter,
+  classifyTarget,
 } from "./compute";
 export type {
   AbilityComputation,

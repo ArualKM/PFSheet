@@ -50,7 +50,7 @@ export function EntryCard({
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label={`${open ? "Done" : "Edit"} editing ${name} details`}
+              aria-label={open ? `Done editing ${name} details` : `Edit ${name} details`}
               className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-10"
             >
               {open ? "Done" : "Edit"}

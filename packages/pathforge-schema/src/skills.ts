@@ -7,6 +7,8 @@ export const skillEntrySchema = z.object({
   key: z.string(),
   label: z.string(),
   ability: z.string(),
+  /** Swaps the key ability for this skill (e.g. Str-based Acrobatics); empty/absent = use `ability`. */
+  abilityOverride: z.string().optional(),
   trainedOnly: z.boolean().optional(),
   armorCheckPenalty: z.boolean().optional(),
   classSkill: z.boolean().optional(),

@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { BONUS_TYPES, type AutomationEffect, type BonusType } from "@pathforge/schema";
+import { BONUS_TYPES, type AutomationEffect, type BonusType, type PathForgeCharacterV1 } from "@pathforge/schema";
 import { Button } from "@/components/ui/button";
 import { NumberField, TextField } from "./fields";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,31 @@ export const AUTOMATION_TARGET_OPTIONS: { label: string; target: string }[] = [
   { label: "Charisma", target: "abilities.cha" },
 ];
 
+const ABILITY_GROUP_TARGETS: { label: string; target: string }[] = [
+  { label: "All Strength skills", target: "skill.str.all" },
+  { label: "All Dexterity skills", target: "skill.dex.all" },
+  { label: "All Constitution skills", target: "skill.con.all" },
+  { label: "All Intelligence skills", target: "skill.int.all" },
+  { label: "All Wisdom skills", target: "skill.wis.all" },
+  { label: "All Charisma skills", target: "skill.cha.all" },
+];
+
+/**
+ * Skill-scoped targets for a character: the six ability-group buckets ("all Str skills") plus one
+ * `skill.<key>` per skill ON THE SHEET (so Craft/Perform specialties and custom skills — whose keys
+ * are generated ids a static list could never offer — are targetable). Rendered as an "Skills"
+ * optgroup by AutomationEffectsEditor / the Buff Center when passed.
+ */
+export function skillTargetOptions(character: PathForgeCharacterV1): { label: string; target: string }[] {
+  return [
+    ...ABILITY_GROUP_TARGETS,
+    ...character.skills.list.map((s) => ({
+      label: s.specialty ? `${s.label} (${s.specialty})` : s.label,
+      target: `skill.${s.key}`,
+    })),
+  ];
+}
+
 const CUSTOM_TARGET = "__custom__";
 
 function newEffectId(prefix: string): string {
@@ -53,6 +78,7 @@ export function AutomationEffectsEditor({
   idPrefix = "fx",
   hiddenTargets = [],
   defaultTarget = "attack",
+  skillTargets = [],
 }: {
   effects: AutomationEffect[];
   onChange: (next: AutomationEffect[]) => void;
@@ -70,6 +96,8 @@ export function AutomationEffectsEditor({
    * call sites pass a defensive default so a new effect never starts on a `hiddenTargets` value.
    */
   defaultTarget?: string;
+  /** Skill-scoped targets (from `skillTargetOptions(character)`) shown as a "Skills" optgroup. */
+  skillTargets?: { label: string; target: string }[];
 }) {
   const update = (i: number, patch: Partial<AutomationEffect>) =>
     onChange(effects.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
@@ -99,10 +127,15 @@ export function AutomationEffectsEditor({
 
       {effects.map((e, i) => {
         const isFormula = typeof e.value === "string";
-        const known = AUTOMATION_TARGET_OPTIONS.some((o) => o.target === e.target);
+        const known =
+          AUTOMATION_TARGET_OPTIONS.some((o) => o.target === e.target) ||
+          skillTargets.some((o) => o.target === e.target);
         // Omit disallowed targets for this call site, but keep this effect's own saved target
         // selectable so editing never silently rewrites it.
         const rowOptions = AUTOMATION_TARGET_OPTIONS.filter(
+          (o) => !hiddenTargets.includes(o.target) || o.target === e.target,
+        );
+        const rowSkillOptions = skillTargets.filter(
           (o) => !hiddenTargets.includes(o.target) || o.target === e.target,
         );
         return (
@@ -120,6 +153,15 @@ export function AutomationEffectsEditor({
                     {o.label}
                   </option>
                 ))}
+                {rowSkillOptions.length > 0 && (
+                  <optgroup label="Skills">
+                    {rowSkillOptions.map((o) => (
+                      <option key={o.target} value={o.target}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 <option value={CUSTOM_TARGET}>Custom…</option>
               </select>
             </div>

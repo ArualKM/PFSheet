@@ -6,7 +6,7 @@ import type { EquipmentItem } from "@pathforge/schema";
 import { BONUS_TYPES } from "@pathforge/schema";
 import { NumberField, SelectField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
-import { AutomationEffectsEditor } from "./automation-effects-editor";
+import { AutomationEffectsEditor, skillTargetOptions } from "./automation-effects-editor";
 import { Button } from "@/components/ui/button";
 
 /** Common single-stat targets a magic-item bonus can hit (each routes in the rules engine). */
@@ -466,6 +466,7 @@ export function InventoryEditor({ ed }: { ed: CharacterEditorApi }) {
                   effects={item.automation}
                   idPrefix="itemfx"
                   defaultTarget="defenses.armorClass"
+                  skillTargets={skillTargetOptions(ed.draft)}
                   hiddenTargets={
                     item.category === "weapon" ? ["attack", "attack.melee", "attack.ranged"] : undefined
                   }

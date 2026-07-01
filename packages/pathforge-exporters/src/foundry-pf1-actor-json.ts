@@ -83,8 +83,18 @@ function buildActor(character: PathForgeCharacterV1, summary: Record<string, unk
   for (const s of character.skills.list) {
     const code = CANON_TO_FOUNDRY_SKILL[s.key];
     if (!code) continue; // custom/3pp skills (lore/artistry) have no Foundry key
-    skills[code] = { rank: num(s.ranks), ability: s.ability || "int", cs: Boolean(s.classSkill) };
+    // Export the EFFECTIVE key ability (per-skill override wins) so Foundry computes the same
+    // total and a round-trip re-import lands on the swapped ability.
+    const eff = (s.abilityOverride ?? "").trim().toLowerCase() || s.ability || "int";
+    skills[code] = { rank: num(s.ranks), ability: eff, cs: Boolean(s.classSkill) };
   }
+
+  // Per-save key-ability override (SaveEntry.abilityKey) — only the six real ability keys are
+  // meaningful to Foundry; anything else falls back to the PF1e default.
+  const saveAbility = (key: "fortitude" | "reflex" | "will", def: string): string => {
+    const ov = (character.defenses.savingThrows[key].abilityKey ?? "").trim().toLowerCase();
+    return ["str", "dex", "con", "int", "wis", "cha"].includes(ov) ? ov : def;
+  };
 
   const items: Array<Record<string, unknown>> = [];
   for (const c of character.identity.classes) {
@@ -118,9 +128,9 @@ function buildActor(character: PathForgeCharacterV1, summary: Record<string, unk
       attributes: {
         hp: { value: num(hp.current, num(character.health.currentHp)), max: num(hp.max, num(character.health.maxHp)), temp: num(hp.temp) },
         savingThrows: {
-          fort: { base: num(character.defenses.savingThrows.fortitude.base), ability: "con" },
-          ref: { base: num(character.defenses.savingThrows.reflex.base), ability: "dex" },
-          will: { base: num(character.defenses.savingThrows.will.base), ability: "wis" },
+          fort: { base: num(character.defenses.savingThrows.fortitude.base), ability: saveAbility("fortitude", "con") },
+          ref: { base: num(character.defenses.savingThrows.reflex.base), ability: saveAbility("reflex", "dex") },
+          will: { base: num(character.defenses.savingThrows.will.base), ability: saveAbility("will", "wis") },
         },
         bab: { total: num(parseLeadingInt(character.combat.bab.total)) },
         init: { value: 0, ability: "dex" },

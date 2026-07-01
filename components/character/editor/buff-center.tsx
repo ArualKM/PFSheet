@@ -24,6 +24,7 @@ import {
   type DurationUnit,
 } from "@pathforge/schema";
 import { detectStackingConflicts, activeBuffDelta, previewBuffEffects, type BuffDeltaRow } from "@pathforge/rules-pf1e";
+import { skillTargetOptions } from "./automation-effects-editor";
 import { NumberField, TextField } from "./fields";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ const TARGET_OPTIONS: { label: string; target: string }[] = [
   { label: "Initiative", target: "combat.initiative" },
   { label: "Speed", target: "speed" },
   { label: "CMD", target: "cmd" },
+  { label: "All skills", target: "skill.all" },
   { label: "Strength", target: "abilities.str" },
   { label: "Dexterity", target: "abilities.dex" },
   { label: "Constitution", target: "abilities.con" },
@@ -87,7 +89,15 @@ const CATEGORY_LABEL: Record<BuffCategory, string> = {
 };
 
 function targetLabel(target: string): string {
-  return TARGET_LABEL[target.toLowerCase()] ?? target;
+  const t = target.toLowerCase();
+  const known = TARGET_LABEL[t];
+  if (known) return known;
+  const group = t.match(/^skills?\.(str|dex|con|int|wis|cha)\.all$/);
+  if (group?.[1]) return `${group[1].toUpperCase()} skills`;
+  if (t === "skill.all" || t === "skills" || t === "skills.all") return "All skills";
+  const skill = t.match(/^skills?\.([a-z0-9_]+)/);
+  if (skill?.[1]) return skill[1].replace(/_/g, " ");
+  return target;
 }
 
 function describeEffect(e: AutomationEffect): string {
@@ -524,14 +534,18 @@ function CustomBuffForm({
             <Plus className="size-4" /> Add effect
           </Button>
         </div>
-        {effects.map((e, i) => (
+        {effects.map((e, i) => {
+          const skillOpts = skillTargetOptions(ed.draft);
+          const known =
+            TARGET_OPTIONS.some((o) => o.target === e.target) || skillOpts.some((o) => o.target === e.target);
+          return (
           <div key={i} className="flex flex-wrap items-end gap-2 rounded-lg border border-border p-2">
             <div className="space-y-1">
               <span className="block text-[11px] text-muted-foreground">Target</span>
               <select
-                value={e.target}
+                value={known ? e.target : "__custom__"}
                 aria-label="Effect target"
-                onChange={(ev) => updateEffect(i, { target: ev.target.value })}
+                onChange={(ev) => updateEffect(i, { target: ev.target.value === "__custom__" ? "" : ev.target.value })}
                 className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
               >
                 {TARGET_OPTIONS.map((o) => (
@@ -539,8 +553,25 @@ function CustomBuffForm({
                     {o.label}
                   </option>
                 ))}
+                <optgroup label="Skills">
+                  {skillOpts.map((o) => (
+                    <option key={o.target} value={o.target}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <option value="__custom__">Custom…</option>
               </select>
             </div>
+            {!known && (
+              <TextField
+                label="Custom target"
+                value={e.target}
+                onChange={(v) => updateEffect(i, { target: v })}
+                placeholder="skills.perception"
+                className="w-40 font-mono"
+              />
+            )}
             <div className="space-y-1">
               <span className="block text-[11px] text-muted-foreground">Op</span>
               <select
@@ -603,7 +634,8 @@ function CustomBuffForm({
               <Trash2 className="size-4" />
             </Button>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {preview.length > 0 && (
