@@ -10,7 +10,7 @@ status log is [`../CLAUDE.md`](../CLAUDE.md) and the quick resume is [`NEXT_SESS
 > GM module/detail writes + invitation-consent flow (V1·4, migration `0020`); public E2E smoke + a11y on
 > every push (V1·5); **printable one-page PDF** (V1·6). All four spawned follow-ups merged too. Since then,
 > **M12 (the compendium-driven builder) also shipped** (migrations → `0025`) plus a big editor/mobile/
-> compendium UI-polish pass. **The web app + PWA is v1-complete.** ~410 unit tests. The remaining work is
+> compendium UI-polish pass. **The web app + PWA is v1-complete.** 408 unit tests. The remaining work is
 > **post-1.0** (the S4 3pp flagship — Spheres `<OptionPicker>` → Path of War → Akashic). The per-item detail
 > below is the HISTORICAL plan of record; live status is [`../CLAUDE.md`](../CLAUDE.md) +
 > [`NEXT_SESSION.md`](NEXT_SESSION.md).

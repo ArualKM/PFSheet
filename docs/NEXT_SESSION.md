@@ -16,17 +16,20 @@ grounded plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
   **S4:** ~11 optional systems shipped; **Spheres of Power / Might / Guile are all LIVE** (Path of War +
   Akashic are post-1.0, gated on sourcing their datasets the way Spheres was).
 - **Plan to 1.0:** **V1·1–V1·6 DONE** + all four spawned follow-ups merged. The web app + PWA is **v1-complete.**
-- **Health:** lint + **~410 unit tests** + typecheck + production build all green. **Migrations at `0025`.**
+- **Health:** lint + **408 unit tests** + typecheck + production build all green. **Migrations at `0025`.**
 
 ## What shipped the last few sessions (editor polish → mobile → read-view → compendium)
 
 _Full detail in [`../CLAUDE.md`](../CLAUDE.md) Status; the quick version:_
 
-1. **Editor "mega polish" — chip + disclosure everywhere** (`9417b52`/`692a929`/`69df796`). The whole EDIT UI
-   moved to one pattern: *beautiful chips as the default display + a show/hide disclosure to edit every
-   aspect + tap-to-open on mobile*. Shared `<StatChip>`/`<Segmented>` (`picker-shell.tsx`) + `<EntryCard>`
-   (`entry-card.tsx`). Redesigned Classes (per-class archetypes, editable BAB/saves/HD/caster, favored-class
-   checkbox + FCB steppers, Prestige folded into the picker), Feats/Features/Traits, Race, and Spells.
+1. **Post-M12 builder-UI polish → editor "mega polish".** First (`e3a3971`→`13c51ac`) all seven M12 builder
+   pickers were unified onto a shared `picker-shell.tsx` toolkit, the `<ClassCompendiumPicker>` gained a
+   **per-level progression accordion**, and the race picker got sign-tinted ability-mod tiles. Then
+   (`9417b52`/`692a929`/`69df796`) the whole EDIT UI moved to one pattern: *beautiful chips as the default
+   display + a show/hide disclosure to edit every aspect + tap-to-open on mobile* (shared `<StatChip>`/
+   `<Segmented>` + `<EntryCard>` in `entry-card.tsx`). Redesigned Classes (per-class archetypes, editable
+   BAB/saves/HD/caster, favored-class checkbox + FCB steppers, Prestige folded into the picker),
+   Feats/Features/Traits, Race, and Spells.
 2. **Mobile nav overhaul (A→B→C, `MOBILE_NAV_AND_POLISH_PLAN.md`)** — killed the redundant sidebar drawer →
    an account-menu avatar; section switcher → hamburger bottom-sheet; sticky live-stats `top-14` + a floating
    back-to-top (`893d00c`/`0b3b6e7`); a **44px touch-target sweep** (`842a441`); and read-view completeness
@@ -55,8 +58,8 @@ v1 **and** M12 are done, so the next work is a **menu**, not a critical path. In
   [`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md).
 
 ### 2. M12 polish tails  _(small, high-polish; deferred during the epic)_
-- **Class builder:** a per-level accordion visualization of what each level grants; cleaner display names for
-  book-ref option types; smarter caster-stat defaults for non-core classes.
+- **Class builder:** cleaner display names for book-ref option types; smarter caster-stat defaults for
+  non-core classes. _(The per-level progression accordion viz already shipped — `e3a3971`.)_
 - **Race picker edge cases** (spawned as a follow-up): point-buy interaction, manual ability edits between
   race swaps, size revert-on-reapply. The common path works; these are corner cases.
 - **Prestige** has no feature/requirement tables in the data (all `requirements` empty) → no auto-gating; it

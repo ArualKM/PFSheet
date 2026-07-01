@@ -534,8 +534,9 @@ first**.
   class-compendium.ts` parsers), level-up regrant in `ClassRow`, `<ClassOptionsPicker>` (Features editor).
   **Verified live: Fighter L5 → BAB+5/saves/HP + 3 features; Oracle (non-catalog) parsed right.** Two adversarial
   reviews (the Step-4 one caught the critical `class_features`→`class_feature_compendium` table-name bug —
-  features had silently failed; fixed + re-verified). 396 tests. **Deferred to polish:** per-level accordion viz,
-  cleaner names for book-ref option types, smarter non-core caster-stat defaults.
+  features had silently failed; fixed + re-verified). 396 tests. **Deferred to polish:** cleaner names for
+  book-ref option types, smarter non-core caster-stat defaults (the **per-level progression accordion viz
+  shipped** in the post-M12 builder-UI polish pass — see below, `e3a3971`).
 
 - **Phase 5 (archetypes) DONE** — `applyArchetype` (`packages/pathforge-rules-pf1e/src/class-builder.ts`):
   conflict-check (two archetypes can't both replace the same standard feature → block + explain), remove the
@@ -567,8 +568,19 @@ first**.
   its sheet. Verified live (Test Wolf → linked row → appears in the parent's card). **Migrations now through 0025.**
 
 **M12 (PFcore compendium-driven builder) is COMPLETE** — 9 of 10 phases shipped + reviewed + live-verified;
-Phase 8's compendium picker honestly skipped (data + the core already exists). ~410 tests. See
+Phase 8's compendium picker honestly skipped (data + the core already exists). 408 tests. See
 [[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
+
+**Post-M12 builder-UI polish (2026-06-29, "UI polish pt.1–4", `e3a3971`→`13c51ac`).** Right after M12 shipped,
+a hybrid "shared bones + bespoke detail" pass unified the seven M12 builder pickers onto a shared toolkit
+`components/character/editor/picker-shell.tsx` — `PickerShell`/`PickerSearch`/`PickerError`/`PickerList`/
+`PickerRow`/`PickerDetail` + `FeatureTypeChip` (Su=rune / Ex=green / Sp=gold, WCAG-safe foreground text) — so
+class/feat/trait/race/archetype/prestige/class-option pickers share one chrome + state model, each keeping its
+bespoke detail. Marquee: the **`<ClassCompendiumPicker>` now renders a per-level PROGRESSION ACCORDION**
+(`parseProgressionTable`) — every level shows BAB + Fort/Ref/Will + the feature(s) gained (expand → Su/Ex/Sp
+chips), levels above the chosen one dimmed as a preview; features fetched-on-select (this is the Phase-4
+"deferred per-level accordion viz", now done). The race picker's ability mods became sign-tinted **tiles**
+(WCAG-safe). This is the foundation the 2026-06-30 chip+disclosure redesign built `<EntryCard>` on top of.
 
 **Editor "mega polish" + mobile-nav overhaul + read-view completeness + compendium accordion (2026-06-30 →
 07-01).** A large post-M12 UI/UX pass, each increment shipped after an adversarial Workflow review + a
