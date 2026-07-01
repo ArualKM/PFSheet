@@ -12,7 +12,10 @@ import { FormulaSyntaxError, tokenize, type Token } from "./tokenizer";
 export const MAX_PARSE_DEPTH = 256;
 
 export function parse(input: string): Node {
-  const tokens = tokenize(input);
+  // Roll20/Myth-Weavers-style inline-roll brackets are accepted as plain grouping, so
+  // "[[@{level}*2]]+[[@{level}*4]]" parses as "(@{level}*2)+(@{level}*4)". An unbalanced
+  // "[[" surfaces as the ordinary paren syntax error.
+  const tokens = tokenize(input.split("[[").join("(").split("]]").join(")"));
   const parser = new Parser(tokens);
   const node = parser.parseExpression();
   parser.expectEof();

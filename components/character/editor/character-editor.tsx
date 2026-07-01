@@ -117,6 +117,7 @@ import { RacePicker } from "./race-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS } from "./automation-effects-editor";
+import { ModifierListEditor } from "./modifier-list-editor";
 import { StatChip } from "./picker-shell";
 import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
@@ -4170,38 +4171,138 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+const SAVE_ROWS = [
+  { key: "fortitude", label: "Fortitude", defaultAbility: "con" },
+  { key: "reflex", label: "Reflex", defaultAbility: "dex" },
+  { key: "will", label: "Will", defaultAbility: "wis" },
+] as const;
+
 function SavesEditor({ ed }: { ed: EditorApi }) {
-  const s = ed.draft.defenses.savingThrows;
-  const total = ed.computed.saves;
-  const rows: Array<{ key: "fortitude" | "reflex" | "will"; label: string }> = [
-    { key: "fortitude", label: "Fortitude" },
-    { key: "reflex", label: "Reflex" },
-    { key: "will", label: "Will" },
-  ];
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Enter the class base save; the ability modifier is added automatically.
+        Each save is class base + its key ability modifier + modifiers. Open a save to change its key
+        ability (e.g. a Cha-to-Will feature) or add typed bonuses — a ƒx value like{" "}
+        <code className="font-mono text-xs">[[@{"{"}level.total{"}"}/3]]</code> scales with the sheet.
       </p>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {rows.map((r) => (
-          <div key={r.key} className="rounded-lg border border-border p-3">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">{r.label}</span>
-              <Badge variant="rune">{formatModifier(total[r.key].value)}</Badge>
-            </div>
+      {SAVE_ROWS.map((r) => (
+        <SaveRow key={r.key} ed={ed} k={r.key} label={r.label} defaultAbility={r.defaultAbility} />
+      ))}
+    </div>
+  );
+}
+
+function SaveRow({
+  ed,
+  k,
+  label,
+  defaultAbility,
+}: {
+  ed: EditorApi;
+  k: "fortitude" | "reflex" | "will";
+  label: string;
+  defaultAbility: AbilityKey;
+}) {
+  const [open, setOpen] = useState(false);
+  const entry = ed.draft.defenses.savingThrows[k];
+  const cv = ed.computed.saves[k];
+  const abilityKey = ((entry.abilityKey ?? "").trim().toLowerCase() || defaultAbility) as string;
+  const overridden = abilityKey !== defaultAbility;
+  const abilityMod = ed.computed.abilities[abilityKey]?.modifier ?? 0;
+  const modCount = entry.misc.length + entry.conditionalModifiers.length;
+
+  return (
+    <div className="rounded-lg border border-border">
+      <div className="flex flex-wrap items-center gap-2 p-2.5">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
+          <StatChip label="base" value={formatModifier(entry.base)} />
+          <StatChip
+            label={abilityKey.toUpperCase()}
+            value={formatModifier(abilityMod)}
+            tone={overridden ? "rune" : "neutral"}
+          />
+          {modCount > 0 && <StatChip label="mods" value={modCount} />}
+        </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Badge variant="rune">{formatModifier(cv.value)}</Badge>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={`${open ? "Done" : "Edit"} editing ${label} save`}
+            className="flex h-11 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:text-foreground sm:h-9"
+          >
+            {open ? "Done" : "Edit"}
+            <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="space-y-3 border-t border-border/50 p-2.5">
+          <div className="flex flex-wrap items-end gap-2">
             <NumberField
-              label="Base"
-              value={s[r.key].base}
+              label="Base (class progression)"
+              value={entry.base}
               onChange={(v) =>
                 ed.update((c) => {
-                  c.defenses.savingThrows[r.key].base = v;
+                  c.defenses.savingThrows[k].base = v;
                 })
               }
+              className="w-40"
             />
+            <div className="space-y-1">
+              <span className="block text-[11px] text-muted-foreground">Key ability</span>
+              <select
+                value={overridden ? abilityKey : ""}
+                aria-label={`${label} key ability`}
+                onChange={(e) =>
+                  ed.update((c) => {
+                    c.defenses.savingThrows[k].abilityKey = e.target.value || undefined;
+                  })
+                }
+                className="h-11 rounded-md border border-border bg-background px-2 text-sm text-foreground sm:h-9"
+              >
+                <option value="">Default ({ABILITY_NAMES[defaultAbility]})</option>
+                {ABILITY_KEYS.filter((a) => a !== defaultAbility).map((a) => (
+                  <option key={a} value={a}>
+                    {ABILITY_NAMES[a]}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        ))}
-      </div>
+
+          <ModifierListEditor
+            entries={entry.misc}
+            onChange={(next) =>
+              ed.update((c) => {
+                c.defenses.savingThrows[k].misc = next;
+              })
+            }
+            title="Modifiers"
+            idPrefix={`save_${k}`}
+            emptyHint="Resistance items, feats entered by hand, circumstance bonuses… Typed bonuses stack by PF1e rules."
+          />
+
+          {entry.conditionalModifiers.length > 0 && (
+            <ModifierListEditor
+              entries={entry.conditionalModifiers}
+              onChange={(next) =>
+                ed.update((c) => {
+                  c.defenses.savingThrows[k].conditionalModifiers = next;
+                })
+              }
+              title="Conditional modifiers (imported)"
+              idPrefix={`save_${k}_cond`}
+              addLabel="Add"
+            />
+          )}
+
+          <FormulaBreakdown label={`${label} math`} cv={cv} />
+        </div>
+      )}
     </div>
   );
 }
@@ -4217,7 +4318,11 @@ function MiniStat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+/** The fixed ids the 6 AC component inputs write into `conditionalModifiers`. */
+const AC_COMPONENT_IDS = new Set(AC_COMPONENTS.map((c) => `ac_${c.key}`));
+
 function ACEditor({ ed }: { ed: EditorApi }) {
+  const [showMath, setShowMath] = useState(false);
   const mods = ed.draft.defenses.armorClass.conditionalModifiers;
   const getVal = (key: string): number => {
     const m = mods.find((x) => x.id === `ac_${key}`);
@@ -4244,12 +4349,33 @@ function ACEditor({ ed }: { ed: EditorApi }) {
       }
     });
 
+  // Named / formula-valued modifiers beyond the 6 component boxes (rings, buffs entered by hand,
+  // scaling class features). Kept in the same conditionalModifiers array under distinct ids.
+  const extraMods = mods.filter((m) => !AC_COMPONENT_IDS.has(m.id));
+  const setExtraMods = (next: ModifierEntry[]) =>
+    ed.update((c) => {
+      const arr = c.defenses.armorClass.conditionalModifiers;
+      c.defenses.armorClass.conditionalModifiers = [...arr.filter((m) => AC_COMPONENT_IDS.has(m.id)), ...next];
+    });
+
+  // Equipped armor/shields feed AC + the Max Dex cap automatically — surface what the engine sees.
+  const wornItems = [
+    ...ed.draft.inventory.armorAndShields,
+    ...ed.draft.inventory.weapons,
+    ...ed.draft.inventory.potionsScrollsMagicItems,
+    ...ed.draft.inventory.gear,
+    ...ed.draft.inventory.otherItems,
+  ].filter((i) => i.equipped && (typeof i.armorBonus === "number" || typeof i.maxDexBonus === "number"));
+  const dexCaps = wornItems.filter((i) => typeof i.maxDexBonus === "number").map((i) => i.maxDexBonus as number);
+  const maxDexCap = dexCaps.length > 0 ? Math.min(...dexCaps) : null;
+  const maxDexPenalty = ed.computed.armorClass.total.terms.find((t) => t.ref === "ac.maxDexPenalty")?.value ?? 0;
+
   const ac = ed.computed.armorClass;
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Enter your AC component bonuses. Dexterity, size, and base attack bonus are applied
-        automatically; touch and flat-footed are derived.
+        Enter your AC component bonuses. Dexterity, size, equipped armor, and base attack bonus are
+        applied automatically; touch and flat-footed are derived.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
         {AC_COMPONENTS.map((comp) => (
@@ -4261,11 +4387,65 @@ function ACEditor({ ed }: { ed: EditorApi }) {
           />
         ))}
       </div>
+
+      {wornItems.length > 0 && (
+        <div className="rounded-lg border border-border bg-surface-raised p-3">
+          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Equipped armor
+            </span>
+            {maxDexCap !== null && <StatChip label="max dex" value={formatModifier(maxDexCap)} tone="gold" />}
+            {maxDexPenalty < 0 && (
+              <StatChip label="dex capped" value={formatModifier(maxDexPenalty)} tone="poor" />
+            )}
+          </div>
+          <ul className="space-y-0.5">
+            {wornItems.map((i) => (
+              <li key={i.id} className="flex items-center justify-between gap-2 text-xs text-foreground">
+                <span className="truncate">{i.name}</span>
+                <span className="tnum shrink-0 text-muted-foreground">
+                  {typeof i.armorBonus === "number" && i.armorBonus !== 0 ? `AC +${i.armorBonus}` : ""}
+                  {typeof i.maxDexBonus === "number" ? ` · Max Dex +${i.maxDexBonus}` : ""}
+                  {typeof i.armorCheckPenalty === "number" && i.armorCheckPenalty !== 0
+                    ? ` · ACP ${-Math.abs(i.armorCheckPenalty)}`
+                    : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            These come from equipped Inventory items — edit them in Equipment.
+          </p>
+        </div>
+      )}
+
+      <ModifierListEditor
+        entries={extraMods}
+        onChange={setExtraMods}
+        title="Additional modifiers"
+        idPrefix="acmod"
+        emptyHint="Named or scaling AC bonuses beyond the six boxes above (e.g. a ring by name, or a ƒx value like [[@{level.total}/4]]). Typed bonuses stack by PF1e rules."
+      />
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <MiniStat label="AC" value={ac.total.value} />
         <MiniStat label="Touch" value={ac.touch.value} />
         <MiniStat label="Flat-footed" value={ac.flatFooted.value} />
         <MiniStat label="CMD" value={ac.cmd.value} />
+      </div>
+
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => setShowMath((v) => !v)}>
+          <Sigma className="size-4" /> {showMath ? "Hide math" : "Show math"}
+        </Button>
+        {showMath && (
+          <div className="mt-2 space-y-2">
+            <FormulaBreakdown label="Armor Class" cv={ac.total} />
+            <FormulaBreakdown label="Touch" cv={ac.touch} />
+            <FormulaBreakdown label="Flat-footed" cv={ac.flatFooted} />
+            <FormulaBreakdown label="CMD" cv={ac.cmd} />
+          </div>
+        )}
       </div>
     </div>
   );

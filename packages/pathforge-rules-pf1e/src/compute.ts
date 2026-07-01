@@ -147,10 +147,17 @@ function effectToMod(
   return { id, label, source, value, bonusType: e.bonusType ?? "untyped", stackingGroup: e.stackingGroup };
 }
 
-function modifierEntryToMod(source: string, m: ModifierEntry): IndexedMod | null {
+function modifierEntryToMod(source: string, m: ModifierEntry, resolver?: Resolver): IndexedMod | null {
   if (m.condition) return null;
   if (m.enabled === false) return null;
-  const value = num(m.value, NaN);
+  let value = num(m.value, NaN);
+  // A string value may be a formula (e.g. "[[@{level}*2]]" on a skill misc row) — evaluate it
+  // against the resolver so directly-entered modifiers can scale like automation effects do.
+  if (Number.isNaN(value) && typeof m.value === "string" && resolver) {
+    const r = evaluate(m.value, resolver);
+    if (!Number.isFinite(r.value)) return null;
+    value = r.value;
+  }
   if (Number.isNaN(value)) return null;
   return {
     id: m.id,
@@ -238,7 +245,7 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
       const bonusType: BonusType = item.category === "shield" ? "shield" : "armor";
       push("ac", { id: `armor-${item.id}`, label: item.name, source: item.name, value: item.armorBonus, bonusType });
     }
-    for (const m of item.modifiers) push(classifyTarget(m.target ?? ""), modifierEntryToMod(item.name, m));
+    for (const m of item.modifiers) push(classifyTarget(m.target ?? ""), modifierEntryToMod(item.name, m, resolver));
     for (const e of item.automation) push(classifyTarget(e.target), effectToMod(e.id, item.name, item.name, e, resolver));
   }
 
@@ -359,9 +366,10 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
     }
   }
 
-  // Always-on modifiers entered directly on a stat (entries with no condition).
+  // Always-on modifiers entered directly on a stat (entries with no condition). These are
+  // user-entered lists, so a string value is treated as a formula (resolver-evaluated).
   for (const m of character.defenses.armorClass.conditionalModifiers) {
-    push("ac", modifierEntryToMod("Armor Class", m));
+    push("ac", modifierEntryToMod("Armor Class", m, resolver));
   }
   const saves = character.defenses.savingThrows;
   for (const [key, domain] of [
@@ -369,11 +377,11 @@ export function buildModifierIndex(character: PathForgeCharacterV1, resolver?: R
     ["reflex", "save.reflex"],
     ["will", "save.will"],
   ] as const) {
-    for (const m of saves[key].misc) push(domain, modifierEntryToMod(`${key} save`, m));
-    for (const m of saves[key].conditionalModifiers) push(domain, modifierEntryToMod(`${key} save`, m));
+    for (const m of saves[key].misc) push(domain, modifierEntryToMod(`${key} save`, m, resolver));
+    for (const m of saves[key].conditionalModifiers) push(domain, modifierEntryToMod(`${key} save`, m, resolver));
   }
   for (const m of character.combat.initiative.conditionalModifiers) {
-    push("init", modifierEntryToMod("Initiative", m));
+    push("init", modifierEntryToMod("Initiative", m, resolver));
   }
 
   return index;
@@ -895,10 +903,23 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     cmd: evalWith(ac.cmd, resolver, overrideFor(character, "defenses.armorClass.cmd")),
   };
 
+  // Per-save ability override (SaveEntry.abilityKey): stored formulas bake the default ability in
+  // (e.g. "@{abilities.con.mod}" on Fortitude), so an override rewrites that ref — the same
+  // stored-formula-injection pattern as the Max Dex cap above. A hand-customized formula that no
+  // longer references the default ability is left untouched.
+  const SAVE_ABILITY_DEFAULT = { fortitude: "con", reflex: "dex", will: "wis" } as const;
+  const withSaveAbility = (key: keyof typeof SAVE_ABILITY_DEFAULT): string => {
+    const f = saves[key].formula ?? "0";
+    const def = SAVE_ABILITY_DEFAULT[key];
+    const ov = (saves[key].abilityKey ?? "").trim().toLowerCase();
+    if (!ov || ov === def) return f;
+    return f.split(`@{abilities.${def}.mod}`).join(`@{abilities.${ov}.mod}`);
+  };
+
   const savesComputed = {
-    fortitude: evalWith(saves.fortitude.formula ?? "0", resolver, overrideFor(character, "defenses.savingThrows.fortitude")),
-    reflex: evalWith(saves.reflex.formula ?? "0", resolver, overrideFor(character, "defenses.savingThrows.reflex")),
-    will: evalWith(saves.will.formula ?? "0", resolver, overrideFor(character, "defenses.savingThrows.will")),
+    fortitude: evalWith(withSaveAbility("fortitude"), resolver, overrideFor(character, "defenses.savingThrows.fortitude")),
+    reflex: evalWith(withSaveAbility("reflex"), resolver, overrideFor(character, "defenses.savingThrows.reflex")),
+    will: evalWith(withSaveAbility("will"), resolver, overrideFor(character, "defenses.savingThrows.will")),
   };
 
   const initiative = evalWith(
@@ -932,7 +953,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     const classSkillBonus = skill.classSkill && skill.ranks > 0 ? classBonusDefault : 0;
     const miscMods: IndexedMod[] = [
       ...skill.misc
-        .map((m) => modifierEntryToMod(skill.label, m))
+        .map((m) => modifierEntryToMod(skill.label, m, resolver))
         .filter((m): m is IndexedMod => m !== null),
       ...(dishonored && skill.ability === "cha"
         ? [{ id: "honor-skill", label: "Dishonored", source: "Dishonored", value: -2, bonusType: "untyped" as BonusType }]
