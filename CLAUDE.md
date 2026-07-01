@@ -570,6 +570,44 @@ first**.
 Phase 8's compendium picker honestly skipped (data + the core already exists). ~410 tests. See
 [[pathforge-pfcore-epic]] + `docs/PFcore Update/PFCORE_MASTER_PLAN.md`.
 
+**Editor "mega polish" + mobile-nav overhaul + read-view completeness + compendium accordion (2026-06-30 →
+07-01).** A large post-M12 UI/UX pass, each increment shipped after an adversarial Workflow review + a
+real-browser verify (localhost prod on :3100; the dev browser window clamps to ~660px, so true <640px mobile
+is class-guaranteed, not pixel-verified). See [[pathforge-editor-chip-disclosure]] + [[pathforge-mobile-first-ui]].
+- **Editor chip+disclosure redesign** — the whole EDIT UI moved to a unifying pattern: *beautiful chips as
+  the default display + a show/hide disclosure to customize every aspect + tap-to-open on mobile*, all on the
+  existing schema. Shared `<StatChip>`/`<Segmented>` (`picker-shell.tsx`) + `<EntryCard>` (`entry-card.tsx`;
+  collapsed name+chips → expand-to-edit; render-phase open-on-signal). **Classes** (`9417b52`) — killed "From
+  catalog"; per-class **Archetype** button auto-scoped to that class + multiple; **Prestige** folded into the
+  Compendium picker as a filter; editable Good/Bad Fort/Ref/Will + BAB + caster type + custom HD; halved name
+  box + an accordion of every aspect; **Favored-class checkbox(es)** + FCB +1 HP / +1 skill steppers.
+  **Feats/Features/Traits** (`692a929`) — rich chips + expand-to-edit (the "custom is too basic" fix).
+  **Race + Spells** (`69df796`) — a disclosure to view/set every racial-trait effect (ability mods, speed,
+  base height); spells on the same chips+disclosure pattern.
+- **Mobile nav overhaul (A→B→C, `docs/MOBILE_NAV_AND_POLISH_PLAN.md`)** — **A** killed the redundant mobile
+  sidebar drawer → an `<AccountMenu>` avatar (settings/theme/sign-out), the section switcher became a
+  hamburger bottom-sheet, live-stats locked to a sticky `top-14` strip + a floating back-to-top
+  (`893d00c`/`0b3b6e7`); **B** a 44px touch-target sweep (Button `sm`/`icon`/`default` now touch-first
+  responsive `h-11 … sm:h-X`; ~40 inline controls; toolbar/profile stacks) (`842a441`); **C** read-view
+  completeness — feat/feature/trait rules text expands via a new `<EntryDetailRow>`/`<DetailPara>`
+  (`entry-detail-row.tsx`, SpellRow-style); per-class archetypes header; at-will spell badge + FCB skill
+  ranks (`1eed610`); SLA caster-level + owner-only notes + a racial ability-mod line on the scores card
+  (`40708e8`). VM gained `header.classes[]`, `racialMods` (abilities-gated), `advancement.favoredClassSkill`,
+  `SpellView.atWill`, `slas.casterLevel/notes`(owner). **A+B+C all pushed to prod.**
+- **Dashboard compendium card** (`a87ec98`) — the "Spell Compendium" quick-link (→ `/spells`, spells-only,
+  predated M12) is relabeled **"Compendium"**, broadened, and repointed to the unified **`/compendium`** hub.
+- **Compendium: Classes page + full-detail accordion** (`3c658ff`) — (1) the missing **`/classes`** browse
+  page (`class_compendium` + `search_class_compendium` already existed) + added as the FIRST `/compendium`
+  hub card (new `Helmet` game-icon → `caro-asercion/warlord-helmet`). (2) Replaced the `line-clamp`
+  truncation on EVERY compendium browse page with a native `<details>`/`<summary>` **accordion** (zero client
+  JS — the pages stay pure Server Components): collapsed = name + badges + key meta, expand = the full
+  untruncated rules text. `CompendiumConfig`: `renderRow` → `renderSummary` + `renderDetail` + `hasDetail`;
+  new shared `<Prose>` (`<br>`→newline, `whitespace-pre-wrap`) + trim-aware `hasText()` helpers in
+  `compendium-browser.tsx`. Applied to the 6 `CompendiumBrowser` configs + classes AND the bespoke `/spells`
+  + `/spheres`. Review fixes (2 LOW): `hasText`-gated expandability (no chevron over an empty body on future
+  imports) + a terse `aria-label` on each `<summary>` so its a11y name is the entry name, not
+  "Fighter Base d10 Core Rulebook". See [[pathforge-icon-pack]].
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

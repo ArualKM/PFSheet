@@ -16,9 +16,9 @@ GM-verifiable, import/export-capable Pathfinder 1e character platform.
 ## Status
 
 **Live in production** at [pfsheet.org](https://pfsheet.org) (auto-deploys from `main` via Vercel).
-Milestones **M0–M11** are complete; secondary milestones (S1–S7) are being built interleaved — a full
-**sheet-depth audit** (every core PF1e sheet feature wired engine→sheet) is done, and **S4 (optional
-rules & 3pp)** is in progress.
+Milestones **M0–M12** are complete (M12 = the **compendium-driven builder**); secondary milestones (S1–S7)
+are being built interleaved — a full **sheet-depth audit** (every core PF1e sheet feature wired
+engine→sheet) is done, and **S4 (optional rules & 3pp)** is in progress. The web app + PWA is **v1-complete**.
 
 What's shipped:
 
@@ -28,6 +28,12 @@ What's shipped:
 - **Point-buy calculator**, **prebuilt PF1e class catalog** (tap-to-apply class skills / BAB / saves /
   HD / caster entry), and **deep spellcasting** (slots-per-day, bonus spells, save DCs, concentration,
   prepared/cast/rest workflow, compendium-backed spell detail).
+- **Compendium-driven builder (M12)** — a browsable PF1e reference hub at `/compendium` (**classes**,
+  feats, traits, races, archetypes, class options, prestige, spells, spheres — every page a
+  search-and-expand accordion) plus tap-to-apply pickers that auto-fill the mechanics: a class-progression
+  builder (BAB/saves/HP + per-level features), archetypes (with conflict detection), prestige, races
+  (ability mods/size/speed), and feats with a prerequisite engine + seeded automation effects. Companions
+  (familiars/mounts/eidolons) are linked, separately-editable character rows.
 - **Buff Center** — toggleable effects with live affected-value deltas, stacking-conflict detection,
   duration tracking, and a PF1e buff library.
 - **Privacy & sharing** — a per-section privacy view-model; public share pages at `/c/{slug}` with
@@ -40,7 +46,8 @@ What's shipped:
   share slug, key- or session-authed for owners, Discord card), API-key management, rate limiting, and
   developer docs at `/developers` (+ OpenAPI 3.1).
 - **PWA** — installable, offline fallback, privacy-safe service worker.
-- **Mobile** — responsive overhaul (drawer nav, responsive editor, touch targets).
+- **Mobile** — responsive overhaul (account-menu nav, hamburger section switcher, sticky live-stats
+  header, 44px touch targets, tap-to-open chip editors).
 - **Full PF1e sheet depth** — the rules engine now drives equipped armor→AC (+ Max-Dex cap) and
   armor-check-penalty→skills, equipped weapons→attacks, conditions (fear/fatigue tracks, dishonor,
   negative levels), metamagic→effective spell level, HP from Hit Dice + Con + favored-class bonus,
@@ -200,7 +207,8 @@ silently discard data — unmapped source fields are preserved under `metadata.u
   and supports import-as-new or merge (snapshots the target first). _Deferred:_ Myth-Weavers HTML,
   Hero Lab `.por` (shelved — HL Online has no PF1e), statblock parser.
 - **Export (shipped):** PathForge JSON (lossless canonical + privacy-filtered public), Foundry Actor
-  JSON, Discord card, plus the REST API shapes. _Deferred:_ printable PDF (§13.3).
+  JSON, Discord card, a **printable one-page PDF** (§13.3, server-side via `pdf-lib`), plus the REST API
+  shapes. _Deferred:_ a distinct "classic" PDF layout + skills pagination past ~108 ranked skills.
 
 ## Security / RLS notes
 

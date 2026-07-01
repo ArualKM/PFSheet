@@ -4,13 +4,16 @@ _Created 2026-06-28 from a grounded 7-domain readiness assessment (`v1-readiness
 cross-checked against the codebase. This is the authoritative "what's left for 1.0" plan; the running
 status log is [`../CLAUDE.md`](../CLAUDE.md) and the quick resume is [`NEXT_SESSION.md`](NEXT_SESSION.md)._
 
-> **Updated 2026-06-28** (re-grounded via the `v1-remaining-audit` workflow): **V1·1 ✅ DONE.** **V1·2 is
-> ~80% done** — robots/sitemap, privacy+terms+footer, friendly auth errors, and the icon overhaul all
-> shipped; only **PWA raster icons** + **promote CSP to enforcing / Discord embed carve-out** remain (+
-> optional loading skeletons). V1·1/V1·2 per-item status is marked inline below (✅ done · ◑ partial ·
-> ☐ todo); the audit re-confirmed **V1·3–V1·6 exactly as written** (automation editor, conditions, mythic,
-> ABP, campaign writes, QA gate, PDF are all still ◑/☐ — none started). 314 unit tests; migrations at 0018.
-> Hyper-detailed next steps live in [`NEXT_SESSION.md`](NEXT_SESSION.md).
+> **✅ v1 COMPLETE (updated 2026-07-01).** **V1·1 through V1·6 have all shipped** — password reset / error
+> boundaries / coming-soon gating / API-key pepper (V1·1); PWA raster icons + enforced CSP (V1·2);
+> feat/feature/trait **automation editor** + conditions 12→17 + **Mythic depth** + **ABP** (V1·3); campaign
+> GM module/detail writes + invitation-consent flow (V1·4, migration `0020`); public E2E smoke + a11y on
+> every push (V1·5); **printable one-page PDF** (V1·6). All four spawned follow-ups merged too. Since then,
+> **M12 (the compendium-driven builder) also shipped** (migrations → `0025`) plus a big editor/mobile/
+> compendium UI-polish pass. **The web app + PWA is v1-complete.** ~410 unit tests. The remaining work is
+> **post-1.0** (the S4 3pp flagship — Spheres `<OptionPicker>` → Path of War → Akashic). The per-item detail
+> below is the HISTORICAL plan of record; live status is [`../CLAUDE.md`](../CLAUDE.md) +
+> [`NEXT_SESSION.md`](NEXT_SESSION.md).
 
 ## What "v1" means here
 
