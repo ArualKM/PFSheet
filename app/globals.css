@@ -183,3 +183,19 @@
   font-size: clamp(1rem, 0.85rem + 1.2vw, 1.35rem);
   line-height: 1.1;
 }
+
+/* Full-screen sheet entrance (mobile section navigator). The global
+   prefers-reduced-motion override above collapses it to instant. */
+@keyframes pf-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@utility pf-sheet-in {
+  animation: pf-sheet-in 0.18s ease-out;
+}

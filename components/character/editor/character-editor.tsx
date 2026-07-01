@@ -356,7 +356,10 @@ export function CharacterEditor({
       key: "settings",
       label: "Settings",
       icon: Settings,
-      items: [{ key: "settings", label: "Sheet settings", render: () => <SettingsEditor ed={ed} /> }],
+      items: [
+        { key: "optional_rules", label: "Optional rules & 3pp", render: () => <OptionalRulesEditor ed={ed} /> },
+        { key: "privacy", label: "Privacy & sharing", render: () => <PrivacySharingEditor ed={ed} /> },
+      ],
     },
   ];
 
@@ -514,6 +517,7 @@ export function CharacterEditor({
           advanced={advanced}
           sections={sections}
           activeSection={activeSection}
+          activeSub={activeSub}
           onSelectSection={(sKey, subKey) => {
             setActiveSection(sKey);
             setActiveSub(subKey);
@@ -613,19 +617,27 @@ export function CharacterEditor({
   );
 }
 
-/** Mobile (< md) section picker: a button showing the active section that opens a
- *  bottom-sheet list of all sections (replaces the desktop vertical rail). */
+/** Mobile (< md) section picker: a button showing the active section that opens a FULL-SCREEN
+ *  navigator (replaces the old bottom-2/3 sheet). Every section is listed with its sub-panels,
+ *  so any editor is one tap away; the active section + sub are highlighted. Radix Dialog gives
+ *  the focus trap / Esc / scroll lock; safe-area insets are respected on notched phones. */
 function SectionSheet({
   sections,
   activeKey,
+  activeSubKey,
   onSelect,
 }: {
   sections: SheetSection[];
   activeKey: string;
+  activeSubKey: string;
   onSelect: (sectionKey: string, subKey: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const active = sections.find((s) => s.key === activeKey) ?? sections[0]!;
+  const go = (sectionKey: string, subKey: string) => {
+    onSelect(sectionKey, subKey);
+    setOpen(false);
+  };
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
@@ -639,37 +651,77 @@ function SectionSheet({
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm md:hidden" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 md:hidden" />
         <Dialog.Content
-          className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface p-3 focus:outline-none md:hidden"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          aria-describedby={undefined}
+          className="pf-sheet-in fixed inset-0 z-50 flex flex-col bg-background focus:outline-none md:hidden"
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}
         >
-          <Dialog.Title className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Sheet sections
-          </Dialog.Title>
-          <div className="mt-1 space-y-1">
-            {sections.map((s) => {
-              const Icon = s.icon;
-              const isActive = s.key === activeKey;
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => {
-                    onSelect(s.key, s.items[0]!.key);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "tap-target flex w-full items-center gap-3 rounded-lg px-3 text-left text-sm",
-                    isActive ? "bg-surface-raised text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Icon className={cn("size-4 shrink-0", isActive ? "text-gold" : "")} />
-                  {s.label}
-                </button>
-              );
-            })}
+          <div className="flex shrink-0 items-center justify-between border-b border-border py-1 pl-4 pr-1">
+            <Dialog.Title className="text-sm font-semibold text-foreground">Sheet sections</Dialog.Title>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                aria-label="Close section picker"
+                className="tap-target inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-5" />
+              </button>
+            </Dialog.Close>
           </div>
+          <nav aria-label="Sheet sections" className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="space-y-0.5">
+              {sections.map((s) => {
+                const Icon = s.icon;
+                const isActive = s.key === activeKey;
+                const multi = s.items.length > 1;
+                return (
+                  <div key={s.key}>
+                    <button
+                      type="button"
+                      onClick={() => go(s.key, s.items[0]!.key)}
+                      aria-current={isActive && !multi ? "true" : undefined}
+                      className={cn(
+                        "tap-target flex w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium",
+                        isActive && !multi
+                          ? "bg-surface-raised text-foreground"
+                          : "text-foreground hover:bg-surface-raised/60",
+                      )}
+                    >
+                      <Icon className={cn("size-5 shrink-0", isActive ? "text-gold" : "text-muted-foreground")} />
+                      {s.label}
+                    </button>
+                    {multi && (
+                      <div className="mb-1 ml-[1.4rem] border-l border-border pl-1.5">
+                        {s.items.map((i) => {
+                          const isSub = isActive && i.key === activeSubKey;
+                          return (
+                            <button
+                              key={i.key}
+                              type="button"
+                              onClick={() => go(s.key, i.key)}
+                              aria-current={isSub ? "true" : undefined}
+                              className={cn(
+                                "tap-target flex w-full items-center rounded-lg px-3 text-left text-sm",
+                                isSub
+                                  ? "bg-surface-raised font-medium text-foreground"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {i.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </nav>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -685,6 +737,7 @@ function LivePreviewBar({
   advanced,
   sections,
   activeSection,
+  activeSub,
   onSelectSection,
 }: {
   ed: EditorApi;
@@ -692,6 +745,7 @@ function LivePreviewBar({
   advanced: boolean;
   sections: SheetSection[];
   activeSection: string;
+  activeSub: string;
   onSelectSection: (sectionKey: string, subKey: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -699,9 +753,9 @@ function LivePreviewBar({
   return (
     <div className="sticky top-14 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur md:top-20">
       <div className="flex items-stretch">
-        {/* Mobile section hamburger → bottom sheet; the desktop left rail handles sections at md+. */}
+        {/* Mobile section hamburger → full-screen navigator; the desktop left rail handles sections at md+. */}
         <div className="flex shrink-0 items-center border-r border-border pl-1 pr-0.5 md:hidden">
-          <SectionSheet sections={sections} activeKey={activeSection} onSelect={onSelectSection} />
+          <SectionSheet sections={sections} activeKey={activeSection} activeSubKey={activeSub} onSelect={onSelectSection} />
         </div>
         <button
           type="button"
@@ -2374,35 +2428,8 @@ function privacyDisplayLevel(l: PrivacyLevel): PrivacyLevel {
   return l;
 }
 
-function SettingsEditor({ ed }: { ed: EditorApi }) {
-  const toggleRule = (mod: OptionalRuleModule, on: boolean) =>
-    ed.update((c) => {
-      if (mod.variantKey) {
-        c.rules.variants[mod.variantKey] = on || undefined;
-        // Fractional changes the BAB/save math — recompute so the toggle takes effect immediately.
-        if (mod.variantKey === "fractionalBabSaves") recomputeClassDerived(c, { hpMethod: "manual" });
-        return;
-      }
-      const arr = c.rules.modules;
-      const idx = arr.findIndex((m) => m.key === mod.key);
-      if (on) {
-        if (idx < 0) arr.push({ key: mod.key, enabled: true, settings: {} });
-        else {
-          const m = arr[idx];
-          if (m) m.enabled = true;
-        }
-      } else if (idx >= 0) {
-        arr.splice(idx, 1);
-      }
-      // Gestalt changes BAB/saves/HP and the character level — recompute so the toggle takes effect.
-      if (mod.key === "gestalt") {
-        c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
-        recomputeClassDerived(c, { hpMethod: "manual" });
-      }
-    });
-
-  const enabledCount = OPTIONAL_RULE_MODULES.filter((m) => isRuleEnabled(ed.draft, m)).length;
-
+/** Settings → "Privacy & sharing" panel: per-section §15 visibility levels. */
+function PrivacySharingEditor({ ed }: { ed: EditorApi }) {
   return (
     <div className="space-y-5">
       <div>
@@ -2445,6 +2472,46 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
         </div>
       </div>
 
+      <p className="text-xs text-muted-foreground">
+        The overall share link &amp; visibility (private / unlisted / public) and theme live on the
+        character overview.
+      </p>
+    </div>
+  );
+}
+
+/** Settings → "Optional rules & 3pp" panel: the module/variant toggles. */
+function OptionalRulesEditor({ ed }: { ed: EditorApi }) {
+  const toggleRule = (mod: OptionalRuleModule, on: boolean) =>
+    ed.update((c) => {
+      if (mod.variantKey) {
+        c.rules.variants[mod.variantKey] = on || undefined;
+        // Fractional changes the BAB/save math — recompute so the toggle takes effect immediately.
+        if (mod.variantKey === "fractionalBabSaves") recomputeClassDerived(c, { hpMethod: "manual" });
+        return;
+      }
+      const arr = c.rules.modules;
+      const idx = arr.findIndex((m) => m.key === mod.key);
+      if (on) {
+        if (idx < 0) arr.push({ key: mod.key, enabled: true, settings: {} });
+        else {
+          const m = arr[idx];
+          if (m) m.enabled = true;
+        }
+      } else if (idx >= 0) {
+        arr.splice(idx, 1);
+      }
+      // Gestalt changes BAB/saves/HP and the character level — recompute so the toggle takes effect.
+      if (mod.key === "gestalt") {
+        c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
+        recomputeClassDerived(c, { hpMethod: "manual" });
+      }
+    });
+
+  const enabledCount = OPTIONAL_RULE_MODULES.filter((m) => isRuleEnabled(ed.draft, m)).length;
+
+  return (
+    <div className="space-y-5">
       <div>
         <h3 className="text-sm font-semibold text-foreground">Optional rules &amp; 3pp</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -2506,11 +2573,6 @@ function SettingsEditor({ ed }: { ed: EditorApi }) {
           </div>
         </section>
       ))}
-
-      <p className="text-xs text-muted-foreground">
-        The overall share link &amp; visibility (private / unlisted / public) and theme live on the
-        character overview.
-      </p>
     </div>
   );
 }
