@@ -85,7 +85,14 @@ export async function CompendiumBrowser({
     error = res.error;
   } else {
     let query = sb.from(config.table).select(config.selectCols, { count: "exact" });
-    if (q) query = query.textSearch("search", q, { type: "websearch" });
+    // Match the 0026 RPC semantics in filtered-search mode: name SUBSTRING (so prefixes like
+    // "Wiza" hit "Wizard") OR whole-word FTS. PostgREST `or` needs its values double-quoted —
+    // escape one level for the quoted string, and LIKE metacharacters inside the pattern.
+    if (q) {
+      const pgQuote = (v: string) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      const likePattern = `%${q.replace(/\\/g, "\\\\").replace(/[%_]/g, (m) => `\\${m}`)}%`;
+      query = query.or(`${config.orderCol}.ilike.${pgQuote(likePattern)},search.wfts(english).${pgQuote(q)}`);
+    }
     for (const { f, value } of activeFilters) query = query.eq(f.col, value);
     const res = await query.order(config.orderCol).range((pageNum - 1) * PAGE, (pageNum - 1) * PAGE + PAGE - 1);
     rows = (res.data ?? []) as Record<string, unknown>[];
