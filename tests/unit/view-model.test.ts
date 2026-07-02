@@ -122,7 +122,7 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
   // Every optional-rules module that surfaces its own card must respect §15 like core sections —
   // otherwise enabling Mythic/Psionics/etc. would leak on a public share or the API (both built here).
   const OPTIONAL_SYSTEMS: Array<{
-    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "milestoneLeveling";
+    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "pathOfWar" | "milestoneLeveling";
     label: string;
     setup: (c: ReturnType<typeof createDefaultCharacter>) => void;
   }> = [
@@ -169,6 +169,19 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
             { id: "p1", className: "Psion", manifesterLevel: 10, keyAbility: "int", basePowerPoints: 90, discipline: "telepathy" },
           ],
           powersKnown: [{ id: "pw1", name: "Energy Ray", level: 1 }],
+        };
+      },
+    },
+    {
+      key: "pathOfWar",
+      label: "Path of War",
+      setup: (c) => {
+        c.rules.modules.push({ key: "path_of_war", enabled: true, settings: {} });
+        c.pathOfWar = {
+          initiators: [
+            { id: "i1", className: "Stalker", classLevel: 5, initiationAbility: "", recoveryMethod: "standard_action", disciplineKeys: [] },
+          ],
+          maneuvers: [],
         };
       },
     },
@@ -247,6 +260,56 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(ownPower.augment).toBe("For each additional power point…");
     expect(ownPower.special).toBe("This power can be taken as a talent…");
     expect(ownPower.mythic).toBe("The ray deals more damage…");
+  });
+
+  // Same tiering for Path of War maneuvers: mechanical meta (level/type/action/range/save/DC and the
+  // readied/expended lifecycle) is viewer-safe within the gate; the 3pp rules text + notes are owner-only.
+  it("keeps maneuver rules text owner-only while exposing cached mechanical meta", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "path_of_war", enabled: true, settings: {} });
+      c.abilities.primary.wis.score = 18; // +4 — Stalker keys off Wis
+      c.pathOfWar = {
+        initiators: [
+          { id: "i1", className: "Stalker", classLevel: 5, initiationAbility: "", recoveryMethod: "standard_action", disciplineKeys: [] },
+        ],
+        maneuvers: [
+          {
+            id: "m1",
+            name: "Steel Serpent Strike",
+            level: 2,
+            discipline: "Steel Serpent",
+            entryKind: "maneuver",
+            maneuverType: "Strike",
+            initiationAction: "Standard action",
+            range: "Melee attack",
+            duration: "Instant",
+            savingThrow: "Fortitude partial",
+            prerequisites: "One Steel Serpent maneuver",
+            description: "You strike a nerve cluster…",
+            notes: "save for boss fights",
+            readied: true,
+            expended: false,
+            granted: false,
+            stanceActive: false,
+            automation: [],
+          },
+        ],
+      };
+    };
+    const anon = build("anonymous", mutate).pathOfWar!;
+    expect(anon.initiators[0]!.initiatorLevel).toBe(5);
+    expect(anon.readied).toBe(1);
+    const anonM = anon.maneuvers[0]!;
+    expect(anonM.maneuverType).toBe("Strike");
+    expect(anonM.range).toBe("Melee attack");
+    expect(anonM.savingThrow).toBe("Fortitude partial");
+    expect(anonM.readied).toBe(true);
+    expect(anonM.saveDc).toBe(16); // 10 + level 2 + Wis 4
+    expect(anonM.description).toBeUndefined();
+    expect(anonM.notes).toBeUndefined();
+    const ownM = build("owner", mutate).pathOfWar!.maneuvers[0]!;
+    expect(ownM.description).toBe("You strike a nerve cluster…");
+    expect(ownM.notes).toBe("save for boss fights");
   });
 
   // Invariants for the systems deliberately NOT section-gated, so a future change can't silently

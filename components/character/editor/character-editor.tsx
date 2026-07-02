@@ -127,6 +127,7 @@ import { enabledThreeppSystems } from "@/lib/character/threepp";
 import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
 import { PowerPicker } from "./power-picker";
+import { PathOfWarEditor } from "./path-of-war-editor";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -283,6 +284,15 @@ export function CharacterEditor({
     isModuleKeyEnabled(ed.draft, "spheres_of_guile")
   ) {
     optionalSystemItems.push({ key: "spheres", label: "Spheres", render: () => <SpheresEditor ed={ed} /> });
+  }
+  // Shown when enabled OR the block already has data (like the Spheres per-system cards), so
+  // toggling the module off never strands existing maneuvers unreachable.
+  if (
+    isModuleKeyEnabled(ed.draft, "path_of_war") ||
+    (ed.draft.pathOfWar?.initiators.length ?? 0) > 0 ||
+    (ed.draft.pathOfWar?.maneuvers.length ?? 0) > 0
+  ) {
+    optionalSystemItems.push({ key: "path_of_war", label: "Path of War", render: () => <PathOfWarEditor ed={ed} /> });
   }
   if (isModuleKeyEnabled(ed.draft, "milestone_leveling")) {
     optionalSystemItems.push({
@@ -2571,6 +2581,7 @@ const OPTIONAL_PRIVACY_SECTIONS: Array<{ key: string; label: string; moduleKeys:
   { key: "stamina", label: "Stamina pool", moduleKeys: ["stamina"] },
   { key: "mythic", label: "Mythic", moduleKeys: ["mythic"] },
   { key: "psionics", label: "Psionics", moduleKeys: ["psionics"] },
+  { key: "pathOfWar", label: "Path of War", moduleKeys: ["path_of_war"] },
   { key: "milestoneLeveling", label: "Milestone Leveling", moduleKeys: ["milestone_leveling"] },
 ];
 

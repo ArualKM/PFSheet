@@ -122,6 +122,17 @@ export async function applyImportResolutions(
       applied.push("Psionics module enabled");
     }
   }
+  // Path of War: YES enables the module (linked maneuvers then re-file into character.pathOfWar);
+  // NO changes nothing — linked maneuvers fall back to plain features (psionics-mirror, never drop).
+  const powQ = questions.find((q) => q.kind === "path_of_war");
+  if (powQ && answerOf(powQ)) {
+    const existing = sheet.rules.modules.find((m) => m.key === "path_of_war");
+    if (!existing?.enabled) {
+      if (existing) existing.enabled = true;
+      else sheet.rules.modules.push({ key: "path_of_war", enabled: true, settings: {} });
+      applied.push("Path of War module enabled");
+    }
+  }
 
   // The core-vs-Unchained answers re-pick each class claim's candidate (an explicit per-claim
   // resolution from the player still wins — it lives in answers.resolutions and is read first).
@@ -464,6 +475,56 @@ export async function applyImportResolutions(
     }
   };
 
+  /** Path of War module ON (adapter-flagged or the question answered YES above) → a real
+   * character.pathOfWar maneuver entry; OFF → the maneuver stays visible as a plain feature,
+   * mirroring addPsionicPower (never silently drop a linked row). Cached text goes through
+   * brToNewlines so both add-paths persist plain text — the compendium's rich-text cells carry
+   * literal "<br>" separators. */
+  const addPowManeuver = (c: ImportClaim, row: Record<string, unknown>): void => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.rules.modules.some((m) => m.key === "path_of_war" && m.enabled)) {
+      if (!sheet.pathOfWar) sheet.pathOfWar = { initiators: [], maneuvers: [] };
+      const pow = sheet.pathOfWar;
+      if (!pow.maneuvers.some((m) => m.compendiumId === cid || (normalizeKey(m.name) === normalizeKey(name) && !m.compendiumId))) {
+        // `level` is text ("1"–"9"); the schema requires an int 1–9 — parse + clamp, default 1.
+        const parsed = Math.trunc(Number(S(row.level).trim()));
+        const level = Number.isFinite(parsed) && parsed >= 1 ? Math.min(9, parsed) : 1;
+        pow.maneuvers.push({
+          id: `import_${c.id}`,
+          compendiumId: cid,
+          name,
+          level,
+          discipline: S(row.discipline) || undefined,
+          entryKind: /stance/i.test(S(row.category)) ? "stance" : "maneuver",
+          maneuverType: S(row.type) || undefined,
+          initiationAction: brToNewlines(S(row.initiation_action)),
+          range: brToNewlines(S(row.range)),
+          target: brToNewlines(S(row.target)),
+          duration: brToNewlines(S(row.duration)),
+          savingThrow: brToNewlines(S(row.saving_throw)),
+          prerequisites: brToNewlines(S(row.prerequisite)),
+          description: brToNewlines(S(row.description)),
+          readied: false,
+          expended: false,
+          granted: false,
+          stanceActive: false,
+          automation: [],
+          ...(S(row.source) ? { source: { book: S(row.source) } } : {}),
+        });
+      }
+    } else if (!sheet.features.list.some((f) => f.compendiumId === cid || (normalizeKey(f.name) === normalizeKey(name) && !f.compendiumId))) {
+      sheet.features.list.push({
+        id: `import_${c.id}`,
+        name,
+        category: "special_ability",
+        compendiumId: cid,
+        description: brToNewlines(S(row.description)),
+        automation: [],
+      });
+    }
+  };
+
   const MYTHIC_PATH_SET = new Set<string>(MYTHIC_PATHS);
   const addMythicAbility = (c: ImportClaim, row: Record<string, unknown>): void => {
     const name = S(row.name);
@@ -565,6 +626,19 @@ export async function applyImportResolutions(
       if (!row) return false;
       await addPsionicPower(c, row);
       applied.push(`Psionic power: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
+      return true;
+    }
+    if (link.table === "pow_maneuver_compendium") {
+      const { data: row } = await sb
+        .from("pow_maneuver_compendium")
+        .select("slug,name,discipline,level,category,type,initiation_action,range,target,duration,saving_throw,prerequisite,description,source")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      addPowManeuver(c, row);
+      applied.push(
+        `${/stance/i.test(S(row.category)) ? "Stance" : "Maneuver"}: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`,
+      );
       return true;
     }
     if (link.table === "mythic_path_ability_compendium") {

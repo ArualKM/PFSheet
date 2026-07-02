@@ -123,10 +123,60 @@ describe("classifyHeader — sheet organization as matching signal", () => {
     expect(classifyHeader("Manifester Level 7")).toBe("psionic_power");
   });
 
+  it("Path of War headers steer to pow_maneuver — below the drawback/mythic/psionic/sphere rules", () => {
+    expect(classifyHeader("MANEUVERS KNOWN")).toBe("pow_maneuver");
+    expect(classifyHeader("Maneuvers Readied:")).toBe("pow_maneuver");
+    expect(classifyHeader("STANCES")).toBe("pow_maneuver");
+    expect(classifyHeader("MARTIAL DISCIPLINES")).toBe("pow_maneuver");
+    expect(classifyHeader("INITIATOR LEVEL")).toBe("pow_maneuver");
+    expect(classifyHeader("PATH OF WAR")).toBe("pow_maneuver");
+    // The higher rules still outrank pow (matching the psionic precedence chain).
+    expect(classifyHeader("MARTIAL DRAWBACKS")).toBe("drawback");
+    expect(classifyHeader("MYTHIC MANEUVERS")).toBe("mythic_ability");
+    expect(classifyHeader("PSIONIC MANEUVERS")).toBe("psionic_power"); // psionic X stays psionic
+    expect(classifyHeader("PSIONIC POWERS")).toBe("psionic_power"); // unchanged
+    expect(classifyHeader("MONK KI POWERS")).toBe("feature"); // unchanged
+    expect(classifyHeader("CASTING TALENTS")).toBe("sphere_talent"); // unchanged
+    // "MARTIAL TALENTS" is Spheres of Might vocabulary (a real Anise divider) — sphere wins.
+    expect(classifyHeader("################# MARTIAL TALENTS #################")).toBe("sphere_talent");
+    // "INITIATIVE" is a stat header, never a maneuver section.
+    expect(classifyHeader("INITIATIVE")).toBeNull();
+  });
+
+  it("'MARTIAL FEATS' / 'PATH OF WAR FEATS' sections classify as feat (carve-out, like psionic feats)", () => {
+    expect(classifyHeader("MARTIAL FEATS")).toBe("feat");
+    expect(classifyHeader("Path of War Feats:")).toBe("feat");
+    expect(classifyHeader("##### Martial Bonus Feats #####")).toBe("feat");
+    // …while the maneuver-section headers keep steering into the maneuvers table.
+    expect(classifyHeader("MANEUVERS KNOWN")).toBe("pow_maneuver");
+  });
+
+  it("bare 'discipline'/'martial'/1pp vocabulary never classifies as pow — SoM + psionic + CMB carve-outs", () => {
+    // "MARTIAL TRADITION" is core Spheres of Might vocabulary (every SoM practitioner has one;
+    // it's literally in the Anise grounding fixture) — its talents steer into sphere_talents.
+    expect(classifyHeader("################# MARTIAL TRADITION #################")).toBe("sphere_talent");
+    expect(classifyHeader("Martial Traditions")).toBe("sphere_talent");
+    // The CMB/CMD stat-block caption on ordinary 1pp sheets is deliberately unclassified.
+    expect(classifyHeader("COMBAT MANEUVERS")).toBeNull();
+    expect(classifyHeader("COMBAT MANEUVER BONUSES")).toBeNull();
+    // A bare "Discipline" label (standard Ultimate Psionics power bookkeeping — "Discipline:
+    // Telepathy") must NOT classify: prod has real psionic/maneuver name collisions (Expose
+    // Weakness, Blinding Shot), and flipping a running psionic context would mislink them.
+    expect(classifyHeader("Discipline")).toBeNull();
+    expect(classifyHeader("SELF-DISCIPLINE")).toBeNull();
+    // Bare "martial" 1pp vocabulary stays silent too.
+    expect(classifyHeader("MARTIAL ARTS")).toBeNull();
+    expect(classifyHeader("MARTIAL FLEXIBILITY")).toBeNull();
+    // …while the real PoW phrases keep classifying.
+    expect(classifyHeader("MARTIAL DISCIPLINES")).toBe("pow_maneuver");
+    expect(classifyHeader("Martial Discipline: Broken Blade")).toBe("pow_maneuver");
+  });
+
   it("context re-orders a probe's tables", () => {
     expect(probeTables({ kind: "spell", context: "sphere_talent" })[0]).toBe("sphere_talents");
     expect(probeTables({ kind: "trait", context: "mythic_ability" })[0]).toBe("mythic_path_ability_compendium");
     expect(probeTables({ kind: "spell", context: "psionic_power" })[0]).toBe("psionic_power_compendium");
+    expect(probeTables({ kind: "feat", context: "pow_maneuver" })[0]).toBe("pow_maneuver_compendium");
     expect(probeTables({ kind: "feat" })[0]).toBe("feat_compendium");
   });
 });
@@ -208,6 +258,36 @@ Mythic Qualities
     expect(mined.entries.length).toBe(80);
     expect(mined.truncated).toBe(true);
   });
+
+  it("a 'Discipline: X' label line never resets a running PSIONIC context to pow (UP bookkeeping)", () => {
+    // Standard Ultimate Psionics layout: powers section, then per-power Discipline bookkeeping.
+    // Prod has exactly these psionic-power/maneuver name collisions (Expose Weakness, Blinding
+    // Shot) — flipping the context would auto-link them to the WRONG rules text.
+    const mined = mineNotesEntries(
+      "# Imported from Myth-Weavers\n\n## Notes field\nPSIONIC POWERS:\nDiscipline: Telepathy\n• Expose Weakness\n• Blinding Shot",
+    );
+    expect(mined.entries.map((m) => m.text)).toEqual(["Expose Weakness", "Blinding Shot"]);
+    for (const e of mined.entries) expect(e.context).toBe("psionic_power");
+  });
+
+  it("PoW discipline-name dividers/captions keep (set) the pow context — the natural per-discipline grouping", () => {
+    const mined = mineNotesEntries(
+      "# Imported from Myth-Weavers\n\n## Notes field\n" +
+        "MANEUVERS KNOWN:\n" +
+        "################# BROKEN BLADE #################\n" +
+        "• Steel Flurry Strike\n" +
+        "VEILED MOON:\n" +
+        "• Formless Dance\n" +
+        "PRIMAL FURY\n" +
+        "• Rending Claw Strike",
+    );
+    const byText = new Map(mined.entries.map((m) => [m.text, m.context]));
+    expect(byText.get("Steel Flurry Strike")).toBe("pow_maneuver");
+    expect(byText.get("Formless Dance")).toBe("pow_maneuver");
+    expect(byText.get("Rending Claw Strike")).toBe("pow_maneuver");
+    // The ALL-CAPS discipline caption is context, never a mined entry.
+    expect(mined.entries.some((m) => /primal fury/i.test(m.text))).toBe(false);
+  });
 });
 
 describe("collectProbes on the real Anise fixture", () => {
@@ -249,11 +329,15 @@ describe("collectProbes on the real Anise fixture", () => {
 
     // Questions: gestalt + mythic + two unchained. NO psionics — Rogue/Monk + sphere/mythic
     // notes carry no manifester markers ("Time"/"Warp" spheres must not trip the detector).
+    // NO path_of_war either — the sheet's "Stalker Talent" feats, "Deft Maneuvers" feat, and
+    // Spheres "MARTIAL TRADITION"/"MARTIAL TALENTS" sections are NOT initiator markers (HARD
+    // requirement: the Spheres grounding fixture stays silent).
     const kinds = report.questions.map((q) => q.kind);
     expect(kinds).toContain("gestalt");
     expect(kinds).toContain("mythic");
     expect(kinds.filter((k) => k === "unchained")).toHaveLength(2);
     expect(kinds).not.toContain("psionics");
+    expect(kinds).not.toContain("path_of_war");
     expect(report.questions.find((q) => q.kind === "unchained")?.defaultAnswer).toBe(true); // UC prefix
   });
 });
@@ -319,6 +403,82 @@ describe("psionics detector — the deferred detector is live", () => {
     const c = createDefaultCharacter();
     c.rules.modules.push({ key: "psionics", enabled: false, settings: {} });
     expect(collectProbes(c).questions.some((x) => x.kind === "psionics")).toBe(true);
+  });
+});
+
+describe("Path of War detector — the psionics detector's exact mirror", () => {
+  it("asks the path_of_war question for an initiator class line", () => {
+    const c = createDefaultCharacter();
+    c.identity.classes = [{ id: "cls1", name: "Warlord 8", level: 8 }];
+    const q = collectProbes(c).questions.find((x) => x.kind === "path_of_war");
+    expect(q).toBeTruthy();
+    expect(q!.defaultAnswer).toBe(true);
+    expect(q!.text).toContain("Path of War");
+    // Gestalt initiator sides count too.
+    const g = createDefaultCharacter();
+    g.identity.classes = [{ id: "cls1", name: "Fighter 5 || Stalker 5", level: 5 }];
+    expect(collectProbes(g).questions.some((x) => x.kind === "path_of_war")).toBe(true);
+  });
+
+  it("asks on maneuver bookkeeping in the notes dump", () => {
+    const mk = (notes: string) => {
+      const c = createDefaultCharacter();
+      c.notes.player = `# Imported from Myth-Weavers\n\n## Notes field\n${notes}`;
+      return collectProbes(c).questions.some((x) => x.kind === "path_of_war");
+    };
+    expect(mk("Maneuvers Known: 12")).toBe(true);
+    expect(mk("Maneuvers Readied: 7")).toBe(true);
+    expect(mk("Stances Known: 4")).toBe(true);
+    expect(mk("Initiator Level 7")).toBe(true);
+    expect(mk("Uses the Path of War rules.")).toBe(true);
+    expect(mk("MARTIAL DISCIPLINES: Broken Blade, Primal Fury")).toBe(true);
+  });
+
+  it("stays quiet when the module is already enabled, and on non-initiator sheets", () => {
+    const on = createDefaultCharacter();
+    on.identity.classes = [{ id: "cls1", name: "Warder 5", level: 5 }];
+    on.rules.modules.push({ key: "path_of_war", enabled: true, settings: {} });
+    expect(collectProbes(on).questions.some((x) => x.kind === "path_of_war")).toBe(false);
+
+    // The Spheres/1pp vocabulary the grounding fixtures actually carry must NOT fire: the feat
+    // "Deft Maneuvers", "Stalker Talent" prose, a "MARTIAL TRADITION" section, "+2 initiative".
+    const quiet = createDefaultCharacter();
+    quiet.identity.classes = [{ id: "cls1", name: "Fighter 5", level: 5 }];
+    quiet.notes.player =
+      "# Imported from Myth-Weavers\n\n## Notes field\n" +
+      "################# MARTIAL TRADITION #################\n" +
+      "Equipment: Critical Genius (Unarmed Strike), Unarmed Training (discipline)\n" +
+      "Feat 9. Stalker Talent: Critical Virtuoso\n" +
+      "Rogue 1: Deft Maneuvers\n" +
+      "• Reactionary (Combat): +2 initiative\n" +
+      "He held his stance in the doorway.";
+    expect(collectProbes(quiet).questions.some((x) => x.kind === "path_of_war")).toBe(false);
+
+    // An archetype can't trip the class regex (base names only).
+    const arch = createDefaultCharacter();
+    arch.identity.classes = [{ id: "cls1", name: "Fighter (Warlord's Legacy) 5", level: 5 }];
+    expect(collectProbes(arch).questions.some((x) => x.kind === "path_of_war")).toBe(false);
+  });
+
+  it("initiator names inside OTHER multi-word class names never fire — full baseName equality", () => {
+    const ask = (classes: string[]) => {
+      const c = createDefaultCharacter();
+      c.identity.classes = classes.map((name, i) => ({ id: `cls${i}`, name, level: 0 }));
+      return collectProbes(c).questions.some((x) => x.kind === "path_of_war");
+    };
+    // "Mystic Theurge" is a classic 1pp Wizard/Cleric prestige class — a substring test would
+    // enable the PoW module on a pure-1pp sheet via the click-through default-Yes question.
+    expect(ask(["Wizard 3 / Cleric 3 / Mystic Theurge 4"])).toBe(false);
+    expect(ask(["Stalker Vigilante 6"])).toBe(false);
+    // …while the real initiator classes still fire, alone or in a multiclass line.
+    expect(ask(["Mystic 5"])).toBe(true);
+    expect(ask(["Fighter 5 / Warlord 3"])).toBe(true);
+  });
+
+  it("asks when the module entry is present but disabled (adapter-flagged)", () => {
+    const c = createDefaultCharacter();
+    c.rules.modules.push({ key: "path_of_war", enabled: false, settings: {} });
+    expect(collectProbes(c).questions.some((x) => x.kind === "path_of_war")).toBe(true);
   });
 });
 

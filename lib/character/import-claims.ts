@@ -42,6 +42,7 @@ export type ClaimKind =
   | "drawback"
   | "sphere_talent"
   | "psionic_power"
+  | "pow_maneuver"
   | "mythic_ability"
   | "racial_trait";
 
@@ -57,6 +58,7 @@ export const KIND_TABLES: Record<ClaimKind, string[]> = {
   drawback: ["drawback_compendium", "trait_compendium"],
   sphere_talent: ["sphere_talents", "feat_compendium", "class_feature_compendium"],
   psionic_power: ["psionic_power_compendium", "spell_compendium", "feat_compendium"],
+  pow_maneuver: ["pow_maneuver_compendium", "feat_compendium", "class_feature_compendium"],
   mythic_ability: ["mythic_path_ability_compendium", "feat_compendium"],
   racial_trait: ["alternate_racial_trait_compendium", "trait_compendium", "feat_compendium"],
 };
@@ -73,6 +75,7 @@ export const TABLE_KIND: Record<string, ClaimKind> = {
   drawback_compendium: "drawback",
   sphere_talents: "sphere_talent",
   psionic_power_compendium: "psionic_power",
+  pow_maneuver_compendium: "pow_maneuver",
   mythic_path_ability_compendium: "mythic_ability",
   alternate_racial_trait_compendium: "racial_trait",
 };
@@ -135,7 +138,7 @@ export type ImportClaim = {
 
 export type ImportQuestion = {
   id: string;
-  kind: "gestalt" | "mythic" | "unchained" | "psionics";
+  kind: "gestalt" | "mythic" | "unchained" | "psionics" | "path_of_war";
   text: string;
   /** For unchained questions: which base class. */
   className?: string;
@@ -228,12 +231,74 @@ export function classifyHeader(raw: string): ClaimKind | null {
   // must not fall through to feature the way "MONK KI POWERS" deliberately does).
   if (/\bpsionic|\bmanifest|\bpower points?\b|\bpsion\b|\bpsychic warriors?\b|\bwilders?\b/.test(t)) return "psionic_power";
   if (/\bspheres?\b|\btalents?\b|\bcasting\b/.test(t)) return "sphere_talent";
+  // "MARTIAL FEATS" / "PATH OF WAR FEATS" are FEAT sections — they must win BEFORE the
+  // maneuver rule (mirrors the psionic-feats carve-out above).
+  if (/\b(?:martial|path of war)\b.*\bfeats?\b/.test(t)) return "feat";
+  // "MARTIAL TRADITION" is Spheres of Might vocabulary first (every SoM practitioner has one —
+  // the divider is literally in the Anise grounding fixture; PoW's same-named organizations
+  // subsystem is niche): its tradition-granted talents steer into sphere_talents.
+  if (/\bmartial traditions?\b/.test(t)) return "sphere_talent";
+  // "COMBAT MANEUVERS" / "COMBAT MANEUVER BONUS" is the CMB/CMD stat-block caption on ordinary
+  // 1pp sheets, never a PoW maneuvers section — deliberately unclassified.
+  if (/\bcombat maneuvers?\b/.test(t)) return null;
+  // Path of War sections ("MANEUVERS KNOWN", "STANCES", "MARTIAL DISCIPLINES", "INITIATOR
+  // LEVEL"). Deliberately BELOW psionic ("PSIONIC MANEUVERS" stays psionic) and BELOW
+  // sphere_talent — "MARTIAL TALENTS" is Spheres of Might vocabulary (a real Anise-fixture
+  // divider) and must keep steering into sphere_talents. Only initiator/initiation/initiating
+  // count — "INITIATIVE" must never classify as a maneuver section. Bare \bdisciplines?\b is
+  // deliberately OUT: "Discipline: Telepathy" is standard Ultimate Psionics bookkeeping whose
+  // label-value line must never flip a running psionic context (prod has real psionic/maneuver
+  // name collisions — Expose Weakness, Blinding Shot); "martial disciplines" stays as a phrase.
+  // Bare \bmartial\b is OUT too: "MARTIAL ARTS" / "MARTIAL FLEXIBILITY" / "SELF-DISCIPLINE" are
+  // 1pp vocabulary.
+  if (/\bmaneuvers?\b|\bstances?\b|\bmartial disciplines?\b|\bpath of war\b|\binitiat(?:ors?|ions?|ing)\b/.test(t)) return "pow_maneuver";
   if (/\bclass features?\b|\bki powers?\b|\bclass abilit/.test(t)) return "feature";
   if (/\bfeats?\b/.test(t)) return "feat";
   if (/\btraits?\b/.test(t)) return "trait";
   if (/\bspells?\b/.test(t)) return "spell";
   if (/\bfeatures?\b|\babilit(?:y|ies)\b|\bpowers?\b/.test(t)) return "feature";
   return null;
+}
+
+/** The 23 Path of War discipline names (mirrors prod `pow_discipline_compendium`). A header or
+ * divider naming one ("##### BROKEN BLADE #####") is a maneuvers grouping header in the natural
+ * PoW notes layout — keyword-less, so classifyHeader alone would CLEAR a running pow context and
+ * the maneuvers bulleted beneath would never probe the maneuvers table. */
+const POW_DISCIPLINES = [
+  "black seraph",
+  "broken blade",
+  "cursed razor",
+  "elemental flux",
+  "eternal guardian",
+  "fool's errand",
+  "golden lion",
+  "iron tortoise",
+  "mithral current",
+  "piercing thunder",
+  "primal fury",
+  "radiant dawn",
+  "riven hourglass",
+  "scarlet throne",
+  "shattered mirror",
+  "silver crane",
+  "sleeping goddess",
+  "solar wind",
+  "steel serpent",
+  "tempest gale",
+  "thrashing dragon",
+  "unquiet grave",
+  "veiled moon",
+] as const;
+const POW_DISCIPLINE_RE = new RegExp(
+  `\\b(?:${POW_DISCIPLINES.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+  "i",
+);
+
+/** `pow_maneuver` when a header/divider names a PoW discipline ("##### BROKEN BLADE #####",
+ * "VEILED MOON:"), else null. Checked AFTER classifyHeader in every header-context path, so the
+ * real keyword rules ("MARTIAL DISCIPLINES", "MYTHIC …", class-feature captions) keep winning. */
+export function powDisciplineContext(raw: string): "pow_maneuver" | null {
+  return POW_DISCIPLINE_RE.test(raw) ? "pow_maneuver" : null;
 }
 
 /** Strip leading slot bookkeeping ("Rogue 9. ", "Oath 10: ", "LVL 1) ", "Flaw) ", "1[Monk]. ",
@@ -355,6 +420,22 @@ const PSIONIC_CLASS_RE =
  * "per day" so platinum-piece ledgers can't trip it — neither via bare amounts ("32 pp, 14 gp")
  * nor via same-line day-words ("12 pp each today", "pp spent on payday"). */
 const PSIONIC_NOTES_RE = /power points?|manifester level|\bpsionics?\b|\bpp\b\s*(?:\/|per\s+)day\b/i;
+
+/** Dreamscarred Press initiator base classes (Path of War) — a class-line hit is a PoW marker
+ * (docs/3PP_MASTER_PLAN.md Phase 4 track C: the detector goes live now that the schema is).
+ * Matched by FULL baseName equality per parsed segment — the same base-name scoping that keeps
+ * PSIONIC_CLASS_RE off archetypes, tightened one step further: a substring test over the joined
+ * line fires on "Mystic Theurge" (a classic 1pp Wizard/Cleric prestige class) and
+ * "Stalker Vigilante", enabling the module on pure-1pp sheets. Standalone "Mystic" stays a
+ * marker — acceptable: the question is declinable and only ENABLES the module. */
+const POW_CLASS_NAMES = new Set(["stalker", "warder", "warlord", "zealot", "harbinger", "medic", "mystic"]);
+/** Path of War bookkeeping in the preserved notes dump ("Maneuvers Known: 12", "Stances Known 4",
+ * "Initiator Level 7", a literal "Path of War" / "Martial Disciplines" mention). Deliberately
+ * TIGHT: bare "maneuvers"/"stance"/"martial" must not fire — the grounding fixtures carry the
+ * feat "Deft Maneuvers", a Spheres "MARTIAL TRADITION"/"MARTIAL TALENTS" section, and "+2
+ * initiative" traits, and ALL must stay silent (locked by regression tests). */
+const POW_NOTES_RE =
+  /\bmaneuvers?\s+(?:known|readied)\b|\bstances?\s+known\b|\binitiator level\b|\bpath of war\b|\bmartial disciplines?\b/i;
 
 export type ParsedClassSegment = {
   raw: string;
@@ -482,14 +563,17 @@ export function mineNotesEntries(notesDump: string, cap = 80): MinedReport {
     }
     // Any other hash-prefixed line is a heading/divider, never an entry — classify it as context
     // ("################# MYTHIC #################", the adapter's "# Imported from …" title).
+    // A divider naming a PoW DISCIPLINE ("##### BROKEN BLADE #####" — the natural per-discipline
+    // grouping under "MANEUVERS KNOWN:") keeps steering into the maneuvers table instead of
+    // clearing the running pow context.
     if (/^#/.test(line) || isDivider(line)) {
-      context = classifyHeader(line) ?? undefined;
+      context = classifyHeader(line) ?? powDisciplineContext(line) ?? undefined;
       continue;
     }
     // Section captions inside the text ("RACE TRAITS:", "CHARACTER TRAITS:") aren't entries —
-    // but they ARE context.
+    // but they ARE context ("VEILED MOON:" is a discipline grouping caption).
     if (/^[A-Z .]+:$/.test(line)) {
-      context = classifyHeader(line) ?? context;
+      context = classifyHeader(line) ?? powDisciplineContext(line) ?? context;
       continue;
     }
     // Entry-shaped: bulleted or short, without sentence-like prose.
@@ -527,11 +611,13 @@ export function mineNotesEntries(notesDump: string, cap = 80): MinedReport {
     bare = bare.replace(/\s+/g, " ").trim();
     const words = bare.split(/\s+/).length;
     // A short non-bulleted category header ("Mythic Drawbacks", "MONK KI POWERS") updates the
-    // context instead of becoming an entry: ALL-CAPS, or Title Case ending in a plural grouping word.
+    // context instead of becoming an entry: ALL-CAPS, or Title Case ending in a plural grouping
+    // word. An ALL-CAPS PoW discipline name ("BROKEN BLADE") is the same grouping-caption layout
+    // without hashes — context, never a mined entry.
     if (!bullet && words <= 4) {
       const allCaps = /[A-Z]/.test(bare) && !/[a-z]/.test(bare);
       const pluralGroup = /\b(drawbacks|flaws|qualities|boons|feats|traits|talents|powers|spells|features|abilities)$/i.test(bare);
-      const kind = classifyHeader(bare);
+      const kind = classifyHeader(bare) ?? (allCaps ? powDisciplineContext(bare) : null);
       if (kind && (allCaps || pluralGroup)) {
         context = kind;
         continue;
@@ -665,6 +751,25 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
     }
   }
 
+  // ── Path of War detection (the psionics detector's exact mirror) ───────────
+  // Markers: an adapter-flagged path_of_war module entry, an initiator class on the class line,
+  // or maneuver bookkeeping in the notes dump. The question only ENABLES the module — header
+  // context steering into pow_maneuver_compendium works regardless of the answer. Already
+  // enabled → nothing to ask (refileLinked files maneuvers into character.pathOfWar as-is).
+  if (!character.rules.modules.some((m) => m.key === "path_of_war" && m.enabled)) {
+    const flagged = character.rules.modules.some((m) => m.key === "path_of_war");
+    const classHit = allSegments.some((s) => POW_CLASS_NAMES.has(s.baseName.trim().toLowerCase()));
+    const notesHit = POW_NOTES_RE.test(character.notes.player ?? "");
+    if (flagged || classHit || notesHit) {
+      questions.push({
+        id: pid("q-pow"),
+        kind: "path_of_war",
+        text: "Path of War content was detected — enable the module and link maneuvers?",
+        defaultAnswer: true,
+      });
+    }
+  }
+
   // ── Race ───────────────────────────────────────────────────────────────────
   if (character.identity.race && !character.identity.raceApplied) {
     probes.push({
@@ -684,6 +789,9 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
   const headerContext = (raw: string): ClaimKind | undefined => {
     const known = classifyHeader(raw);
     if (known) return known;
+    // A divider naming a PoW discipline ("#### BROKEN BLADE ####") labels a maneuvers group.
+    const disc = powDisciplineContext(raw);
+    if (disc) return disc;
     const words = normalizeKey(raw.replace(/[#=*_\-—–]+/g, " "));
     for (const cls of classNames) {
       if (words.includes(cls)) return "feature";
@@ -766,7 +874,10 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
   let spellCtx: ClaimKind | undefined;
   for (const s of character.spellcasting.knownSpells) {
     if (isDivider(s.name)) {
-      spellCtx = classifyHeader(s.name) ?? undefined;
+      // classifyHeader first; a PoW-discipline divider labels a maneuvers group. Deliberately NOT
+      // headerContext: a class-name divider under SPELLS (the Vehti "DRUID (Reincarnated)"
+      // grouping) must keep spell probes, not flip them to feature.
+      spellCtx = classifyHeader(s.name) ?? powDisciplineContext(s.name) ?? undefined;
       continue;
     }
     if ((s as { compendiumId?: string }).compendiumId) continue;

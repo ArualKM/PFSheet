@@ -21,6 +21,7 @@ import { mythicBlockSchema } from "./mythic";
 import { abpBlockSchema } from "./abp";
 import { psionicsBlockSchema } from "./psionics";
 import { spheresBlockSchema } from "./spheres";
+import { pathOfWarBlockSchema } from "./path-of-war";
 import { milestoneLevelingBlockSchema } from "./milestone-leveling";
 import { companionBlockSchema } from "./companion";
 import {
@@ -69,6 +70,7 @@ export const pathForgeCharacterV1Schema = z.object({
   abp: abpBlockSchema.optional(),
   psionics: psionicsBlockSchema.optional(),
   spheres: spheresBlockSchema.optional(),
+  pathOfWar: pathOfWarBlockSchema.optional(),
   milestoneLeveling: milestoneLevelingBlockSchema.optional(),
   /** Present on companion characters (familiar / animal companion / …): compendium linkage,
    * familiar archetype, and the cached master stats the engine's master-link rules read. */

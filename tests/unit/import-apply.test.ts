@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, isGestalt, type PathForgeCharacterV1 } from "@pathforge/schema";
+import { createDefaultCharacter, isGestalt, pathOfWarBlockSchema, type PathForgeCharacterV1 } from "@pathforge/schema";
 import { applyImportResolutions, type ClaimAnswers } from "@/lib/character/import-apply";
 import { assembleClaims, type ClaimProbe, type ImportClaim, type ImportQuestion } from "@/lib/character/import-claims";
 import { resolveProbeCandidates } from "@/lib/character/import-candidates";
@@ -403,6 +403,124 @@ describe("applyImportResolutions — re-filing across slots", () => {
     expect(sheet.psionics?.powersKnown.length ?? 0).toBe(0);
     const feature = sheet.features.list.find((f) => f.name === "Energy Ray");
     expect(feature).toMatchObject({ category: "special_ability", compendiumId: "3pp:energy-ray" });
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
+  });
+
+  it("path_of_war YES → module enabled + maneuvers re-file into pathOfWar with stance detection", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Steel Flurry Strike", level: 1 }];
+    const q: ImportQuestion = { id: "q-pow", kind: "path_of_war", text: "enable Path of War?", defaultAnswer: true };
+    const claim = (id: string, slug: string, name: string, over: Partial<ImportClaim> = {}): ImportClaim => ({
+      id,
+      kind: "pow_maneuver",
+      sourceKind: "spell",
+      sourceText: name,
+      sourceLabel: "Spells field",
+      matchKey: name,
+      candidates: [{ table: "pow_maneuver_compendium", slug, name, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "pow_maneuver_compendium", slug },
+      ...over,
+    });
+    const sb = fakeSb({
+      pow_maneuver_compendium: [
+        {
+          slug: "steel-flurry-strike",
+          name: "Steel Flurry Strike",
+          discipline: "Mithral Current",
+          level: "1",
+          category: "Maneuver",
+          type: "Strike",
+          initiation_action: "1 standard action",
+          range: "Melee attack",
+          target: "One creature",
+          duration: "Instant",
+          saving_throw: "None",
+          prerequisite: "1 Mithral Current maneuver",
+          description: "Make an attack.<br><br>It flows like quicksilver.",
+          source: "Path of War Expanded",
+        },
+        {
+          slug: "child-of-shadows",
+          name: "Child of Shadows",
+          discipline: "Veiled Moon",
+          level: "not a number", // hostile/blank level text must clamp to 1, never NaN
+          category: "Stance",
+          type: "Stance",
+          description: "You blur.",
+          source: "Path of War",
+        },
+      ],
+    });
+    const claims = [
+      claim("c-m", "steel-flurry-strike", "Steel Flurry Strike", { draftEntryId: "sp1" }),
+      claim("c-s", "child-of-shadows", "Child of Shadows", { mined: true, sourceLabel: "Notes field" }),
+    ];
+    const report = await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-pow": true } });
+    expect(sheet.rules.modules.some((m) => m.key === "path_of_war" && m.enabled)).toBe(true);
+    const strike = sheet.pathOfWar?.maneuvers.find((m) => m.name === "Steel Flurry Strike");
+    expect(strike).toMatchObject({
+      compendiumId: "3pp:steel-flurry-strike",
+      level: 1,
+      discipline: "Mithral Current",
+      entryKind: "maneuver",
+      maneuverType: "Strike",
+      initiationAction: "1 standard action",
+      savingThrow: "None",
+      prerequisites: "1 Mithral Current maneuver",
+    });
+    // "<br>" rich text → the same plain-text shape the psionics path caches.
+    expect(strike!.description).toBe("Make an attack.\n\nIt flows like quicksilver.");
+    expect(JSON.stringify(strike)).not.toContain("<br>");
+    const stance = sheet.pathOfWar?.maneuvers.find((m) => m.name === "Child of Shadows");
+    expect(stance).toMatchObject({ entryKind: "stance", level: 1 }); // category + level clamp
+    // The constructed block satisfies the Track-A schema.
+    const parsed = pathOfWarBlockSchema.safeParse(sheet.pathOfWar);
+    expect(parsed.success).toBe(true);
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // the misfiled spell slot moved
+    expect(report.applied.some((a) => a.includes("Path of War module enabled"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Maneuver: Steel Flurry Strike"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Stance: Child of Shadows"))).toBe(true);
+  });
+
+  it("path_of_war NO → module stays off and the maneuver falls back to a features entry (never dropped)", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Steel Flurry Strike", level: 1 }];
+    const q: ImportQuestion = { id: "q-pow", kind: "path_of_war", text: "enable Path of War?", defaultAnswer: true };
+    const claims: ImportClaim[] = [
+      {
+        id: "c-m",
+        kind: "pow_maneuver",
+        sourceKind: "spell",
+        sourceText: "Steel Flurry Strike",
+        sourceLabel: "Spells field",
+        matchKey: "Steel Flurry Strike",
+        candidates: [{ table: "pow_maneuver_compendium", slug: "steel-flurry-strike", name: "Steel Flurry Strike", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "pow_maneuver_compendium", slug: "steel-flurry-strike" },
+        draftEntryId: "sp1",
+      },
+    ];
+    const sb = fakeSb({
+      pow_maneuver_compendium: [
+        {
+          slug: "steel-flurry-strike",
+          name: "Steel Flurry Strike",
+          discipline: "Mithral Current",
+          level: "1",
+          category: "Maneuver",
+          type: "Strike",
+          description: "Make an attack.<br>It flows.",
+          source: "Path of War Expanded",
+        },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-pow": false } });
+    expect(sheet.rules.modules.some((m) => m.key === "path_of_war" && m.enabled)).toBe(false);
+    expect(sheet.pathOfWar?.maneuvers.length ?? 0).toBe(0);
+    const feature = sheet.features.list.find((f) => f.name === "Steel Flurry Strike");
+    expect(feature).toMatchObject({ category: "special_ability", compendiumId: "3pp:steel-flurry-strike" });
+    expect(feature!.description).toBe("Make an attack.\nIt flows.");
     expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
   });
 

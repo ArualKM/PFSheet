@@ -115,6 +115,17 @@ const TABLES: Record<string, TableCfg> = {
     meta: (r) => [S(r.discipline), S(r.power_points) ? `${S(r.power_points)} PP` : "", S(r.source)].filter(Boolean).join(" · "),
     // Disciplines aren't class-owned the way class features/paths/races are — no group guard.
   },
+  pow_maneuver_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_pow_maneuver_compendium",
+    select: "slug,name,discipline,level,category,source",
+    meta: (r) => [S(r.discipline), S(r.level) ? `L${S(r.level)}` : "", S(r.category)].filter(Boolean).join(" · "),
+    // Disciplines aren't sheet-linked entities the way classes/paths/races are — no demotion
+    // guard applies (mirrors psionic disciplines); the group only informs same-name ties, which
+    // stay AMBIGUOUS for the player's selector.
+    group: (r) => S(r.discipline) || undefined,
+  },
   mythic_path_ability_compendium: {
     label: "name",
     key: "slug",

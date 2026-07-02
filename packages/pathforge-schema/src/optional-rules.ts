@@ -203,6 +203,7 @@ const IMPLEMENTED_MODULE_KEYS = new Set<string>([
   "spheres_of_power",
   "spheres_of_might",
   "spheres_of_guile",
+  "path_of_war",
 ]);
 
 /** Whether a module is offered as a toggle but its system isn't built yet ("Coming soon"). */

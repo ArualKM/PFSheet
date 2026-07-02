@@ -35,6 +35,7 @@ import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
 import { conditionEffects } from "./conditions";
+import { computePathOfWar, highestInitiatorLevel, type PathOfWarSummary } from "./path-of-war";
 
 /* -------------------------------------------------------------------------- */
 /* Ability modifiers                                                          */
@@ -282,6 +283,19 @@ export function buildModifierIndex(
   const passives = [...character.features.list, ...character.traits.list, ...character.feats.list];
   for (const f of passives) {
     for (const e of f.automation) push(classifyTarget(e.target), effectToMod(e.id, f.name, f.name, e, resolver));
+  }
+
+  // Path of War: an ACTIVE stance is a persistent, always-on mode — its automation ingests like an
+  // active buff so clean numeric stance bonuses land in the ac/attack/save/skill buckets (and are in
+  // the index before the defense/attack resolvers read it). Strikes/boosts — and ANY non-stance
+  // maneuver's automation — are spendable, per-initiation effects and are NEVER auto-applied.
+  if (isModuleKeyEnabled(character, "path_of_war")) {
+    for (const m of character.pathOfWar?.maneuvers ?? []) {
+      if (m.entryKind !== "stance" || !m.stanceActive) continue;
+      for (const e of m.automation) {
+        push(classifyTarget(e.target), effectToMod(e.id, m.name, `Stance: ${m.name}`, e, resolver));
+      }
+    }
   }
 
   // Active conditions apply their standard PF1e mechanical effects (Shaken −2 attacks/saves/
@@ -647,6 +661,15 @@ export class CharacterResolver implements Resolver {
         return stackTotal([...this.bucket("attack.ranged"), ...this.bucket("attack.all")]);
       case "attack.misc.cmb":
         return stackTotal([...this.bucket("attack.cmb"), ...this.bucket("attack.all")]);
+      case "pathOfWar.initiatorLevel":
+      case "initiatorLevel":
+        // Highest IL across initiators (pure derivation, formula overrides ignored) — registered
+        // here so a scaling STANCE automation formula (`floor(@{initiatorLevel}/4)`) resolves
+        // during buildModifierIndex instead of silently evaluating to 0. Module off → undefined,
+        // so non-PoW sheets keep the standard unknown-ref warning.
+        return isModuleKeyEnabled(this.character, "path_of_war")
+          ? highestInitiatorLevel(this.character)
+          : undefined;
       case "size.acMod":
         return this.size.acMod;
       case "size.attackMod":
@@ -848,6 +871,8 @@ export type ComputedCharacter = {
       drawbackCount: number;
       boonCount: number;
     };
+    /** Path of War initiator roll-up (absent unless the module is enabled). */
+    pathOfWar?: PathOfWarSummary;
     /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. The level is the
      * character's class level; the milestone total tells you when the next level is earned. */
     milestoneLeveling?: {
@@ -1342,6 +1367,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  // Path of War initiator math (IL / maneuver-level access / DCs). Runs on the FULL resolver +
+  // abilities (so initiation mods see buffed abilities); resets resolver.local after its DC evals.
+  const pathOfWar = computePathOfWar(character, abilities, resolver);
+
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
     const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
@@ -1475,6 +1504,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       mythic,
       psionics,
       spheres,
+      pathOfWar,
       milestoneLeveling,
       companion,
     },

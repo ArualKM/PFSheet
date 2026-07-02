@@ -53,6 +53,10 @@ export type {
   ComputedSpellSlots,
 } from "./compute";
 
+// Path of War (3pp Phase 4) — initiator math; active-stance automation ingests in buildModifierIndex
+export { computePathOfWar, deriveInitiatorLevel, highestInitiatorLevel, highestManeuverLevelForIL } from "./path-of-war";
+export type { PathOfWarSummary, PathOfWarInitiatorSummary, PathOfWarResolver } from "./path-of-war";
+
 // Buff Center helpers
 export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
 export type { StackingConflict, BuffDeltaRow } from "./buffs";

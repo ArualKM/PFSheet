@@ -24,6 +24,7 @@ import { TriangleAlert } from "lucide-react";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
 import { PsionicPowerList } from "./psionic-power-list";
+import { ManeuverList } from "./maneuver-list";
 import { TalentRow } from "./talent-row";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
@@ -44,6 +45,10 @@ export function CharacterDashboard({
   // Wealth gets its own card under the infobox on desktop; on mobile it folds into Inventory.
   const wealth = vm.wealth;
   const showWealth = !!(wealth && (wealth.pp > 0 || wealth.gp > 0 || wealth.sp > 0 || wealth.cp > 0));
+  // Path of War rail: readied caps render PER-INITIATOR (each capped initiator's line carries its
+  // own "readied X/Y"); the totals line stays a plain count. A summed "X/Y" across initiators
+  // would mix populations whenever only SOME initiators carry a max (manual/homebrew rows have
+  // none) and imply an over-ready the editor correctly doesn't warn about.
 
   return (
     <div className="space-y-3">
@@ -291,6 +296,14 @@ export function CharacterDashboard({
           {vm.psionics && vm.psionics.powers.length > 0 && (
             <SectionCard title="Psionic Powers" icon={Wand2}>
               <PsionicPowerList powers={vm.psionics.powers} />
+            </SectionCard>
+          )}
+
+          {/* Content-heavy maneuvers list lives in the wide column (grouped by discipline,
+              expandable detail rows); the rail's Path of War card keeps the IL/readied tracker. */}
+          {vm.pathOfWar && vm.pathOfWar.maneuvers.length > 0 && (
+            <SectionCard title="Martial Disciplines" icon={Swords}>
+              <ManeuverList maneuvers={vm.pathOfWar.maneuvers} />
             </SectionCard>
           )}
 
@@ -642,6 +655,54 @@ export function CharacterDashboard({
                   {vm.psionics.focused && <span className="text-gold">Focused</span>}
                 </div>
                 {/* The powers list itself renders as its own main-column card (grouped by level). */}
+              </div>
+            </SectionCard>
+          )}
+          {vm.pathOfWar && (
+            <SectionCard title="Path of War" icon={Swords}>
+              <div className="space-y-1.5 text-sm">
+                {vm.pathOfWar.initiators.map((init) => (
+                  <div key={init.id} className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <span className="min-w-0 truncate font-medium text-foreground">
+                      {init.className || "Initiator"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      IL <span className="tnum font-semibold text-rune">{init.initiatorLevel}</span> · max L
+                      {init.maxManeuverLevel}
+                      {init.maneuversReadiedMax != null && (
+                        <>
+                          {" · readied "}
+                          <span className="tnum text-foreground">
+                            {init.readiedCount}/{init.maneuversReadiedMax}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>{vm.pathOfWar.maneuversKnown} maneuvers</span>
+                  <span>{vm.pathOfWar.stancesKnown} stances</span>
+                  <span>
+                    Readied <span className="tnum text-foreground">{vm.pathOfWar.readied}</span>
+                  </span>
+                  {vm.pathOfWar.expended > 0 && (
+                    <span className="text-warning">{vm.pathOfWar.expended} expended</span>
+                  )}
+                </div>
+                {vm.pathOfWar.activeStanceNames.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {vm.pathOfWar.activeStanceNames.map((n) => (
+                      <span
+                        key={n}
+                        className="rounded-full border border-gold/35 bg-gold/10 px-1.5 py-0.5 text-[10px] text-foreground"
+                      >
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* The maneuvers list itself renders as its own main-column card (grouped by discipline). */}
               </div>
             </SectionCard>
           )}

@@ -60,6 +60,7 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   stamina: "public",
   mythic: "public",
   psionics: "public",
+  pathOfWar: "public",
   milestoneLeveling: "public",
   companion: "public",
   formulaDetails: "public",
@@ -95,6 +96,7 @@ const SECTION_LABELS: Record<string, string> = {
   stamina: "Stamina pool",
   mythic: "Mythic",
   psionics: "Psionics",
+  pathOfWar: "Path of War",
   milestoneLeveling: "Milestone Leveling",
   companion: "Companion link",
   backstory: "Backstory & profile",
@@ -129,6 +131,57 @@ export type SpellView = {
   metamagic?: string[];
   /** Slot level after metamagic, when it differs from the base level. */
   effectiveLevel?: number;
+};
+
+/** Path of War as shown on the sheet. Mechanical meta (level/discipline/type/action/range/save/DC
+ * and the readied/expended/granted/stanceActive lifecycle) is viewer-safe within the section gate,
+ * like a spell's cached fields; the long 3pp rules text (`description`) and `notes` stay
+ * owner-only — the same tiering as psionic powers. */
+export type PathOfWarView = {
+  initiators: Array<{
+    id: string;
+    className: string;
+    initiatorLevel: number;
+    maxManeuverLevel: number;
+    initiationMod: number;
+    /** Default save DC per maneuver level — index 0 = level 1 … index 8 = level 9. */
+    dcByManeuverLevel: number[];
+    /** Readied entries attributed to THIS initiator — pairs with maneuversReadiedMax so a
+     * "Readied X/Y" display never mixes populations across initiators. */
+    readiedCount: number;
+    maneuversKnownMax?: number;
+    maneuversReadiedMax?: number;
+    maneuversGrantedMax?: number;
+    stancesKnownMax?: number;
+  }>;
+  maneuversKnown: number;
+  stancesKnown: number;
+  readied: number;
+  granted: number;
+  expended: number;
+  activeStanceNames: string[];
+  highestManeuverLevel: number;
+  maneuvers: Array<{
+    name: string;
+    level: number;
+    discipline?: string;
+    entryKind: "maneuver" | "stance";
+    maneuverType?: string;
+    initiationAction?: string;
+    range?: string;
+    target?: string;
+    duration?: string;
+    savingThrow?: string;
+    prerequisites?: string;
+    /** Computed save DC (honors a custom saveDcFormula). */
+    saveDc?: number;
+    readied: boolean;
+    expended: boolean;
+    granted: boolean;
+    stanceActive: boolean;
+    description?: string;
+    notes?: string;
+  }>;
 };
 
 export type CharacterViewModel = {
@@ -327,6 +380,8 @@ export type CharacterViewModel = {
     /** Drawbacks + boons per system, with the optional chip annotation. */
     grants: Array<{ kind: "drawback" | "boon"; name: string; system: string; note?: string }>;
   } | null;
+  /** Path of War roll-up (null unless the module is enabled). */
+  pathOfWar: PathOfWarView | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
     currentXp?: number;
@@ -615,6 +670,9 @@ export function buildCharacterViewModel(
     ),
   });
 
+  // Hoisted so the narrowed reference survives into the maneuvers .map() closure below.
+  const powSummary = computed.summary.pathOfWar;
+
   // Per-system traditions (only systems that actually have one set), for the read view.
   const SPHERE_SYSTEM_LABELS: Record<SphereSystem, string> = { Magic: "Power", Combat: "Might", Skill: "Guile" };
   const spheresTraditions = (["Magic", "Combat", "Skill"] as const)
@@ -879,6 +937,40 @@ export function buildCharacterViewModel(
               note: character.spheres?.boonMeta?.[name]?.note,
             })),
           ],
+        })
+      : null,
+    pathOfWar: powSummary
+      ? gate("pathOfWar", {
+          initiators: powSummary.initiators,
+          maneuversKnown: powSummary.maneuversKnown,
+          stancesKnown: powSummary.stancesKnown,
+          readied: powSummary.readied,
+          granted: powSummary.granted,
+          expended: powSummary.expended,
+          activeStanceNames: powSummary.activeStanceNames,
+          highestManeuverLevel: powSummary.highestManeuverLevel,
+          // Mechanical meta + lifecycle state are viewer-safe within the gate (like a spell's cached
+          // fields); the long 3pp rules text + notes stay owner-only (psionics tiering).
+          maneuvers: (character.pathOfWar?.maneuvers ?? []).map((m) => ({
+            name: m.name,
+            level: m.level,
+            discipline: m.discipline,
+            entryKind: m.entryKind,
+            maneuverType: m.maneuverType,
+            initiationAction: m.initiationAction,
+            range: m.range,
+            target: m.target,
+            duration: m.duration,
+            savingThrow: m.savingThrow,
+            prerequisites: m.prerequisites,
+            saveDc: powSummary.maneuverDcs[m.id],
+            readied: m.readied,
+            expended: m.expended,
+            granted: m.granted,
+            stanceActive: m.stanceActive,
+            description: isOwnerView ? m.description : undefined,
+            notes: isOwnerView ? m.notes : undefined,
+          })),
         })
       : null,
     advancement:

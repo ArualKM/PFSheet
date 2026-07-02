@@ -26,6 +26,7 @@ const KIND_LABEL: Record<ClaimKind, string> = {
   feature: "Class features",
   sphere_talent: "Sphere talents",
   psionic_power: "Psionic powers",
+  pow_maneuver: "Maneuvers & stances",
   mythic_ability: "Mythic abilities",
   racial_trait: "Racial traits",
   trait: "Traits",
@@ -42,6 +43,7 @@ const KIND_ORDER: ClaimKind[] = [
   "feature",
   "sphere_talent",
   "psionic_power",
+  "pow_maneuver",
   "mythic_ability",
   "trait",
   "drawback",
@@ -59,6 +61,7 @@ const SEARCH_RPC: Record<string, string | undefined> = {
   drawback_compendium: "search_drawback_compendium",
   class_feature_compendium: "search_class_feature_compendium",
   psionic_power_compendium: "search_psionic_power_compendium",
+  pow_maneuver_compendium: "search_pow_maneuver_compendium",
   mythic_path_ability_compendium: "search_mythic_path_ability_compendium",
   alternate_racial_trait_compendium: "search_alternate_racial_trait_compendium",
 };
