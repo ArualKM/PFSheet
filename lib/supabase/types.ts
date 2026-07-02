@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      akashic_veil_class_list: {
+        Row: {
+          source: string | null
+          url: string | null
+          veil: string
+          veil_list: string
+        }
+        Insert: {
+          source?: string | null
+          url?: string | null
+          veil: string
+          veil_list: string
+        }
+        Update: {
+          source?: string | null
+          url?: string | null
+          veil?: string
+          veil_list?: string
+        }
+        Relationships: []
+      }
+      akashic_veil_compendium: {
+        Row: {
+          bind_effect: string | null
+          descriptors: string | null
+          effect: string | null
+          is_retold: string | null
+          name: string | null
+          search: unknown
+          slot: string | null
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          bind_effect?: string | null
+          descriptors?: string | null
+          effect?: string | null
+          is_retold?: string | null
+          name?: string | null
+          search?: unknown
+          slot?: string | null
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          bind_effect?: string | null
+          descriptors?: string | null
+          effect?: string | null
+          is_retold?: string | null
+          name?: string | null
+          search?: unknown
+          slot?: string | null
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       alternate_racial_trait_compendium: {
         Row: {
           description: string | null
@@ -298,6 +358,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      background_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
       }
       campaign_characters: {
         Row: {
@@ -690,6 +780,13 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "characters_parent_character_id_fkey"
+            columns: ["parent_character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
             referencedColumns: ["id"]
           },
         ]
@@ -1517,6 +1614,210 @@ export type Database = {
         }
         Relationships: []
       }
+      oath_boon_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          oath_point_cost: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          oath_point_cost?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          oath_point_cost?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      oath_compendium: {
+        Row: {
+          atonement: string | null
+          defiance_penalty: string | null
+          name: string | null
+          oath: string | null
+          oath_points: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          atonement?: string | null
+          defiance_penalty?: string | null
+          name?: string | null
+          oath?: string | null
+          oath_points?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          atonement?: string | null
+          defiance_penalty?: string | null
+          name?: string | null
+          oath?: string | null
+          oath_points?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      occupation_compendium: {
+        Row: {
+          class_skills_or_benefit: string | null
+          description: string | null
+          granted_feat: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          class_skills_or_benefit?: string | null
+          description?: string | null
+          granted_feat?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          class_skills_or_benefit?: string | null
+          description?: string | null
+          granted_feat?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      pow_discipline_compendium: {
+        Row: {
+          associated_skill: string | null
+          associated_weapon_groups: string | null
+          dao_veil: string | null
+          description: string | null
+          martial_tradition: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          title_veil: string | null
+          url: string | null
+        }
+        Insert: {
+          associated_skill?: string | null
+          associated_weapon_groups?: string | null
+          dao_veil?: string | null
+          description?: string | null
+          martial_tradition?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          title_veil?: string | null
+          url?: string | null
+        }
+        Update: {
+          associated_skill?: string | null
+          associated_weapon_groups?: string | null
+          dao_veil?: string | null
+          description?: string | null
+          martial_tradition?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          title_veil?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      pow_maneuver_compendium: {
+        Row: {
+          category: string | null
+          description: string | null
+          descriptor: string | null
+          discipline: string | null
+          duration: string | null
+          initiation_action: string | null
+          level: string | null
+          name: string | null
+          prerequisite: string | null
+          range: string | null
+          saving_throw: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          target: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          category?: string | null
+          description?: string | null
+          descriptor?: string | null
+          discipline?: string | null
+          duration?: string | null
+          initiation_action?: string | null
+          level?: string | null
+          name?: string | null
+          prerequisite?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          target?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          category?: string | null
+          description?: string | null
+          descriptor?: string | null
+          discipline?: string | null
+          duration?: string | null
+          initiation_action?: string | null
+          level?: string | null
+          name?: string | null
+          prerequisite?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          target?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       prestige_class_compendium: {
         Row: {
           alignment: string | null
@@ -1598,6 +1899,96 @@ export type Database = {
           handle?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      psionic_power_class_level: {
+        Row: {
+          class: string
+          level: string | null
+          power: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          class: string
+          level?: string | null
+          power: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          class?: string
+          level?: string | null
+          power?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      psionic_power_compendium: {
+        Row: {
+          augment: string | null
+          description: string | null
+          descriptors: string | null
+          discipline: string | null
+          display: string | null
+          duration: string | null
+          manifesting_time: string | null
+          mythic: string | null
+          name: string | null
+          power_points: string | null
+          power_resistance: string | null
+          range: string | null
+          saving_throw: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          target_area_effect: string | null
+          url: string | null
+        }
+        Insert: {
+          augment?: string | null
+          description?: string | null
+          descriptors?: string | null
+          discipline?: string | null
+          display?: string | null
+          duration?: string | null
+          manifesting_time?: string | null
+          mythic?: string | null
+          name?: string | null
+          power_points?: string | null
+          power_resistance?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          special?: string | null
+          target_area_effect?: string | null
+          url?: string | null
+        }
+        Update: {
+          augment?: string | null
+          description?: string | null
+          descriptors?: string | null
+          discipline?: string | null
+          display?: string | null
+          duration?: string | null
+          manifesting_time?: string | null
+          mythic?: string | null
+          name?: string | null
+          power_points?: string | null
+          power_resistance?: string | null
+          range?: string | null
+          saving_throw?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          special?: string | null
+          target_area_effect?: string | null
+          url?: string | null
         }
         Relationships: []
       }
@@ -2050,6 +2441,330 @@ export type Database = {
         }
         Relationships: []
       }
+      threepp_archetype_compendium: {
+        Row: {
+          altered_features: string | null
+          base_class: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }
+        Insert: {
+          altered_features?: string | null
+          base_class?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Update: {
+          altered_features?: string | null
+          base_class?: string | null
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_class_compendium: {
+        Row: {
+          alignment: string | null
+          bab: string | null
+          class_features: string | null
+          class_type: string | null
+          description: string | null
+          fort: string | null
+          hit_die: string | null
+          name: string | null
+          progression_json: Json | null
+          ref: string | null
+          search: unknown
+          skill_points: string | null
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+          will: string | null
+        }
+        Insert: {
+          alignment?: string | null
+          bab?: string | null
+          class_features?: string | null
+          class_type?: string | null
+          description?: string | null
+          fort?: string | null
+          hit_die?: string | null
+          name?: string | null
+          progression_json?: Json | null
+          ref?: string | null
+          search?: unknown
+          skill_points?: string | null
+          slug: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+          will?: string | null
+        }
+        Update: {
+          alignment?: string | null
+          bab?: string | null
+          class_features?: string | null
+          class_type?: string | null
+          description?: string | null
+          fort?: string | null
+          hit_die?: string | null
+          name?: string | null
+          progression_json?: Json | null
+          ref?: string | null
+          search?: unknown
+          skill_points?: string | null
+          slug?: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+          will?: string | null
+        }
+        Relationships: []
+      }
+      threepp_class_option_compendium: {
+        Row: {
+          base_class: string | null
+          description: string | null
+          name: string | null
+          option_type: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }
+        Insert: {
+          base_class?: string | null
+          description?: string | null
+          name?: string | null
+          option_type?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Update: {
+          base_class?: string | null
+          description?: string | null
+          name?: string | null
+          option_type?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_drawback_compendium: {
+        Row: {
+          bonus_granted: string | null
+          category: string | null
+          description: string | null
+          effect: string | null
+          name: string | null
+          prerequisite: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          bonus_granted?: string | null
+          category?: string | null
+          description?: string | null
+          effect?: string | null
+          name?: string | null
+          prerequisite?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          bonus_granted?: string | null
+          category?: string | null
+          description?: string | null
+          effect?: string | null
+          name?: string | null
+          prerequisite?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_feat_compendium: {
+        Row: {
+          benefit: string | null
+          name: string | null
+          normal: string | null
+          prerequisites: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          system: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          benefit?: string | null
+          name?: string | null
+          normal?: string | null
+          prerequisites?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          special?: string | null
+          system?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          benefit?: string | null
+          name?: string | null
+          normal?: string | null
+          prerequisites?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          special?: string | null
+          system?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_race_compendium: {
+        Row: {
+          ability_modifiers: string | null
+          description: string | null
+          name: string | null
+          racial_traits: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          speed: string | null
+          system: string | null
+          url: string | null
+        }
+        Insert: {
+          ability_modifiers?: string | null
+          description?: string | null
+          name?: string | null
+          racial_traits?: string | null
+          search?: unknown
+          size?: string | null
+          slug: string
+          source?: string | null
+          speed?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Update: {
+          ability_modifiers?: string | null
+          description?: string | null
+          name?: string | null
+          racial_traits?: string | null
+          search?: unknown
+          size?: string | null
+          slug?: string
+          source?: string | null
+          speed?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_racial_trait_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          race: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          race?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          race?: string | null
+          replaces?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          system?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      threepp_trait_compendium: {
+        Row: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          type: string | null
+          url: string | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug: string
+          source?: string | null
+          system?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          search?: unknown
+          slug?: string
+          source?: string | null
+          system?: string | null
+          type?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       trait_compendium: {
         Row: {
           category: string | null
@@ -2111,6 +2826,12 @@ export type Database = {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number }
         Returns: boolean
       }
+      compendium_distinct: {
+        Args: { p_col: string; p_table: string }
+        Returns: {
+          value: string
+        }[]
+      }
       has_campaign_role: {
         Args: { p_campaign_id: string; p_roles: string[]; p_user_id: string }
         Returns: boolean
@@ -2130,6 +2851,27 @@ export type Database = {
       is_character_owner: {
         Args: { p_character_id: string; p_user_id: string }
         Returns: boolean
+      }
+      search_akashic_veil_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          bind_effect: string | null
+          descriptors: string | null
+          effect: string | null
+          is_retold: string | null
+          name: string | null
+          search: unknown
+          slot: string | null
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "akashic_veil_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_alternate_racial_trait_compendium: {
         Args: { p_limit?: number; p_query?: string }
@@ -2213,6 +2955,24 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "archetype_feature_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_background_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "background_compendium"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -2444,6 +3204,114 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_oath_boon_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          oath_point_cost: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "oath_boon_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_oath_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          atonement: string | null
+          defiance_penalty: string | null
+          name: string | null
+          oath: string | null
+          oath_points: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "oath_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_occupation_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          class_skills_or_benefit: string | null
+          description: string | null
+          granted_feat: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "occupation_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_pow_discipline_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          associated_skill: string | null
+          associated_weapon_groups: string | null
+          dao_veil: string | null
+          description: string | null
+          martial_tradition: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          title_veil: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pow_discipline_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_pow_maneuver_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          category: string | null
+          description: string | null
+          descriptor: string | null
+          discipline: string | null
+          duration: string | null
+          initiation_action: string | null
+          level: string | null
+          name: string | null
+          prerequisite: string | null
+          range: string | null
+          saving_throw: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          target: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pow_maneuver_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       search_prestige_class_compendium: {
         Args: { p_limit?: number; p_query?: string }
         Returns: {
@@ -2461,6 +3329,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "prestige_class_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_psionic_power_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          augment: string | null
+          description: string | null
+          descriptors: string | null
+          discipline: string | null
+          display: string | null
+          duration: string | null
+          manifesting_time: string | null
+          mythic: string | null
+          name: string | null
+          power_points: string | null
+          power_resistance: string | null
+          range: string | null
+          saving_throw: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          target_area_effect: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "psionic_power_compendium"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -2552,6 +3450,178 @@ export type Database = {
           talent_category: string
           talent_name: string
         }[]
+      }
+      search_threepp_archetype_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          altered_features: string | null
+          base_class: string | null
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_archetype_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_class_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          alignment: string | null
+          bab: string | null
+          class_features: string | null
+          class_type: string | null
+          description: string | null
+          fort: string | null
+          hit_die: string | null
+          name: string | null
+          progression_json: Json | null
+          ref: string | null
+          search: unknown
+          skill_points: string | null
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+          will: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_class_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_class_option_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          base_class: string | null
+          description: string | null
+          name: string | null
+          option_type: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_class_option_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_drawback_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          bonus_granted: string | null
+          category: string | null
+          description: string | null
+          effect: string | null
+          name: string | null
+          prerequisite: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_drawback_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_feat_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          benefit: string | null
+          name: string | null
+          normal: string | null
+          prerequisites: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          special: string | null
+          system: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_feat_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_race_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          ability_modifiers: string | null
+          description: string | null
+          name: string | null
+          racial_traits: string | null
+          search: unknown
+          size: string | null
+          slug: string
+          source: string | null
+          speed: string | null
+          system: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_race_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_racial_trait_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          race: string | null
+          replaces: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_racial_trait_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_threepp_trait_compendium: {
+        Args: { p_limit?: number; p_query?: string }
+        Returns: {
+          description: string | null
+          name: string | null
+          search: unknown
+          slug: string
+          source: string | null
+          system: string | null
+          type: string | null
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "threepp_trait_compendium"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_trait_compendium: {
         Args: { p_limit?: number; p_query?: string }

@@ -4,7 +4,7 @@ Third-party (3pp) Pathfinder 1e rules data for **PFSheet / PathForge**, parsed f
 
 **Format:** tab-delimited (`\t`), UTF-8, one header row. Internal newlines are encoded as `<br>`; embedded tables/progressions as JSON. No field contains a raw tab or newline (integrity-verified: every table has a constant column count).
 
-## Tables (17) — 13,922 rows
+## Tables (20) — 14,350 rows (post Phase 0, 2026-07-02)
 
 | # | Table | Rows | System | What it is |
 |--:|---|--:|---|---|
@@ -29,6 +29,8 @@ Third-party (3pp) Pathfinder 1e rules data for **PFSheet / PathForge**, parsed f
 `system` values: `psionic`, `path_of_war`, `akashic`, `spheres`, `optional` (plus `rune_magic` / `metascript` / `other` inside `metzofitz_feats`).
 
 > **`pow_maneuvers` (rebuilt from d20pfsrd):** now carries full per-maneuver rules text plus initiation action, range, target, and duration — a source-tagged superset of the earlier Miraheze set. Covers all **22** disciplines: the 21 in `pow_disciplines` **plus Radiant Dawn and Unquiet Grave**. The 758 per-maneuver source pages live in `3pp System Rules/Path Of War/Disciplines/Maneuvers/<Discipline>/` (Black Seraph + Golden Lion are real d20pfsrd sub-pages; the other 20 disciplines were split from each discipline's inline `<h4>` sections).
+
+> **Phase 0 additions (PathForge, 2026-07-02):** `threepp_races` (20 akashic races), `threepp_racial_traits` (286 spheres alt racial traits), `threepp_traits` (131 spheres traits); PoW core classes (Stalker/Warder/Warlord/Zealot + rebuilt Harbinger/Mystic) and 22 PoW class archetypes parsed from the d20pfsrd pages; Radiant Dawn + Unquiet Grave discipline rows; all 266 blank spheres `base_class` values backfilled; byte-identical dupes removed (23 archetypes / 13 spheres feats) and the psionic-system Zealot dupe dropped (Zealot lives under `path_of_war`). Loaded to Supabase via `loader/threepp.mjs` (migrations 0027/0028); table names in the DB end `_compendium` (e.g. `pow_maneuvers.tsv` → `pow_maneuver_compendium`); metzofitz+spheres feats union into `threepp_feat_compendium`, major_drawbacks+flaws into `threepp_drawback_compendium` (category column).
 
 ## Column reference
 
