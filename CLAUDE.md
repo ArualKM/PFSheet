@@ -620,6 +620,45 @@ is class-guaranteed, not pixel-verified). See [[pathforge-editor-chip-disclosure
   imports) + a terse `aria-label` on each `<summary>` so its a11y name is the entry name, not
   "Fighter Base d10 Core Rulebook". See [[pathforge-icon-pack]].
 
+**"Finish PFSheet" session (2026-07-01).** Six owner-requested passes, each gate-green
+(lint/typecheck/458 tests/prod build), the big ones shipped after adversarial Workflow reviews.
+**Migrations now run through `0026`.**
+- **Compendium search fix** (`5489fb2`, migration `0026`): all 19 PFcore search RPCs only matched
+  complete words ("Wiza" never found Wizard). Regenerated on the spell/sphere ILIKE pattern
+  (substring WHERE + prefix-ranked ORDER, FTS kept for multi-word); CompendiumBrowser's
+  filtered-search mode got matching `or(ilike,wfts)` semantics. Live-verified on prod.
+- **Mobile section navigator + Settings split** (`96f6733`): the editor's bottom-2/3 section sheet
+  is now a FULL-SCREEN navigator (every section with its sub-panels, 1-tap deep nav, safe-area,
+  `pf-sheet-in` animation); Settings split into "Optional rules & 3pp" | "Privacy & sharing" subtabs.
+- **Saves + AC full editors** (`7a5cb4a`): chip+disclosure rows exposing base/key-ability override
+  (SaveEntry.abilityKey WIRED through the engine via stored-formula ref rewrite), typed modifier
+  lists (`<ModifierListEditor>`), equipped-armor + Max-Dex summary, show-math. Engine:
+  `modifierEntryToMod` evaluates string values as formulas; the parser accepts `[[…]]` inline-roll
+  brackets.
+- **Skills overhaul** (`cac237a`): per-skill `abilityOverride` (every row gets an ability select),
+  buff/automation targets for single skills + `skill.<ability>.all` groups + per-skill buff-preview
+  deltas (namespaced keys), dual-mode number-or-ƒx Misc. Review fixes: stale `resolver.local` in ƒx
+  skill-misc (locals now set BEFORE misc eval, `@{misc}` pinned 0), direct save/AC ƒx modifiers
+  evaluate against the FULL resolver (deferred pass), classifyTarget anchors namespaced targets
+  before fuzzy substring matching, imported flat-formula saves get a "fixed total" banner +
+  one-click Rebuild.
+- **Mythic completed** (`38ffc3e`): the 431 path-ability names were RECOVERED from the live AoN
+  pages (description-match; TSV updated + prod repaired in place by slug — `repair-mythic-names.mjs`;
+  0 book-ref names remain). `<MythicAbilityPicker>` (path/Universal scope), tier-gated base
+  abilities (`MYTHIC_BASE_ABILITIES` → `summary.mythic.baseAbilities` → editor list + dashboard
+  chips), mythic FEATS (feat_compendium.mythic text → picker badge + `featEntry.mythicBenefit` on
+  mythic characters → read-view "Mythic" detail), spell augments fetch-on-expand in SpellRow.
+- **Companion system** (`1bfb64a`): `character.companion` block + cached master stats; familiar
+  master-link ENGINE rules (HP half / BAB master's via the single `summary.bab` source / saves +
+  skills better-of / Int + NA tables, all ARCHETYPE-aware via `FAMILIAR_ARCHETYPE_ALTERS`); 20
+  familiar archetypes extracted from d20pfsrd (workflow) with replaces-driven granted-ability
+  swaps; statblock autofill from the 214/187-row compendiums; master-save + edit-page-load sync
+  (admin client, sheet_version CAS, stale-review flip); nested /characters; §15 "companion"
+  privacy section. See `lib/character/companion-sync.ts` + [[pathforge-companion-system]].
+- **Import verification wizard** DESIGNED (not built): `docs/IMPORT_VERIFICATION_PLAN.md` — the
+  claims/candidates/resolutions model between preview and commit, reusing compendium-hunt + the
+  M12 appliers. Its P1 (classes/race) is the recommended next epic.
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

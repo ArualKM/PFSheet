@@ -1,6 +1,15 @@
 # PathForge — where we are & what's next
 
-_Last updated: 2026-07-01 (end of the editor-polish / mobile-nav / read-view / compendium-accordion pass).
+_Last updated: 2026-07-01, END OF DAY (the "finish PFSheet" session — see CLAUDE.md Status for the
+full six-pass log: compendium-search prefix fix [migration 0026] · full-screen mobile section
+navigator + Settings subtabs · Saves/AC full editors · skills overhaul [ability overrides,
+skill-scoped buff targets, ƒx misc with [[…]] support] · Mythic COMPLETED [431 ability names
+recovered from AoN + picker/feats/base-abilities/spell-augments] · the COMPANION system [familiar
+master link, 20 archetypes, statblock autofill, nested /characters]). 458 unit tests. The next
+recommended epic is the import verification wizard — design ready in
+[`IMPORT_VERIFICATION_PLAN.md`](IMPORT_VERIFICATION_PLAN.md)._
+
+_Previous update: 2026-07-01 (end of the editor-polish / mobile-nav / read-view / compendium-accordion pass)._
 Quick "resume here" doc; the authoritative milestone log is [`../CLAUDE.md`](../CLAUDE.md) Status, and the
 grounded plan-to-1.0 is [`V1_ROADMAP.md`](V1_ROADMAP.md). The S4 3pp flagship
 ([`S4_OPTIONAL_RULES_PLAN.md`](S4_OPTIONAL_RULES_PLAN.md)) is **post-1.0**._
