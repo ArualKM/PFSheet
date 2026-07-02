@@ -36,6 +36,27 @@
 > features granted, 5 traits mined + linked, noise rows (GP ledgers, stat lines, empty labels)
 > filtered from the panel. Unit coverage: `tests/unit/import-claims.test.ts` +
 > `tests/unit/import-apply.test.ts` (fake-Supabase apply tests).
+>
+> **The Vehti grounding pass (2026-07-02, owner's second fixture `docs/Vehti.json` — gestalt
+> Shaman || Druid Being of Ib):** went from ~2 auto-links to **45**. The text engine now handles
+> the shapes real sheets use — label prefixes ("LVL 1)", "Flaw)", "MD)"), name/description
+> separators ("Toughness - +3 HP", "Aquatic: breathe water…", "Nature Bond -> HERBALISM: …"),
+> comma-inverted book names ("Lesser Restoration" ↔ "Restoration, Lesser") — and multi-entry
+> lines emit LINE-ITEM sub-claims ("0: Create Water, Detect Magic, …" → one spell claim per
+> item with its level; a slot whose every item APPLIED is removed as covered). The adapter now
+> keeps typed section dividers in numeric slot order so "#### RACIAL TRAITS ####" / class-name
+> headers steer the entries beneath them; as-written entries under those headers RE-FILE into
+> features with the right category at commit (racial traits captured as racial traits, name +
+> rules-text split). Drawbacks joined the feat-slot match tables, and the flaws-area miner
+> splits "• Umbral Unmasking - …" bullets. Its 19-agent adversarial review confirmed 14
+> findings, all fixed: slot removal now requires ACTUAL apply success (not just resolution
+> state) + respects explicit keeps + in-place links; single-exact matches from group-owned
+> tables demote when the owner mismatches (a Being of Ib no longer inherits the DWARVES
+> Low-Light Vision alt trait by default); compound "Lotus Style: Bloom, …" names re-file as
+> distinct features (Anise regression); dividers are stripped unconditionally at commit (the
+> skip-verify path included) and excluded from preview counts. Fixture corpus:
+> `tests/unit/import-vehti.test.ts`.
+>
 > Remaining from this doc: P4 archetype matching depth (3pp archetypes stay "as written").
 > See "Deferred detectors" at the bottom for Path of War / Akashic / Psionics.
 

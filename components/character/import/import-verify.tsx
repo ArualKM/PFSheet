@@ -208,7 +208,7 @@ export function ImportVerifyPanel({
           <section key={kind}>
             <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {KIND_LABEL[kind]}
-              {list.every((c) => c.mined) ? " — found in your notes" : ""}
+              {list.every((c) => c.mined) ? " — mined from your text" : ""}
               <span className="ml-1.5 normal-case text-muted-foreground/70">({list.length})</span>
             </h3>
             <div className="space-y-1">
@@ -367,7 +367,7 @@ function ClaimRow({
                 variant={resolution.mode === "skipped" ? "secondary" : "ghost"}
                 onClick={() => onResolution({ mode: "skipped" })}
               >
-                <X className="size-3.5" /> {claim.mined ? "Leave in notes" : "Skip"}
+                <X className="size-3.5" /> {claim.partOf ? "Skip item" : claim.mined ? "Leave in notes" : "Skip"}
               </Button>
             )}
           </div>

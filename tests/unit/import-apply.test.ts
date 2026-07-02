@@ -273,6 +273,67 @@ describe("applyImportResolutions — re-filing across slots", () => {
     expect(sheet.traits.list[0]).toMatchObject({ id: "t1", name: "Fate's Favored", compendiumId: "fates-favored" });
   });
 
+  it("re-files section-labeled as-written entries into features (racial traits captured)", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.feats.list = [
+      { id: "f1", name: "Voiceless: cannot speak/take verbal actions", tags: [], automation: [] },
+    ];
+    const claims: ImportClaim[] = [
+      {
+        id: "c-v",
+        kind: "feat",
+        sourceKind: "feat",
+        sourceText: "Voiceless: cannot speak/take verbal actions",
+        sourceLabel: "Feat slot",
+        matchKey: "Voiceless",
+        candidates: [],
+        confidence: "low",
+        resolution: { mode: "generic" },
+        draftEntryId: "f1",
+        context: "racial_trait",
+      },
+    ];
+    await applyImportResolutions(fakeSb({}), sheet, claims, [], {});
+    expect(sheet.feats.list).toHaveLength(0);
+    const feature = sheet.features.list.find((f) => f.name === "Voiceless")!;
+    expect(feature.category).toBe("racial_trait");
+    expect(feature.description).toContain("cannot speak");
+  });
+
+  it("extracts a fully-linked multi-spell line into proper spell entries and removes the slot", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "0: Create Water, Detect Magic", level: 0 }];
+    const u1 = "11111111-1111-4111-8111-111111111111";
+    const u2 = "22222222-2222-4222-8222-222222222222";
+    const part = (id: string, text: string, slug: string): ImportClaim => ({
+      id,
+      kind: "spell",
+      sourceKind: "spell",
+      sourceText: text,
+      sourceLabel: "Spells field · line item",
+      matchKey: text,
+      candidates: [{ table: "spell_compendium", slug, name: text, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "spell_compendium", slug },
+      mined: true,
+      partOf: "sp1",
+      level: 0,
+    });
+    const sb = fakeSb({
+      spell_compendium: [
+        { id: u1, name: "Create Water", school: "conjuration" },
+        { id: u2, name: "Detect Magic", school: "divination" },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, [part("c1", "Create Water", u1), part("c2", "Detect Magic", u2)], [], {});
+    const names = sheet.spellcasting.knownSpells.map((s) => s.name);
+    expect(names).toEqual(expect.arrayContaining(["Create Water", "Detect Magic"]));
+    expect(names).not.toContain("0: Create Water, Detect Magic"); // the slot is covered, removed
+    expect(sheet.spellcasting.knownSpells.every((s) => s.level === 0 && s.compendiumId)).toBe(true);
+    const covered = (sheet.metadata.unmapped as { covered_by_features?: string[] }).covered_by_features ?? [];
+    expect(covered).toContain("0: Create Water, Detect Magic");
+  });
+
   it("applies question answers with zero claims (mythic 'No' clears the variant)", async () => {
     const sheet = createDefaultCharacter();
     sheet.rules.variants.mythic = true;
@@ -495,6 +556,150 @@ describe("class-grant echo dedup", () => {
     await applyImportResolutions(sb, sheet, claims, [], {});
     // The folded names collide, but the compendium ids differ — both are real, distinct traits.
     expect(sheet.traits.list).toHaveLength(2);
+  });
+});
+
+describe("review findings — Vehti pass hardening", () => {
+  it("never removes a multi-spell slot when the batch failed to apply its items", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "0: Create Water, Detect Magic", level: 0 }];
+    const u1 = "11111111-1111-4111-8111-111111111111";
+    const part = (id: string, text: string): ImportClaim => ({
+      id,
+      kind: "spell",
+      sourceKind: "spell",
+      sourceText: text,
+      sourceLabel: "Spells field · line item",
+      matchKey: text,
+      candidates: [{ table: "spell_compendium", slug: u1, name: text, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "spell_compendium", slug: u1 },
+      mined: true,
+      partOf: "sp1",
+      partCount: 2,
+      level: 0,
+    });
+    // spell_compendium EMPTY → the batch returns no rows → nothing applied → slot must survive.
+    await applyImportResolutions(fakeSb({}), sheet, [part("c1", "Create Water"), part("c2", "Detect Magic")], [], {});
+    expect(sheet.spellcasting.knownSpells.map((s) => s.name)).toContain("0: Create Water, Detect Magic");
+  });
+
+  it("an explicit 'Keep as written' on the slot wins over item extraction", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "0: Create Water, Detect Magic", level: 0 }];
+    const u1 = "11111111-1111-4111-8111-111111111111";
+    const u2 = "22222222-2222-4222-8222-222222222222";
+    const part = (id: string, text: string, slug: string): ImportClaim => ({
+      id,
+      kind: "spell",
+      sourceKind: "spell",
+      sourceText: text,
+      sourceLabel: "Spells field · line item",
+      matchKey: text,
+      candidates: [{ table: "spell_compendium", slug, name: text, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "spell_compendium", slug },
+      mined: true,
+      partOf: "sp1",
+      partCount: 2,
+      level: 0,
+    });
+    const whole: ImportClaim = {
+      id: "c-slot",
+      kind: "spell",
+      sourceKind: "spell",
+      sourceText: "0: Create Water, Detect Magic",
+      sourceLabel: "Spells field",
+      matchKey: "Create Water",
+      candidates: [],
+      confidence: "low",
+      resolution: { mode: "generic" },
+      draftEntryId: "sp1",
+    };
+    const sb = fakeSb({
+      spell_compendium: [
+        { id: u1, name: "Create Water", school: "conjuration" },
+        { id: u2, name: "Detect Magic", school: "divination" },
+      ],
+    });
+    const answers: ClaimAnswers = { resolutions: { "c-slot": { mode: "generic" } } }; // explicit keep
+    await applyImportResolutions(sb, sheet, [whole, part("c1", "Create Water", u1), part("c2", "Detect Magic", u2)], [], answers);
+    expect(sheet.spellcasting.knownSpells.map((s) => s.name)).toContain("0: Create Water, Detect Magic");
+  });
+
+  it("compound 'Name: A, B' entries re-file as DISTINCT features, not merged onto the shared prefix", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.feats.list = [
+      { id: "f1", name: "5. Lotus Style: Bloom, Purity of Body", tags: [], automation: [] },
+      { id: "f2", name: "9. Lotus Style: Branch, Improved Evasion", tags: [], automation: [] },
+    ];
+    const claim = (id: string, text: string, entryId: string): ImportClaim => ({
+      id,
+      kind: "feat",
+      sourceKind: "feat",
+      sourceText: text,
+      sourceLabel: "Feat slot",
+      matchKey: text,
+      candidates: [],
+      confidence: "low",
+      resolution: { mode: "generic" },
+      draftEntryId: entryId,
+      context: "feature",
+    });
+    await applyImportResolutions(
+      fakeSb({}),
+      sheet,
+      [claim("c1", "5. Lotus Style: Bloom, Purity of Body", "f1"), claim("c2", "9. Lotus Style: Branch, Improved Evasion", "f2")],
+      [],
+      {},
+    );
+    const names = sheet.features.list.map((f) => f.name);
+    expect(names).toContain("Lotus Style: Bloom, Purity of Body");
+    expect(names).toContain("Lotus Style: Branch, Improved Evasion");
+    expect(names).not.toContain("Lotus Style"); // never collapsed onto the shared prefix
+  });
+});
+
+describe("group-owned single exacts don't cross owners", () => {
+  const probeReport = () => ({
+    probes: [
+      { id: "p-race", kind: "race" as const, sourceText: "Being of Ib (-4 Str/-2 Con/+4 Wis)", sourceLabel: "Race", keys: ["Being of Ib"] },
+      {
+        id: "p-llv",
+        kind: "feat" as const,
+        sourceText: "Low-Light Vision",
+        sourceLabel: "Feat slot · line item",
+        keys: ["Low-Light Vision"],
+        context: "racial_trait" as const,
+        mined: true,
+        partOf: "f9",
+        partCount: 3,
+      },
+    ],
+    questions: [],
+  });
+
+  it("demotes a single-exact alt racial trait belonging to ANOTHER race", async () => {
+    const { assembleClaims: assemble } = await import("@/lib/character/import-claims");
+    const { claims } = assemble(probeReport(), {
+      "p-llv": [
+        { table: "alternate_racial_trait_compendium", slug: "dwarves-llv", name: "Low-Light Vision", group: "Dwarves", match: "exact" },
+      ],
+    });
+    const llv = claims.find((c) => c.id === "p-llv")!;
+    expect(llv.resolution.mode).toBe("skipped"); // mined default — the Dwarves row is offered, not applied
+    expect(llv.confidence).toBe("medium");
+    expect(llv.candidates).toHaveLength(1);
+  });
+
+  it("still links when the row belongs to the sheet's own race (plural fold)", async () => {
+    const { assembleClaims: assemble } = await import("@/lib/character/import-claims");
+    const { claims } = assemble(probeReport(), {
+      "p-llv": [
+        { table: "alternate_racial_trait_compendium", slug: "ib-voiceless", name: "Low-Light Vision", group: "Beings of Ib", match: "exact" },
+      ],
+    });
+    expect(claims.find((c) => c.id === "p-llv")!.resolution.mode).toBe("linked");
   });
 });
 

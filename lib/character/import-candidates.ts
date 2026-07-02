@@ -217,7 +217,12 @@ export async function resolveProbeCandidates(sb: Sb, probes: ClaimProbe[]): Prom
   }
 
   // ── Pass 2: ranked-search fallback (primary table only, capped + pooled) ───
-  const queue = [...needSearch.filter((p) => !p.mined), ...needSearch.filter((p) => p.mined)].slice(0, SEARCH_CAP);
+  // Priority under the cap: parsed slots, then multi-entry LINE ITEMS, then mined notes lines.
+  const queue = [
+    ...needSearch.filter((p) => !p.mined),
+    ...needSearch.filter((p) => p.mined && p.partOf),
+    ...needSearch.filter((p) => p.mined && !p.partOf),
+  ].slice(0, SEARCH_CAP);
   let idx = 0;
   const worker = async () => {
     while (idx < queue.length) {

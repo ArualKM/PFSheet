@@ -16,6 +16,7 @@ import { huntCompendium } from "@/lib/character/compendium-hunt";
 import {
   collectProbes,
   assembleClaims,
+  isDivider,
   type ImportClaim,
   type ImportQuestion,
 } from "@/lib/character/import-claims";
@@ -100,8 +101,9 @@ function buildSummary(draft: Partial<PathForgeCharacterV1>): ImportSummary {
     classLine: (draft.identity?.classes ?? []).map((c) => `${c.name} ${c.level}`).join(" / "),
     race: draft.identity?.race,
     skills: (draft.skills?.list ?? []).filter((s) => (s.ranks ?? 0) > 0).length,
-    feats: draft.feats?.list?.length ?? 0,
-    spells: draft.spellcasting?.knownSpells?.length ?? 0,
+    // Section-divider rows the adapter keeps for verification context aren't entries.
+    feats: (draft.feats?.list ?? []).filter((f) => !isDivider(f.name)).length,
+    spells: (draft.spellcasting?.knownSpells ?? []).filter((s) => !isDivider(s.name)).length,
     buffs: draft.buffs?.active?.length ?? 0,
     items,
     modules,
@@ -301,6 +303,12 @@ export async function commitImportAction(
       applyReport = { applied: [], warnings: ["Verification couldn't be applied — the sheet was imported as written."] };
     }
   }
+
+  // Section-divider rows the adapter keeps for verification context must never persist —
+  // applyImportResolutions drops them, but the skip-verify / zero-claims / apply-failure paths
+  // don't run it, so strip unconditionally before the sheet is saved.
+  sheet.feats.list = sheet.feats.list.filter((f) => !isDivider(f.name));
+  sheet.spellcasting.knownSpells = sheet.spellcasting.knownSpells.filter((s) => !isDivider(s.name));
 
   const computed = computeCharacter(sheet);
   const nowIso = new Date().toISOString();

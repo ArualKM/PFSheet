@@ -49,7 +49,7 @@ export const KIND_TABLES: Record<ClaimKind, string[]> = {
   class: ["class_compendium"],
   archetype: ["archetype_compendium"],
   race: ["race_compendium"],
-  feat: ["feat_compendium", "class_feature_compendium", "trait_compendium"],
+  feat: ["feat_compendium", "class_feature_compendium", "trait_compendium", "drawback_compendium"],
   trait: ["trait_compendium", "feat_compendium", "drawback_compendium"],
   feature: ["class_feature_compendium", "feat_compendium"],
   spell: ["spell_compendium", "feat_compendium", "class_feature_compendium"],
@@ -119,6 +119,15 @@ export type ImportClaim = {
   mined?: boolean;
   /** The id of the draft entry this claim covers (feats.list / knownSpells / classes id). */
   draftEntryId?: string;
+  /** Header/section context the probe carried ("RACIAL TRAITS" divider above a feat slot) —
+   * commit re-files context-classified as-written entries into the right bucket. */
+  context?: ClaimKind;
+  /** A comma/semicolon LINE ITEM of a multi-entry slot (the slot's draftEntryId). Additive like
+   * mined; when EVERY item of a slot links, the slot itself is removed as covered. */
+  partOf?: string;
+  /** How many line items the slot SPLIT into (guard-filtered ones included) — the slot is only
+   * "covered" when the LINKED items account for all of them. */
+  partCount?: number;
 };
 
 export type ImportQuestion = {
@@ -145,6 +154,9 @@ export type ClaimProbe = {
   parentClassProbeId?: string;
   mined?: boolean;
   draftEntryId?: string;
+  /** A line item of a multi-entry slot (see ImportClaim.partOf / partCount). */
+  partOf?: string;
+  partCount?: number;
 };
 
 export type ProbeCandidates = Record<string, Candidate[]>;
@@ -182,8 +194,8 @@ export const strictKey = (s: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** A divider / header row a power user typed into a slot ("#### Feats ####"). */
-export const isDivider = (s: string): boolean => /#{3,}/.test(s) || s.trim().length === 0;
+/** A divider / header row a power user typed into a slot ("#### Feats ####", "=== DRUID ==="). */
+export const isDivider = (s: string): boolean => /#{3,}|={3,}/.test(s) || s.trim().length === 0;
 
 /**
  * Classify a header / divider / caption line into the claim kind it announces, so entries under it
@@ -195,6 +207,8 @@ export function classifyHeader(raw: string): ClaimKind | null {
   const t = raw
     .replace(/[#*_=\-—–]+/g, " ")
     .replace(/\[[^\]]*\]/g, " ")
+    // Parenthetical asides don't drive the classification ("TRAITS (4 + 5th via 2nd drawback)").
+    .replace(/\([^)]*\)/g, " ")
     .replace(/\s+/g, " ")
     .replace(/:\s*$/, "")
     .trim()
@@ -212,39 +226,105 @@ export function classifyHeader(raw: string): ClaimKind | null {
   return null;
 }
 
-/**
- * Strip slot bookkeeping so the bare entry name remains. Handles the fixtures' real patterns:
- * "Rogue 9. Improved Critical (Close)", "9th: Extra Rogue Talent", "Oath 10: X", "1[Monk]. Name",
- * "11th: Name", bullets ("• ", "> ", "- "), and trailing "(...)" / "[...]" qualifiers.
- */
-export function entryKeys(raw: string): string[] {
+/** Strip leading slot bookkeeping ("Rogue 9. ", "Oath 10: ", "LVL 1) ", "Flaw) ", "1[Monk]. ",
+ * "9th: ", bullets) so the entry text remains. */
+export function stripSlotPrefix(raw: string): string {
   let s = raw.trim().replace(/^[•>*\-–]\s*/, "");
   s = s.replace(/^\d+\s*\[[^\]]*\]\s*[.:]\s*/, ""); // "1[Monk]. "
-  s = s.replace(/^[A-Za-z' ]{0,16}\d+\s*[.:]\s*/, ""); // "Rogue 9. " / "Oath 10: " / "9. "
-  s = s.replace(/^\d+(st|nd|rd|th)\s*[.:]?\s*/i, ""); // "9th: "
-  s = s.trim();
+  s = s.replace(/^[A-Za-z' ]{0,16}\d+\s*[.:)]\s*/, ""); // "Rogue 9. " / "Oath 10: " / "LVL 1) " / "0: "
+  s = s.replace(/^[A-Za-z']{2,10}\)\s*/, ""); // "Flaw) " / "MD) " / "BG) "
+  s = s.replace(/^\d+(st|nd|rd|th)\s*[.:)]?\s*/i, ""); // "9th: "
+  return s.trim();
+}
+
+type SepHit = { pre: string; post: string; arrow: boolean };
+
+/** Find the first TOP-LEVEL name/description separator: " -> ", "→", " - ", " — ", or ": ".
+ * "Toughness - +3 HP" → name "Toughness"; "Aquatic: breathe water; …" → name "Aquatic";
+ * "Nature Bond -> HERBALISM: …" → name "Nature Bond" (arrow: the post half may ALSO name an
+ * ability, e.g. "Spirit (Lore) -> Monstrous Insight (Su): …"). */
+function findTopLevelSep(s: string): SepHit | null {
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]!;
+    if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    if (depth > 0) continue;
+    if (ch === "→" || (ch === "-" && s[i + 1] === ">") || (ch === "=" && s[i + 1] === ">")) {
+      const len = ch === "→" ? 1 : 2;
+      return { pre: s.slice(0, i).trim(), post: s.slice(i + len).trim(), arrow: true };
+    }
+    if (ch === ":" && s[i + 1] === " ") {
+      return { pre: s.slice(0, i).trim(), post: s.slice(i + 2).trim(), arrow: false };
+    }
+    if ((ch === "-" || ch === "–" || ch === "—") && s[i - 1] === " " && s[i + 1] === " ") {
+      return { pre: s.slice(0, i - 1).trim(), post: s.slice(i + 2).trim(), arrow: false };
+    }
+  }
+  return null;
+}
+
+/** Split a slot line into its NAME half and description ("LVL 1) Toughness - +3 HP" →
+ * { name: "Toughness", detail: "+3 HP" }). Used by entryKeys and the commit-time re-file of
+ * context-classified as-written entries (racial traits / class features keep their rules text). */
+export function splitEntryText(raw: string): { name: string; detail?: string } {
+  const s = stripSlotPrefix(raw);
+  const sep = findTopLevelSep(s);
+  if (sep && sep.pre.length >= 3 && sep.pre.length <= 60 && sep.post) {
+    return { name: sep.pre, detail: sep.post };
+  }
+  return { name: s };
+}
+
+/**
+ * Match keys for a slot line, most-specific first. Handles the fixtures' real patterns:
+ * prefix bookkeeping ("Rogue 9.", "LVL 1)", "Flaw)"), trailing "(...)"/"[...]" qualifiers, and
+ * name/description separators — "Toughness - +3 HP" must match the feat Toughness, "Hex ->
+ * Benefit of Wisdom: …" the class feature Hex. The LAST key is the most-stripped NAME half
+ * (the best ranked-search query). Keys keep the SOURCE's casing (the server's fast exact-match
+ * pass is case-sensitive; real entries are usually typed with the book's capitalization).
+ */
+export function entryKeys(raw: string): string[] {
+  const s = stripSlotPrefix(raw);
   if (!s) return [];
-  // Keys keep the SOURCE's casing (the server's fast exact-match pass is case-sensitive; real
-  // entries are usually typed with the book's capitalization). Compare via normalizeKey().
   const keys: string[] = [];
   const seen = new Set<string>();
   const push = (k: string) => {
     const t = k.trim();
     const n = normalizeKey(t);
-    if (n.length >= 3 && !seen.has(n)) {
+    if (n.length >= 3 && t.length <= 80 && !seen.has(n)) {
       seen.add(n);
       keys.push(t);
     }
   };
-  push(s);
   // Progressive qualifier stripping: "Improved Critical (Close)" → "Improved Critical";
   // "Mass Teleport [mass]" → "Mass Teleport".
-  let stripped = s;
-  for (let i = 0; i < 3; i++) {
-    const next = stripped.replace(/\s*(\([^()]*\)|\[[^\][]*\])\s*$/, "").trim();
-    if (next === stripped) break;
-    stripped = next;
-    push(stripped);
+  const pushWithStrips = (base: string) => {
+    push(base);
+    let stripped = base;
+    for (let i = 0; i < 3; i++) {
+      const next = stripped.replace(/\s*(\([^()]*\)|\[[^\][]*\])\s*$/, "").trim();
+      if (next === stripped) break;
+      stripped = next;
+      push(stripped);
+    }
+  };
+  pushWithStrips(s);
+  const sep = findTopLevelSep(s);
+  if (sep && sep.pre.length >= 3 && sep.pre.length <= 60) {
+    if (sep.arrow && sep.post) {
+      // "Spirit (Lore) -> Monstrous Insight (Su): …" — the post half names an ability too.
+      const postSep = findTopLevelSep(sep.post);
+      const postName = postSep ? postSep.pre : sep.post;
+      if (postName.length >= 3 && postName.length <= 60) pushWithStrips(postName);
+    }
+    pushWithStrips(sep.pre);
+  }
+  // The books invert qualified spell names ("Lesser Restoration" is printed "Restoration,
+  // Lesser") — offer the comma-inverted form for every key collected so far.
+  for (const k of [...keys]) {
+    const m = k.match(/^(Lesser|Greater|Mass|Communal|Improved) (.{3,50})$/i);
+    if (m) push(`${m[2]}, ${m[1]}`);
   }
   return keys;
 }
@@ -412,10 +492,13 @@ export function mineNotesEntries(notesDump: string, cap = 80): MinedReport {
       context = classifyHeader(labelValue[1]!) ?? context;
       continue;
     }
-    // A bulleted "Name: description" entry ("• Reactionary: +2 initiative") — the name half is
-    // the entry; the description stays behind in the preserved notes.
-    const colonName = bullet ? text.match(/^([^:]{3,48}):\s+\S/) : null;
-    if (colonName) text = colonName[1]!.trim();
+    // A bulleted "Name: description" / "Name - description" entry ("• Reactionary: +2
+    // initiative", "• Umbral Unmasking - she casts a monstrous shadow") — the name half is the
+    // entry; the description stays behind in the preserved notes.
+    if (bullet) {
+      const sep = splitEntryText(text);
+      if (sep.detail && sep.name.length >= 3 && sep.name.length <= 48) text = sep.name;
+    }
     // Judge prose-ness on the entry NAME (bracket/paren qualifiers stripped): "Child of Time
     // [Planar Infusion (Conduit) [Time], …]" is an entry however long its qualifiers run.
     let bare = text;
@@ -551,25 +634,88 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
     });
   }
 
+  // A section divider naming one of the sheet's own classes ("#### DRUID (Reincarnated) ####")
+  // labels that class's FEATURES section.
+  const classNames = new Set(
+    (classLine?.segments ?? []).map((s) => normalizeKey(s.baseName)).filter((n) => n.length >= 3),
+  );
+  const headerContext = (raw: string): ClaimKind | undefined => {
+    const known = classifyHeader(raw);
+    if (known) return known;
+    const words = normalizeKey(raw.replace(/[#=*_\-—–]+/g, " "));
+    for (const cls of classNames) {
+      if (words.includes(cls)) return "feature";
+    }
+    return undefined;
+  };
+
+  // Multi-entry slots ("0: Create Water, Detect Magic, Guidance", "Nature Sense (+2 …); Wild
+  // Empathy (1d20+1); Druidic") get a sub-probe per LINE ITEM — additive like mined entries, so
+  // junk items can't self-promote, and a fully-linked slot is removed as covered at commit.
+  const emitParts = (
+    slotRaw: string,
+    slotId: string,
+    kind: ClaimKind,
+    sourceLabel: string,
+    ctx: ClaimKind | undefined,
+    slotLevel?: number,
+  ) => {
+    const base = stripSlotPrefix(slotRaw);
+    const sep = findTopLevelSep(base);
+    // An arrow line ("Nature Bond -> HERBALISM: …") is ONE entry with a description, not a list.
+    if (sep?.arrow) return;
+    const listSrc = sep && sep.pre.length <= 60 ? sep.post : base;
+    const parts = splitTopLevel(listSrc, /[;,]/);
+    if (parts.length < 2) return;
+    for (const part of parts.slice(0, 12)) {
+      const t = part.trim();
+      // Name-ish items only (Title-case start, short, no arrows/equations/measurements) —
+      // "breathe water; no Swim checks", "Toad (familiar) -> grants you +3 HP", and
+      // "Darkvision 60 ft" aren't list entries.
+      if (!t || t.length > 48 || !/^[A-Z\d]/.test(t.replace(/^[•>*\-–\s]+/, ""))) continue;
+      if (/->|→|=>|\s=\s|\d+\s*(?:ft|feet|lbs?|gp|sp|cp)\b/i.test(t)) continue;
+      const keys = entryKeys(t);
+      if (!keys.length) continue;
+      // Spell items may carry their own level ("Identify (1st)"), else the slot's ("1st: A, B").
+      const ownLevel = kind === "spell" ? t.match(/\((\d)(?:st|nd|rd|th)?\)/)?.[1] : undefined;
+      const level = ownLevel !== undefined ? parseInt(ownLevel, 10) : slotLevel;
+      probes.push({
+        id: pid("part"),
+        kind,
+        sourceText: t,
+        sourceLabel,
+        keys,
+        ...(ctx && ctx !== kind ? { context: ctx } : {}),
+        ...(level !== undefined ? { level } : {}),
+        mined: true,
+        partOf: slotId,
+        partCount: parts.length,
+      });
+    }
+  };
+
   // ── Feat slots (dividers become CONTEXT for the entries below them) ────────
   let featCtx: ClaimKind | undefined;
   for (const f of character.feats.list) {
     if (f.compendiumId) continue;
     if (isDivider(f.name)) {
-      featCtx = classifyHeader(f.name) ?? undefined;
+      featCtx = headerContext(f.name);
       continue;
     }
     const keys = entryKeys(f.name);
-    if (!keys.length) continue;
-    probes.push({
-      id: pid("feat"),
-      kind: "feat",
-      sourceText: f.name,
-      sourceLabel: "Feat slot",
-      keys,
-      ...(featCtx && featCtx !== "feat" ? { context: featCtx } : {}),
-      draftEntryId: f.id,
-    });
+    if (keys.length) {
+      probes.push({
+        id: pid("feat"),
+        kind: "feat",
+        sourceText: f.name,
+        sourceLabel: "Feat slot",
+        keys,
+        ...(featCtx && featCtx !== "feat" ? { context: featCtx } : {}),
+        draftEntryId: f.id,
+      });
+    }
+    // Even a slot too long/odd to probe whole may be a LIST of real entries.
+    emitParts(f.name, f.id, "feat", "Feat slot · line item", featCtx);
   }
 
   // ── Spell slots (whatever the compendium hunt didn't already link) ─────────
@@ -583,16 +729,26 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
     }
     if ((s as { compendiumId?: string }).compendiumId) continue;
     const keys = entryKeys(s.name);
-    if (!keys.length) continue;
-    probes.push({
-      id: pid("spell"),
-      kind: "spell",
-      sourceText: s.name,
-      sourceLabel: "Spells field",
-      keys,
-      ...(spellCtx && spellCtx !== "spell" ? { context: spellCtx } : {}),
-      draftEntryId: s.id,
-    });
+    if (keys.length) {
+      probes.push({
+        id: pid("spell"),
+        kind: "spell",
+        sourceText: s.name,
+        sourceLabel: "Spells field",
+        keys,
+        ...(spellCtx && spellCtx !== "spell" ? { context: spellCtx } : {}),
+        draftEntryId: s.id,
+      });
+    }
+    const slotLevel = s.name.trim().match(/^(\d)(?:st|nd|rd|th)?\s*[.:)]/)?.[1];
+    emitParts(
+      s.name,
+      s.id,
+      "spell",
+      "Spells field · line item",
+      spellCtx,
+      slotLevel !== undefined ? parseInt(slotLevel, 10) : (s as { level?: number }).level,
+    );
   }
 
   // ── Traits the adapter parsed (rare) + entries mined from the notes dump ───
@@ -648,6 +804,21 @@ function groupMatchesClass(group: string, classNames: Set<string>): boolean {
   if (classNames.has(g)) return true;
   const base = normalizeKey(group.replace(/\s*\([^)]*\)\s*$/, ""));
   return classNames.has(base);
+}
+
+/** Crude singular fold so "Beings of Ib" (the compendium row) matches "Being of Ib" (the sheet). */
+const singularWords = (s: string): string =>
+  normalizeKey(s)
+    .split(" ")
+    .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w))
+    .join(" ");
+
+/** Does an alternate-racial-trait row's race match the sheet's race text? */
+function groupMatchesRace(group: string, raceText: string): boolean {
+  if (!raceText) return false;
+  const g = singularWords(group);
+  const r = singularWords(raceText.replace(/\s*\([^)]*\)\s*/g, " "));
+  return g === r || g.includes(r) || r.includes(g);
 }
 
 /**
@@ -708,6 +879,7 @@ export function assembleClaims(report: ProbeReport, hits: ProbeCandidates): Clai
   }
 
   // Pass 2 — everything else.
+  const raceText = report.probes.find((p) => p.kind === "race")?.sourceText ?? "";
   for (const probe of report.probes) {
     if (probe.kind === "class") continue;
     const candidates = hits[probe.id] ?? [];
@@ -741,6 +913,21 @@ export function assembleClaims(report: ProbeReport, hits: ProbeCandidates): Clai
       }
     }
 
+    // GROUP-OWNED tables can't auto-link across owners: a single exact "Low-Light Vision" row
+    // belongs to the DWARVES alternate racial traits — a Being of Ib must not inherit it by
+    // default. Mismatched-group picks demote to a suggestion the player confirms.
+    if (chosen?.group) {
+      if (chosen.table === "alternate_racial_trait_compendium" && !groupMatchesRace(chosen.group, raceText)) {
+        chosen = undefined;
+      } else if (
+        (chosen.table === "class_feature_compendium" || chosen.table === "archetype_compendium") &&
+        linkedClassNames.size > 0 &&
+        !groupMatchesClass(chosen.group, linkedClassNames)
+      ) {
+        chosen = undefined;
+      }
+    }
+
     if (chosen) {
       kind = TABLE_KIND[chosen.table] ?? probe.kind;
       confidence = "high";
@@ -768,6 +955,9 @@ export function assembleClaims(report: ProbeReport, hits: ProbeCandidates): Clai
       parentClassClaimId: probe.parentClassProbeId,
       mined: probe.mined,
       draftEntryId: probe.draftEntryId,
+      ...(probe.context ? { context: probe.context } : {}),
+      ...(probe.partOf ? { partOf: probe.partOf } : {}),
+      ...(probe.partCount !== undefined ? { partCount: probe.partCount } : {}),
     });
   }
 

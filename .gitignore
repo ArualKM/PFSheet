@@ -62,4 +62,8 @@ next-env.d.ts
 # PFcore source research — the ~11k-page Archives of Nethys HTML mirror (bulky, not app code).
 # The 25 normalized TSVs + parsers + docs in csv/ ARE versioned (the compendium import source).
 docs/PFcore Update/**/*.html
+
+# 3pp source research — scraped PoW/Spheres wiki mirror (bulky, not app code). Normalized
+# datasets extracted from it WILL be versioned when produced, like the Spheres/PFcore TSVs.
+docs/3pp Update/
 **/__pycache__/

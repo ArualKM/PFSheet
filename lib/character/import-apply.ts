@@ -20,6 +20,8 @@ import {
   pickClassCandidate,
   entryKeys,
   splitTopLevel,
+  splitEntryText,
+  stripSlotPrefix,
   KIND_TABLES,
   type ImportClaim,
   type ImportQuestion,
@@ -411,6 +413,18 @@ export async function applyImportResolutions(
     }
   };
 
+  /** The source slot often carries a rules note or choice beyond the row's own name — keep it
+   * visible on the created entry (never-discard). */
+  const appendImportNote = (target: { description?: string } | undefined, c: ImportClaim, rowName: string): void => {
+    if (!target) return;
+    const src = splitEntryText(c.sourceText);
+    if (!src.detail && normalizeKey(src.name) === normalizeKey(rowName)) return;
+    const note = `Imported: ${c.sourceText.trim()}`;
+    if (!target.description?.includes(note)) {
+      target.description = [target.description, note].filter(Boolean).join("\n\n");
+    }
+  };
+
   /** Add the linked row to whichever list its table implies. Returns true when the entry now
    * exists there (the caller removes the source entry from its original slot). */
   const refileLinked = async (c: ImportClaim, link: { table: string; slug: string }): Promise<boolean> => {
@@ -429,6 +443,18 @@ export async function applyImportResolutions(
         .maybeSingle();
       if (!row) return false;
       addFeatureFromRow(c, row);
+      // The source text may carry a CHOICE or rules note beyond the feature's own name
+      // ("Finesse Training (Ex) (Cestus)", "Hex -> Benefit of Wisdom: …") — keep it visible.
+      const src = splitEntryText(c.sourceText);
+      const feat = S(row.feature);
+      const withType = row.type ? `${feat} (${S(row.type)})` : feat;
+      if (src.detail || (normalizeKey(src.name) !== normalizeKey(feat) && normalizeKey(src.name) !== normalizeKey(withType))) {
+        const target = sheet.features.list.find((f) => f.compendiumId === S(row.slug));
+        const note = `Imported: ${c.sourceText.trim()}`;
+        if (target && !target.description?.includes(note)) {
+          target.description = [target.description, note].filter(Boolean).join("\n\n");
+        }
+      }
       applied.push(`Class feature: ${S(row.feature)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
       return true;
     }
@@ -440,6 +466,7 @@ export async function applyImportResolutions(
         .maybeSingle();
       if (!row) return false;
       addTraitFromRow(c, link.table, row);
+      appendImportNote(sheet.traits.list.find((t) => t.compendiumId === S(row.slug)), c, S(row.name));
       applied.push(`${link.table === "drawback_compendium" ? "Drawback" : "Trait"}: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
       return true;
     }
@@ -476,6 +503,7 @@ export async function applyImportResolutions(
           automation: [],
         });
       }
+      appendImportNote(sheet.features.list.find((f) => f.compendiumId === S(row.slug)), c, S(row.trait_name));
       applied.push(`Racial trait: ${S(row.trait_name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
       return true;
     }
@@ -510,7 +538,17 @@ export async function applyImportResolutions(
         const row = featRowsBySlug.get(link!.slug);
         const entry = sheet.feats.list.find((f) => f.id === c.draftEntryId);
         if (!row || !entry) continue;
-        entry.name = S(row.name);
+        const original = entry.name;
+        // Keep a player-typed choice qualifier ("Spell Focus (Conjuration)" stays whole), and
+        // preserve the rest of the slot text ("… - +1 DC conjuration") in notes — no loss.
+        const half = splitEntryText(original).name;
+        entry.name =
+          normalizeKey(half).startsWith(normalizeKey(S(row.name))) && half.length > S(row.name).length
+            ? half
+            : S(row.name);
+        if (normalizeKey(original) !== normalizeKey(entry.name) && !entry.notes) {
+          entry.notes = `Imported: ${original}`;
+        }
         entry.compendiumId = S(row.slug);
         entry.type = S(row.types) || undefined;
         entry.prerequisites = S(row.prerequisites) || undefined;
@@ -599,10 +637,16 @@ export async function applyImportResolutions(
   }
 
   // ── Spell claims: cache detail / re-file ───────────────────────────────────
+  // Part claims whose LINK targets spell_compendium are included regardless of which slot kind
+  // they came from (a spell typed into a feat slot's list still becomes a spell entry).
   const spellClaims = claims.filter((c) => c.sourceKind === "spell");
-  const spellLinks = spellClaims
+  const spellLinks = claims
+    .filter((c) => c.sourceKind === "spell" || c.partOf)
     .map((c) => ({ c, link: linkedSlug(c, resolved(c, answers)) }))
     .filter((x) => x.link?.table === "spell_compendium");
+  /** Part-claim ids whose linked row was ACTUALLY applied — slot removal requires all of them,
+   * so a failed batch/lookup can never delete a slot with nothing added in its place. */
+  const appliedParts = new Set<string>();
   // One malformed id would 22P02 the WHOLE batched .in() (PostgREST returns an error, not rows),
   // silently dropping every legitimate spell link — so ids must be UUID-shaped.
   const validSpellLinks = spellLinks.filter((x) => UUID_RE.test(x.link!.slug));
@@ -616,8 +660,35 @@ export async function applyImportResolutions(
       const byId = new Map(((data ?? []) as Record<string, unknown>[]).map((r) => [S(r.id), r]));
       for (const { c, link } of validSpellLinks) {
         const row = byId.get(link!.slug);
+        if (!row) continue;
+        // A LINE ITEM of a multi-spell slot ("0: Create Water, Detect Magic, …") ADDS a proper
+        // spell entry; the slot itself is removed below once every item linked.
+        if (c.partOf) {
+          if (!sheet.spellcasting.knownSpells.some((s) => s.compendiumId === S(row.id))) {
+            const lvl = Math.trunc(Number(c.level));
+            sheet.spellcasting.knownSpells.push({
+              id: `import_${c.id}`,
+              name: S(row.name),
+              level: Number.isFinite(lvl) ? Math.max(0, Math.min(9, lvl)) : 0,
+              compendiumId: S(row.id),
+              school: S(row.school) || undefined,
+              subschool: S(row.subschool) || undefined,
+              descriptor: S(row.descriptor) || undefined,
+              castingTime: S(row.casting_time) || undefined,
+              components: S(row.components) || undefined,
+              range: S(row.range) || undefined,
+              duration: S(row.duration) || undefined,
+              savingThrow: S(row.saving_throw) || undefined,
+              spellResistance: S(row.spell_resistance) || undefined,
+              description: S(row.description) || undefined,
+            });
+          }
+          appliedParts.add(c.id);
+          applied.push(`Spell: ${S(row.name)} (from a multi-spell line)`);
+          continue;
+        }
         const entry = sheet.spellcasting.knownSpells.find((s) => s.id === c.draftEntryId);
-        if (!row || !entry) continue;
+        if (!entry) continue;
         entry.name = S(row.name);
         entry.compendiumId = S(row.id);
         entry.school = S(row.school) || undefined;
@@ -637,8 +708,10 @@ export async function applyImportResolutions(
     }
   }
   // Spell-slot entries linked to ANOTHER table (a feat / talent / class feature typed into a
-  // spell slot — field misuse is the norm) move to the right list.
+  // spell slot — field misuse is the norm) move to the right list. Line items are handled in
+  // their own loop below.
   for (const c of spellClaims) {
+    if (c.partOf) continue;
     const res = resolved(c, answers);
     if (res.mode === "skipped") {
       sheet.spellcasting.knownSpells = sheet.spellcasting.knownSpells.filter((s) => s.id !== c.draftEntryId);
@@ -656,6 +729,109 @@ export async function applyImportResolutions(
     }
   }
 
+  // ── Multi-entry slot line items ─────────────────────────────────────────────
+  // Linked items were extracted above (spells) or re-file here (feats / features / traits /
+  // talents). A slot whose EVERY line item linked carries no information of its own anymore —
+  // it's removed and recorded, like the structured-feature echoes below.
+  const partClaims = claims.filter((c) => c.partOf);
+  for (const c of partClaims) {
+    const link = linkedSlug(c, resolved(c, answers));
+    if (!link || link.table === "spell_compendium") continue;
+    try {
+      if (await refileLinked(c, link)) appliedParts.add(c.id);
+      else warnings.push(`Couldn't add "${c.sourceText}" from ${c.sourceLabel}.`);
+    } catch {
+      warnings.push(`Couldn't add "${c.sourceText}" from ${c.sourceLabel}.`);
+    }
+  }
+  const coveredSlotNames: string[] = [];
+  if (partClaims.length) {
+    const bySlot = new Map<string, ImportClaim[]>();
+    for (const c of partClaims) {
+      const list = bySlot.get(c.partOf!) ?? [];
+      list.push(c);
+      bySlot.set(c.partOf!, list);
+    }
+    for (const [slotId, parts] of bySlot) {
+      // Every item must have ACTUALLY applied (not merely resolved linked — a failed batch must
+      // never delete a slot with nothing added in its place).
+      if (!parts.every((p) => appliedParts.has(p.id))) continue;
+      // Guard-filtered items ("Darkvision 60 ft") never became claims — the linked items must
+      // account for EVERY split part, or the slot still carries information of its own.
+      if (parts.length !== (parts[0]!.partCount ?? parts.length)) continue;
+      // The player's explicit "keep as written" on the SLOT itself wins over item extraction.
+      const wholeClaim = claims.find((c) => c.draftEntryId === slotId && !c.partOf);
+      if (wholeClaim && answers.resolutions?.[wholeClaim.id]?.mode === "generic") continue;
+      const entry =
+        sheet.feats.list.find((f) => f.id === slotId) ??
+        sheet.spellcasting.knownSpells.find((s) => s.id === slotId);
+      if (!entry) continue; // already re-filed/removed by the whole-slot claim
+      // A slot the whole-slot claim linked IN PLACE is a real entry now — never remove it.
+      if ((entry as { compendiumId?: string }).compendiumId) continue;
+      sheet.feats.list = sheet.feats.list.filter((f) => f.id !== slotId);
+      sheet.spellcasting.knownSpells = sheet.spellcasting.knownSpells.filter((s) => s.id !== slotId);
+      coveredSlotNames.push(entry.name);
+    }
+    if (coveredSlotNames.length) {
+      applied.push(
+        `Extracted ${coveredSlotNames.length} multi-entry line${coveredSlotNames.length === 1 ? "" : "s"} into linked entries`,
+      );
+    }
+  }
+
+  // ── Context re-file: section-labeled as-written entries ────────────────────
+  // An entry under a "RACIAL TRAITS" / class-features header belongs in features even without a
+  // compendium row ("Voiceless: cannot speak…" → a racial_trait feature carrying its rules text).
+  {
+    const ctxOf = new Map<string, "racial_trait" | "feature">();
+    for (const c of claims) {
+      if (!c.draftEntryId || c.mined || c.partOf || c.sourceKind !== "feat") continue;
+      if (resolved(c, answers).mode !== "generic") continue;
+      if (c.context === "racial_trait" || c.context === "feature") ctxOf.set(c.draftEntryId, c.context);
+    }
+    let moved = 0;
+    if (ctxOf.size) {
+      const nameish = (p: string) => {
+        const t = p.trim();
+        return t.length >= 3 && t.length <= 48 && /^[A-Z\d]/.test(t) && !/->|→|=>|\s=\s/.test(t);
+      };
+      sheet.feats.list = sheet.feats.list.filter((f) => {
+        const ctx = ctxOf.get(f.id);
+        if (!ctx) return true;
+        const { name: half, detail } = splitEntryText(f.name);
+        // "Lotus Style: Bloom, Purity of Body" is a COMPOUND name, not a name + description —
+        // when the post-colon half is itself a list of name-ish items, splitting would collapse
+        // distinct entries onto the shared prefix. Keep the full text as the name instead.
+        const detailParts = detail ? splitTopLevel(detail, /[;,]/) : [];
+        const compound = detailParts.length >= 2 && detailParts.every(nameish);
+        const name = compound ? stripSlotPrefix(f.name) : half;
+        if (!name || name.length < 3 || name.length > 80) return true;
+        const existing = sheet.features.list.find((x) => normalizeKey(x.name) === normalizeKey(name));
+        // Merge only into a compendium-LINKED feature (a granted row absorbing its choice note) —
+        // a name collision with another as-written feature is a distinct entry, kept distinct.
+        if (existing?.compendiumId) {
+          const note = `Imported: ${f.name}`;
+          if (detail && !existing.description?.includes(note)) {
+            existing.description = [existing.description, note].filter(Boolean).join("\n\n");
+          }
+        } else {
+          sheet.features.list.push({
+            id: `import_ctx_${f.id}`,
+            name,
+            category: ctx === "racial_trait" ? "racial_trait" : "class_feature",
+            ...(!compound && detail ? { description: detail } : {}),
+            automation: [],
+          });
+        }
+        moved++;
+        return false;
+      });
+    }
+    if (moved) {
+      applied.push(`Re-filed ${moved} section-labeled entr${moved === 1 ? "y" : "ies"} into features`);
+    }
+  }
+
   // ── Structured-feature echoes ───────────────────────────────────────────────
   // The class builder just granted structured features; a leftover NAME-ONLY slot whose text is
   // NOTHING BUT features now on the sheet ("Sneak attack (1/3/5/…/19)", "1. Trapfinding,
@@ -665,6 +841,7 @@ export async function applyImportResolutions(
   // EXPLICIT resolution always wins (an explicit keep-as-written stays, and a LINKED claim whose
   // apply failed keeps its "kept as written" promise). CHOICE qualifiers ("Hex (Evil Eye)",
   // "(Cestus)") are preserved onto the matching feature so the pick stays visible on the sheet.
+  const echoRemovedNames: string[] = [];
   if (linkedClassClaims.length > 0) {
     type FeatureRowRef = PathForgeCharacterV1["features"]["list"][number];
     const grantedByName = new Map<string, FeatureRowRef>();
@@ -732,15 +909,22 @@ export async function applyImportResolutions(
     }
     if (removedNames.length) {
       sheet.feats.list = keep;
+      echoRemovedNames.push(...removedNames);
+      applied.push(
+        `Removed ${removedNames.length} slot entr${removedNames.length === 1 ? "y" : "ies"} duplicating structured features`,
+      );
+    }
+  }
+  // Everything removed as covered (echo slots + fully-extracted multi-entry lines) is preserved.
+  {
+    const allCovered = [...coveredSlotNames, ...echoRemovedNames];
+    if (allCovered.length) {
       const prior = (sheet.metadata.unmapped as Record<string, unknown> | undefined)?.covered_by_features;
       const priorList = Array.isArray(prior) ? prior.filter((x): x is string => typeof x === "string") : [];
       sheet.metadata.unmapped = {
         ...(sheet.metadata.unmapped ?? {}),
-        covered_by_features: [...priorList, ...removedNames.filter((t) => !priorList.includes(t))],
+        covered_by_features: [...priorList, ...allCovered.filter((t) => !priorList.includes(t))],
       };
-      applied.push(
-        `Removed ${removedNames.length} slot entr${removedNames.length === 1 ? "y" : "ies"} duplicating structured features`,
-      );
     }
   }
 

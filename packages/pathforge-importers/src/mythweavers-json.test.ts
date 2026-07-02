@@ -77,12 +77,13 @@ describe("mythweavers-json adapter", () => {
     expect(acro?.misc.length).toBe(1);
   });
 
-  it("skips dividers and budget-tracker rows but imports real content", async () => {
+  it("keeps labeled dividers (verification section context) and imports real content", async () => {
     const out = await runImportPipeline({ json: MW });
     const c = out!.draft.character;
-    // The "##### Feats #####" divider is dropped; the real feat is kept.
+    // The "##### Feats #####" LABELED divider is KEPT as a row — the player typed it, and the
+    // verification step reads it as section context (commit drops it once verification runs).
     expect(c.feats?.list.some((f) => f.name === "Power Attack")).toBe(true);
-    expect(c.feats?.list.some((f) => f.name.includes("#####"))).toBe(false);
+    expect(c.feats?.list.some((f) => f.name === "##### Feats #####")).toBe(true);
     // "Skill49: Int 7/lvl" (rank -140) is NOT imported as a skill.
     expect(c.spellcasting?.knownSpells.some((s) => s.name === "Magic Missile")).toBe(true);
     expect(c.languages?.known).toContain("Common");

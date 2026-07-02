@@ -16,7 +16,7 @@ import type {
   ImportValidationResult,
   ImportWarning,
 } from "./index";
-import { str, toInt, parseLeadingInt, isRealValue } from "./util";
+import { str, toInt, parseLeadingInt, isRealValue, isDivider } from "./util";
 
 /**
  * §12.4 Myth-Weavers JSON import — best-effort, schema-sample driven. The MW PF1e
@@ -312,13 +312,31 @@ function normalizeMw(mw: Mw): NormalizedCharacterDraft {
   }
 
   // ── Feats / talents (overloaded slots; import non-divider rows) ─────────────
+  // Slot keys iterate in NUMERIC series order (Feat2 < Feat17 < Featxtra0 < Featxtrax21), not
+  // raw JSON key order — power users type section dividers ("#### RACIAL TRAITS ####") into
+  // slots, and Myth-Weavers displays slots sorted, so only the sorted order keeps a divider
+  // ABOVE the entries it labels (the verification step reads dividers as section context).
+  const slotOrder = (a: string, b: string): number => {
+    const pa = a.match(/^([A-Za-z]+?)(\d*)$/);
+    const pb = b.match(/^([A-Za-z]+?)(\d*)$/);
+    if (!pa || !pb) return a.localeCompare(b);
+    if (pa[1] !== pb[1]) return pa[1]! < pb[1]! ? -1 : 1;
+    return (parseInt(pa[2] || "0", 10) || 0) - (parseInt(pb[2] || "0", 10) || 0);
+  };
+  // LABELED dividers ("#### RACIAL TRAITS ####") are kept as rows: they're content the player
+  // typed (never silently discard), and the verification step reads them as section context for
+  // the entries beneath (commit drops them once verification has run). Bare separator rows
+  // ("#####") stay dropped.
+  const isLabeledDivider = (v: string) => isDivider(v) && /[A-Za-z]/.test(v);
   let featCount = 0;
-  for (const k of Object.keys(mw)) {
-    if (!/^(Feat\d+|Featxtra\d*|Featxtrax\d+)$/.test(k)) continue;
+  const featKeys = Object.keys(mw)
+    .filter((k) => /^(Feat\d+|Featxtra\d*|Featxtrax\d+)$/.test(k))
+    .sort(slotOrder);
+  for (const k of featKeys) {
     const v = take(k);
-    if (!isRealValue(v)) continue;
+    if (!isRealValue(v) && !isLabeledDivider(str(v))) continue;
     character.feats.list.push({ id: id("feat"), name: v, tags: [], automation: [], gmStatus: "unreviewed" });
-    featCount++;
+    if (!isLabeledDivider(str(v))) featCount++; // dividers are context rows, not imported feats
   }
   if (featCount) {
     warn("feats_mixed", `${featCount} feat/talent slots were imported as feats — many hold class features, talents, or notes. Review and re-file them.`);
@@ -327,16 +345,18 @@ function normalizeMw(mw: Mw): NormalizedCharacterDraft {
   // ── Spells / sphere talents ────────────────────────────────────────────────
   let spellCount = 0;
   let spheresSeen = false;
-  for (const k of Object.keys(mw)) {
-    const m = k.match(/^Spell(\d+)$/);
-    if (!m) continue;
+  const spellKeys = Object.keys(mw)
+    .filter((k) => /^Spell\d+$/.test(k))
+    .sort(slotOrder);
+  for (const k of spellKeys) {
+    const m = k.match(/^Spell(\d+)$/)!;
     skip(`Spell${m[1]}Cast`);
     const v = take(k);
-    if (!isRealValue(v)) continue;
+    if (!isRealValue(v) && !isLabeledDivider(str(v))) continue;
     if (/sphere/i.test(v)) spheresSeen = true;
     const level = Math.max(0, Math.min(9, parseLeadingInt(v) ?? 0));
     character.spellcasting.knownSpells.push({ id: id("spell"), name: v, level });
-    spellCount++;
+    if (!isLabeledDivider(str(v))) spellCount++;
   }
   if (spellCount) warn("spells_imported", `${spellCount} spell slots were imported as known spells. Verify levels.`);
   if (spheresSeen) {
