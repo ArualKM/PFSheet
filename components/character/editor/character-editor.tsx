@@ -5043,12 +5043,17 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
               <div className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate font-medium text-foreground">
                   {skillDisplayLabel(s)}
-                  {s.trainedOnly && <span className="ml-1 text-[10px] text-muted-foreground">(trained)</span>}
+                  {/* Mobile density: "(rt)" = requires training (the desktop table spells it out). */}
+                  {s.trainedOnly && (
+                    <span className="ml-1 text-[10px] text-muted-foreground" title="Requires training">
+                      (rt)
+                    </span>
+                  )}
                 </span>
                 <span className="tnum shrink-0 font-semibold text-rune">{formatModifier(total)}</span>
               </div>
               <div className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-2">
-                <label className="flex items-center gap-1.5 text-xs text-foreground">
+                <label className="flex items-center gap-1.5 text-xs text-foreground" title="Class skill">
                   <input
                     type="checkbox"
                     checked={!!s.classSkill}
@@ -5056,29 +5061,28 @@ function SkillsEditor({ ed }: { ed: EditorApi }) {
                     onChange={(e) => setClassSkill(i, e.target.checked)}
                     className="size-4 accent-[var(--pf-gold)]"
                   />
-                  Class
+                  cs
                 </label>
-                <label className="text-[10px] uppercase text-muted-foreground">
-                  Ability
-                  <select
-                    value={s.custom ? s.ability : (s.abilityOverride ?? "")}
-                    aria-label={`${skillDisplayLabel(s)} key ability`}
-                    onChange={(e) => setAbility(i, e.target.value)}
-                    className={cn(
-                      "ml-1 h-11 rounded border bg-background px-1 text-[11px] uppercase",
-                      !s.custom && s.abilityOverride
-                        ? "border-gold/50 font-semibold text-gold"
-                        : "border-border text-foreground",
-                    )}
-                  >
-                    {!s.custom && <option value="">{s.ability}</option>}
-                    {SKILL_ABILITIES.filter((a) => s.custom || a !== s.ability).map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {/* No visible "Ability" caption on mobile — the select's value (DEX/STR/…) says it;
+                    the aria-label keeps the accessible name. */}
+                <select
+                  value={s.custom ? s.ability : (s.abilityOverride ?? "")}
+                  aria-label={`${skillDisplayLabel(s)} key ability`}
+                  onChange={(e) => setAbility(i, e.target.value)}
+                  className={cn(
+                    "h-11 rounded border bg-background px-1 text-[11px] uppercase",
+                    !s.custom && s.abilityOverride
+                      ? "border-gold/50 font-semibold text-gold"
+                      : "border-border text-foreground",
+                  )}
+                >
+                  {!s.custom && <option value="">{s.ability}</option>}
+                  {SKILL_ABILITIES.filter((a) => s.custom || a !== s.ability).map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
                 <label className="text-[10px] uppercase text-muted-foreground">
                   {bgEnabled ? "Adv" : "Ranks"}
                   <input
