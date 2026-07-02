@@ -8,6 +8,8 @@ import {
   type ImportPreview,
   type CommitTarget,
 } from "@/lib/actions/imports";
+import type { ClaimAnswers } from "@/lib/character/import-apply";
+import { ImportVerifyPanel, importNeedsLevels } from "./import-verify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,8 @@ export function ImportWizard({
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mode, setMode] = useState<"new" | "merge">(defaultMergeId ? "merge" : "new");
   const [mergeId, setMergeId] = useState(defaultMergeId ?? characters[0]?.id ?? "");
+  const [answers, setAnswers] = useState<ClaimAnswers>({});
+  const [skipVerify, setSkipVerify] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -84,7 +88,8 @@ export function ImportWizard({
     setError(null);
     const target: CommitTarget = mode === "merge" ? { mode: "merge", characterId: mergeId } : { mode: "new" };
     startTransition(async () => {
-      const res = await commitImportAction(preview.jobId, target);
+      // Skipping verification imports exactly as parsed (the pre-verification behavior).
+      const res = await commitImportAction(preview.jobId, target, skipVerify ? undefined : answers);
       // Success redirects to the character; only an error returns here.
       if (res?.error) setError(res.error);
     });
@@ -95,6 +100,8 @@ export function ImportWizard({
     setText("");
     setDataBase64(undefined);
     setFilename(undefined);
+    setAnswers({});
+    setSkipVerify(false);
     setError(null);
   };
 
@@ -215,6 +222,27 @@ export function ImportWizard({
         </CardContent>
       </Card>
 
+      {(preview.claims.length > 0 || preview.questions.length > 0) && !skipVerify && (
+        <ImportVerifyPanel
+          claims={preview.claims}
+          questions={preview.questions}
+          notices={preview.notices ?? []}
+          answers={answers}
+          onAnswers={setAnswers}
+        />
+      )}
+      {(preview.claims.length > 0 || preview.questions.length > 0) && (
+        <label className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={skipVerify}
+            onChange={(e) => setSkipVerify(e.target.checked)}
+            className="size-4 accent-[var(--pf-gold)]"
+          />
+          Skip verification — import exactly as parsed
+        </label>
+      )}
+
       {(warns.length > 0 || preview.errors.length > 0) && (
         <Card>
           <CardHeader>
@@ -282,13 +310,24 @@ export function ImportWizard({
               This export has validation errors and can&rsquo;t be imported as-is — fix the source and re-upload.
             </p>
           )}
+          {!skipVerify && importNeedsLevels(preview.claims, answers) && (
+            <p className="text-sm text-warning">
+              A linked class is missing its level — set it in the Verify step above (or check
+              &ldquo;Skip verification&rdquo;) before importing.
+            </p>
+          )}
           {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex justify-end">
             <Button
               type="button"
               onClick={doCommit}
-              disabled={pending || preview.errors.length > 0 || (mode === "merge" && !mergeId)}
+              disabled={
+                pending ||
+                preview.errors.length > 0 ||
+                (mode === "merge" && !mergeId) ||
+                (!skipVerify && importNeedsLevels(preview.claims, answers))
+              }
             >
               {pending ? "Importing…" : mode === "new" ? "Create character" : "Snapshot & replace"}
             </Button>

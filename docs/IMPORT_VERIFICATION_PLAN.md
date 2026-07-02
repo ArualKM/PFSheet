@@ -1,5 +1,44 @@
 # Import Verification & Compendium Linking — design (2026-07-01)
 
+> **STATUS (2026-07-01, same day): P1+P2+P3 SHIPPED + the ROBUSTNESS UPGRADE + a 28-agent
+> adversarial review (23 confirmed findings, all fixed).** The claims engine
+> (`lib/character/import-claims.ts`), server candidate resolution (`import-candidates.ts`),
+> the wizard Verify step (`components/character/import/import-verify.tsx`), and commit
+> application (`import-apply.ts`) are live — including the gestalt/mythic/unchained questions,
+> cross-table re-filing, and NOTES MINING (real traits dug out of the free-text areas).
+>
+> **Robustness upgrade (owner request):** sheet ORGANIZATION is now a matching signal —
+> `classifyHeader()` turns slot dividers ("##### Rogue Class Features #####"), notes captions
+> ("RACE TRAITS:"), and section headers ("MYTHIC", "CASTING TALENTS") into a running CONTEXT
+> that re-orders each probe's tables (`probeTables`). Three new claim kinds match against
+> `sphere_talents`, `mythic_path_ability_compendium`, and `alternate_racial_trait_compendium`
+> (each with a commit-time apply branch: talents → `character.spheres` + module enable, mythic
+> abilities → `mythic.pathAbilities` [or a plain feature when the module's off], racial traits →
+> `features.list`). When a name matches MULTIPLE rows and nothing breaks the tie (context, the
+> slot's own kind, or the linked class owning a same-name class feature), the claim is
+> **ambiguous**: medium confidence, NOT auto-linked, every candidate listed for the player's
+> selector. Same-name rows are all kept server-side (class_feature "Evasion" ×5 classes — was
+> last-write-wins).
+>
+> **Review-driven fixes (the big ones):** gestalt tracks survive the class-apply ERROR path and
+> `"A/B || C"` multiclass tracks parse per-segment (totalLevel=40 regression class killed in
+> both spots); skipped class segments are preserved under `metadata.unmapped` (+ the Skip button
+> is gone for classes); the core-vs-Unchained toggle actually re-picks the class row (live in the
+> panel + consumed server-side); spell-slot claims linked to non-spell tables re-file instead of
+> no-op'ing; parsed traits link IN PLACE (no dupes); class levels are clamped server-side and the
+> wizard blocks commit while a linked class has no level; notes mining junk-filters bookkeeping
+> (ledgers, "Label: N", empty labels, markdown wrappers) before the cap and reports truncation;
+> question-only commits still apply answers; the ApplyReport persists to the job row; batched
+> `.in()` queries chunk, skip unserializable quoted keys, and surface PostgREST errors.
+>
+> Verified end-to-end against the owner's real Anise sheet (pre- and post-upgrade): 21
+> auto-linked, both classes → the (Unchained) rows, gestalt tracks a/b, totalLevel 20, 25 class
+> features granted, 5 traits mined + linked, noise rows (GP ledgers, stat lines, empty labels)
+> filtered from the panel. Unit coverage: `tests/unit/import-claims.test.ts` +
+> `tests/unit/import-apply.test.ts` (fake-Supabase apply tests).
+> Remaining from this doc: P4 archetype matching depth (3pp archetypes stay "as written").
+> See "Deferred detectors" at the bottom for Path of War / Akashic / Psionics.
+
 _Owner request (2026-07-01 session): now that the PFcore compendiums exist (M12: 25 tables,
 ~25.9k rows), a Myth-Weavers (or any) import shouldn't stop at "text preserved" — it should
 **hunt for everything the sheet names, propose official compendium matches, ask the clarifying
@@ -132,3 +171,35 @@ A new **Verify step** in the import wizard between Preview and Commit:
 - Applier collisions (imported HP vs class-computed HP): show a delta preview per accepted
   class claim (the M12 pickers already display this pattern) — the player chooses recompute vs
   keep-imported (maps to the existing `hpMethod: "manual"` seam).
+
+## Field-misuse reality (from the owner's real sheets — drives the mining design)
+
+The Anise fixture confirms misuse is the NORM: the class line packs gestalt + UC abbreviations +
+parenthesized archetype lists; feat slots hold `####` dividers, class features (several per
+slot), and level-prefixed bookkeeping (`Rogue 9.`, `9th:`, `Oath 10:`); spell slots hold sphere
+talents (`1[Monk]. Pouncing Teleport`); and the free-text areas hold REAL compendium traits
+("Fate's Favored", "Magical Knack") buried between prose race traits and the entire mythic
+build. Hence: every feat/spell probe matches against MULTIPLE tables (re-filing beats forcing),
+and `mineNotesEntries` promotes entry-shaped lines from the preserved notes dump into additive
+claims (default SKIPPED unless an exact compendium match is found — junk can't self-promote).
+
+## Deferred detectors — Path of War · Akashic · Psionics (plan only, gated on their systems)
+
+These follow the SAME detector→question→claims pattern, but each is gated on its character
+system being implemented (psionics core EXISTS; PoW/Akashic are post-1.0 pending datasets):
+
+- **Psionics (system LIVE, detector deferred):** markers — "power points", "manifester",
+  "psion/soulknife/aegis/vitalist", `N PP` costs in spell slots. Question: *"This sheet uses
+  psionics — enable the module and re-file these as powers?"* → linked claims against a future
+  `psionic_power_compendium` (not yet seeded; the paste-parser `parsePsionicPowers` already
+  handles the free-text half and should become the probe generator).
+- **Path of War (system NOT built):** markers — "maneuver/stance/initiator", disciplines
+  (Primal Fury, Solar Wind, …), "readied/known maneuvers". Until the system + dataset exist,
+  the detector should only WARN ("Path of War content detected — it will import as written")
+  rather than claim.
+- **Akashic (system NOT built):** markers — "veil/veilweaving/essence", akashic classes
+  (Vizier, Guru, Daevic). Same warn-only treatment until the system ships.
+
+Wiring point when ready: add marker scans to `collectProbes` (a new question kind per system),
+a compendium table per system to `KIND_TABLES`, and an apply branch — the architecture needs no
+changes.

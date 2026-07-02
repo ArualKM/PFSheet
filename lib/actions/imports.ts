@@ -13,6 +13,14 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { loadCompendiumIndex } from "@/lib/character/compendium-index";
 import { huntCompendium } from "@/lib/character/compendium-hunt";
+import {
+  collectProbes,
+  assembleClaims,
+  type ImportClaim,
+  type ImportQuestion,
+} from "@/lib/character/import-claims";
+import { resolveProbeCandidates } from "@/lib/character/import-candidates";
+import { applyImportResolutions, type ClaimAnswers } from "@/lib/character/import-apply";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -108,6 +116,11 @@ export type ImportPreview = {
   summary: ImportSummary;
   warnings: ImportWarning[];
   errors: ImportError[];
+  /** Verification claims + clarifying questions (docs/IMPORT_VERIFICATION_PLAN.md). */
+  claims: ImportClaim[];
+  questions: ImportQuestion[];
+  /** Verification-engine notices (e.g. notes mining hit its cap). */
+  notices: string[];
 };
 
 export type PreviewState = { error?: string; preview?: ImportPreview };
@@ -175,6 +188,31 @@ export async function previewImportAction(input: {
   const parsed = safeParseCharacter(draft);
   const summary = buildSummary(draft);
 
+  // Verification claims (docs/IMPORT_VERIFICATION_PLAN.md): what the import ASSERTS
+  // (classes/race/feats/traits/spells + entries mined from the notes dump), each matched against
+  // the compendiums for the player to confirm, correct, or keep as written. Enrichment only —
+  // a lookup failure degrades to zero claims, never a failed import.
+  let claims: ImportClaim[] = [];
+  let questions: ImportQuestion[] = [];
+  const notices: string[] = [];
+  if (parsed.ok) {
+    try {
+      const report = collectProbes(parsed.character);
+      const candidates = await resolveProbeCandidates(supabase, report.probes);
+      const assembled = assembleClaims(report, candidates);
+      claims = assembled.claims;
+      questions = assembled.questions;
+      if (report.miningTruncated) {
+        notices.push(
+          "Your notes held more entry-like lines than the miner scans — the rest stayed in the imported notes untouched.",
+        );
+      }
+    } catch {
+      claims = [];
+      questions = [];
+    }
+  }
+
   const { data: job, error } = await supabase
     .from("import_jobs")
     .insert({
@@ -183,7 +221,12 @@ export async function previewImportAction(input: {
       status: "previewed",
       original_filename: input.filename ?? null,
       source_metadata: { shape: result.sourceMetadata?.shape ?? null, length: size } as Json,
-      mapping_preview: { draft: parsed.ok ? parsed.character : draft, summary } as unknown as Json,
+      mapping_preview: {
+        draft: parsed.ok ? parsed.character : draft,
+        summary,
+        claims,
+        questions,
+      } as unknown as Json,
       warnings: result.draft.warnings as unknown as Json,
       errors: result.validation.errors as unknown as Json,
     })
@@ -199,6 +242,9 @@ export async function previewImportAction(input: {
       summary,
       warnings: result.draft.warnings,
       errors: result.validation.errors,
+      claims,
+      questions,
+      notices,
     },
   };
 }
@@ -208,20 +254,54 @@ export type CommitTarget = { mode: "new" } | { mode: "merge"; characterId: strin
 export async function commitImportAction(
   jobId: string,
   target: CommitTarget,
+  /** Verification answers from the wizard's Verify step (absent = the old import-as-is path). */
+  answers?: ClaimAnswers,
 ): Promise<{ error?: string }> {
   const { supabase, user } = await authedClient();
 
   const { data: job } = await supabase
     .from("import_jobs")
-    .select("id, mapping_preview, original_filename")
+    .select("id, mapping_preview, original_filename, warnings")
     .eq("id", jobId)
     .single();
   if (!job) return { error: "That import session expired — please re-upload." };
 
-  const draftRaw = (job.mapping_preview as { draft?: unknown } | null)?.draft;
-  const parsed = safeParseCharacter(draftRaw);
+  const preview = job.mapping_preview as {
+    draft?: unknown;
+    claims?: ImportClaim[];
+    questions?: ImportQuestion[];
+  } | null;
+  const parsed = safeParseCharacter(preview?.draft);
   if (!parsed.ok) return { error: "The imported sheet failed validation and wasn't saved." };
-  const sheet = parsed.character;
+  let sheet = parsed.character;
+
+  // Apply verified claims (linked compendium rows, re-filed entries, module answers) on top of
+  // the stored draft. The claims come from the JOB ROW, not the client — the client only picks
+  // resolutions. Best-effort per claim; a failed apply keeps that entry as written. Question
+  // answers apply even with zero claims (a re-import can be questions-only, e.g. mythic on/off).
+  let applyReport: { applied: string[]; warnings: string[] } | null = null;
+  if (answers && ((preview?.claims?.length ?? 0) > 0 || (preview?.questions?.length ?? 0) > 0)) {
+    try {
+      applyReport = await applyImportResolutions(supabase, sheet, preview?.claims ?? [], preview?.questions ?? [], answers);
+      // Defense-in-depth: the mutated sheet must still validate — no code path may persist
+      // schema-invalid sheet_data. On failure, fall back to the untouched stored draft.
+      const reparsed = safeParseCharacter(sheet);
+      if (reparsed.ok) {
+        sheet = reparsed.character;
+      } else {
+        const fallback = safeParseCharacter(preview?.draft);
+        if (fallback.ok) sheet = fallback.character;
+        applyReport = {
+          applied: [],
+          warnings: ["Verification changes didn't validate — the sheet was imported exactly as parsed."],
+        };
+      }
+    } catch {
+      // The unverified draft still imports fine — verification is enrichment.
+      applyReport = { applied: [], warnings: ["Verification couldn't be applied — the sheet was imported as written."] };
+    }
+  }
+
   const computed = computeCharacter(sheet);
   const nowIso = new Date().toISOString();
 
@@ -295,7 +375,24 @@ export async function commitImportAction(
     characterId = target.characterId;
   }
 
-  await supabase.from("import_jobs").update({ status: "completed", character_id: characterId }).eq("id", jobId);
+  // Record what verification actually did (applied list + warnings) on the job row — the
+  // imports page is the audit trail, and apply warnings must not vanish into a redirect.
+  const priorWarnings = Array.isArray(job.warnings) ? (job.warnings as unknown[]) : [];
+  await supabase
+    .from("import_jobs")
+    .update({
+      status: "completed",
+      character_id: characterId,
+      ...(applyReport
+        ? {
+            warnings: [
+              ...priorWarnings,
+              ...applyReport.warnings.map((w) => ({ code: "verification", message: w })),
+            ] as unknown as Json,
+          }
+        : {}),
+    })
+    .eq("id", jobId);
   revalidatePath("/characters");
   redirect(`/characters/${characterId}`);
 }
