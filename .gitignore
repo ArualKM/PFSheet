@@ -63,7 +63,9 @@ next-env.d.ts
 # The 25 normalized TSVs + parsers + docs in csv/ ARE versioned (the compendium import source).
 docs/PFcore Update/**/*.html
 
-# 3pp source research — scraped PoW/Spheres wiki mirror (bulky, not app code). Normalized
-# datasets extracted from it WILL be versioned when produced, like the Spheres/PFcore TSVs.
-docs/3pp Update/
+# 3pp source research — scraped PoW/Spheres/Akashic/Psionics wiki mirror (bulky, not app
+# code). The normalized csv/ (17 TSVs + parsers + manifest) IS versioned — the compendium
+# import source, like PFcore Update/csv. (The /* form is required so csv/ can be re-included.)
+docs/3pp Update/*
+!docs/3pp Update/csv/
 **/__pycache__/
