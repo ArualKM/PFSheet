@@ -43,6 +43,7 @@ export type ClaimKind =
   | "sphere_talent"
   | "psionic_power"
   | "pow_maneuver"
+  | "akashic_veil"
   | "mythic_ability"
   | "racial_trait";
 
@@ -59,6 +60,7 @@ export const KIND_TABLES: Record<ClaimKind, string[]> = {
   sphere_talent: ["sphere_talents", "feat_compendium", "class_feature_compendium"],
   psionic_power: ["psionic_power_compendium", "spell_compendium", "feat_compendium"],
   pow_maneuver: ["pow_maneuver_compendium", "feat_compendium", "class_feature_compendium"],
+  akashic_veil: ["akashic_veil_compendium", "feat_compendium", "class_feature_compendium"],
   mythic_ability: ["mythic_path_ability_compendium", "feat_compendium"],
   racial_trait: ["alternate_racial_trait_compendium", "trait_compendium", "feat_compendium"],
 };
@@ -76,6 +78,7 @@ export const TABLE_KIND: Record<string, ClaimKind> = {
   sphere_talents: "sphere_talent",
   psionic_power_compendium: "psionic_power",
   pow_maneuver_compendium: "pow_maneuver",
+  akashic_veil_compendium: "akashic_veil",
   mythic_path_ability_compendium: "mythic_ability",
   alternate_racial_trait_compendium: "racial_trait",
 };
@@ -138,7 +141,7 @@ export type ImportClaim = {
 
 export type ImportQuestion = {
   id: string;
-  kind: "gestalt" | "mythic" | "unchained" | "psionics" | "path_of_war";
+  kind: "gestalt" | "mythic" | "unchained" | "psionics" | "path_of_war" | "akashic";
   text: string;
   /** For unchained questions: which base class. */
   className?: string;
@@ -252,6 +255,16 @@ export function classifyHeader(raw: string): ClaimKind | null {
   // Bare \bmartial\b is OUT too: "MARTIAL ARTS" / "MARTIAL FLEXIBILITY" / "SELF-DISCIPLINE" are
   // 1pp vocabulary.
   if (/\bmaneuvers?\b|\bstances?\b|\bmartial disciplines?\b|\bpath of war\b|\binitiat(?:ors?|ions?|ing)\b/.test(t)) return "pow_maneuver";
+  // "AKASHIC FEATS" sections are FEAT sections — they must win BEFORE the veil rule (mirrors
+  // the psionic-/martial-feats carve-outs above).
+  if (/\bakashic\b.*\bfeats?\b/.test(t)) return "feat";
+  // Akashic sections ("VEILS", "VEILS SHAPED", "CHAKRA BINDS", "ESSENCE RECEPTACLES",
+  // "VEILWEAVING"). \bveils?\b never matches "VEILED", so the PoW discipline "Veiled Moon"
+  // divider keeps steering into maneuvers via powDisciplineContext. Bare \bessence\b is
+  // deliberately OUT ("elemental essence" is kineticist/psionic-crystal 1pp vocabulary) — only
+  // "essence receptacle(s)" counts; bare \bchakra\b is OUT too (real-world yoga notes) — only
+  // "chakra bind(s)".
+  if (/\bveils?\b|\bveilweav\w*\b|\bchakra binds?\b|\bakashic\b|\bessence receptacles?\b/.test(t)) return "akashic_veil";
   if (/\bclass features?\b|\bki powers?\b|\bclass abilit/.test(t)) return "feature";
   if (/\bfeats?\b/.test(t)) return "feat";
   if (/\btraits?\b/.test(t)) return "trait";
@@ -436,6 +449,35 @@ const POW_CLASS_NAMES = new Set(["stalker", "warder", "warlord", "zealot", "harb
  * initiative" traits, and ALL must stay silent (locked by regression tests). */
 const POW_NOTES_RE =
   /\bmaneuvers?\s+(?:known|readied)\b|\bstances?\s+known\b|\binitiator level\b|\bpath of war\b|\bmartial disciplines?\b/i;
+
+/** Dreamscarred Press veilweaver base classes — the 15 `akashic_veil_class_list` junction lists.
+ * Matched by FULL baseName equality per parsed segment, exactly like POW_CLASS_NAMES: "Radiant"
+ * fires only as the whole class name (the CLASS LINE parser never sees the PoW discipline
+ * "Radiant Dawn" as a base name), and "Guru Kandari" / "Storm Bound" don't fire because the full
+ * segment doesn't equal a listed name. */
+const AKASHIC_CLASS_NAMES = new Set([
+  "vizier",
+  "daevic",
+  "nexus",
+  "stormbound",
+  "guru",
+  "promethean",
+  "helmsman",
+  "huay",
+  "eclipse",
+  "volur",
+  "kheshig",
+  "radiant",
+  "soulforge",
+  "lunar",
+  "rajah",
+]);
+/** Akashic bookkeeping in the preserved notes dump ("Veils Shaped: 3", "Chakra Binds: Hands",
+ * "Essence Receptacles", a literal "Akashic" / "Veilweaving" mention, or a bare "VEILS" section
+ * header on its own line). Deliberately TIGHT like POW_NOTES_RE: bare "essence"/"chakra" and
+ * mid-prose "veils" ("wears seven veils") must not fire — only the header/bookkeeping shapes. */
+const AKASHIC_NOTES_RE =
+  /\bveils?\s+(?:known|shaped)\b|\bveilweav\w*\b|\bchakra binds?\b|\bessence receptacles?\b|\bakashic\b|^[#=*\s]*veils?\s*:?\s*[#=*\s]*$/im;
 
 export type ParsedClassSegment = {
   raw: string;
@@ -765,6 +807,25 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
         id: pid("q-pow"),
         kind: "path_of_war",
         text: "Path of War content was detected — enable the module and link maneuvers?",
+        defaultAnswer: true,
+      });
+    }
+  }
+
+  // ── Akashic detection (the Path of War detector's exact mirror) ────────────
+  // Markers: an adapter-flagged akashic module entry, a veilweaver class on the class line, or
+  // veil bookkeeping in the notes dump. The question only ENABLES the module — header context
+  // steering into akashic_veil_compendium works regardless of the answer. Already enabled →
+  // nothing to ask (refileLinked files veils into character.akashic as-is).
+  if (!character.rules.modules.some((m) => m.key === "akashic" && m.enabled)) {
+    const flagged = character.rules.modules.some((m) => m.key === "akashic");
+    const classHit = allSegments.some((s) => AKASHIC_CLASS_NAMES.has(s.baseName.trim().toLowerCase()));
+    const notesHit = AKASHIC_NOTES_RE.test(character.notes.player ?? "");
+    if (flagged || classHit || notesHit) {
+      questions.push({
+        id: pid("q-akashic"),
+        kind: "akashic",
+        text: "Akashic content was detected — enable the module and link veils?",
         defaultAnswer: true,
       });
     }

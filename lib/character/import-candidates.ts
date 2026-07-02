@@ -126,6 +126,17 @@ const TABLES: Record<string, TableCfg> = {
     // stay AMBIGUOUS for the player's selector.
     group: (r) => S(r.discipline) || undefined,
   },
+  akashic_veil_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_akashic_veil_compendium",
+    select: "slug,name,slot,descriptors,source",
+    meta: (r) => [S(r.slot), S(r.source)].filter(Boolean).join(" · "),
+    // Chakra slots aren't sheet-linked entities the way classes/paths/races are — no demotion
+    // guard applies (mirrors pow disciplines); the group only informs same-name ties, which
+    // stay AMBIGUOUS for the player's selector.
+    group: (r) => S(r.slot) || undefined,
+  },
   mythic_path_ability_compendium: {
     label: "name",
     key: "slug",

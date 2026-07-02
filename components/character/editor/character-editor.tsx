@@ -128,6 +128,7 @@ import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
 import { PowerPicker } from "./power-picker";
 import { PathOfWarEditor } from "./path-of-war-editor";
+import { AkashicEditor } from "./akashic-editor";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -293,6 +294,14 @@ export function CharacterEditor({
     (ed.draft.pathOfWar?.maneuvers.length ?? 0) > 0
   ) {
     optionalSystemItems.push({ key: "path_of_war", label: "Path of War", render: () => <PathOfWarEditor ed={ed} /> });
+  }
+  if (
+    isModuleKeyEnabled(ed.draft, "akashic") ||
+    (ed.draft.akashic?.classes.length ?? 0) > 0 ||
+    (ed.draft.akashic?.veilsKnown.length ?? 0) > 0 ||
+    (ed.draft.akashic?.shaped.length ?? 0) > 0
+  ) {
+    optionalSystemItems.push({ key: "akashic", label: "Akashic", render: () => <AkashicEditor ed={ed} /> });
   }
   if (isModuleKeyEnabled(ed.draft, "milestone_leveling")) {
     optionalSystemItems.push({
@@ -2582,6 +2591,7 @@ const OPTIONAL_PRIVACY_SECTIONS: Array<{ key: string; label: string; moduleKeys:
   { key: "mythic", label: "Mythic", moduleKeys: ["mythic"] },
   { key: "psionics", label: "Psionics", moduleKeys: ["psionics"] },
   { key: "pathOfWar", label: "Path of War", moduleKeys: ["path_of_war"] },
+  { key: "akashic", label: "Akashic", moduleKeys: ["akashic"] },
   { key: "milestoneLeveling", label: "Milestone Leveling", moduleKeys: ["milestone_leveling"] },
 ];
 

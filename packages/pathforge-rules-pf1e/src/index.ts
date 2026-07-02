@@ -57,6 +57,10 @@ export type {
 export { computePathOfWar, deriveInitiatorLevel, highestInitiatorLevel, highestManeuverLevelForIL } from "./path-of-war";
 export type { PathOfWarSummary, PathOfWarInitiatorSummary, PathOfWarResolver } from "./path-of-war";
 
+// Akashic (3pp Phase 5) — veilweaving math; shaped-veil automation ingests in buildModifierIndex
+export { computeAkashic, akashicCapacityCap, akashicEssencePool } from "./akashic";
+export type { AkashicSummary, AkashicClassSummary, AkashicShapedSummary, AkashicResolver } from "./akashic";
+
 // Buff Center helpers
 export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
 export type { StackingConflict, BuffDeltaRow } from "./buffs";

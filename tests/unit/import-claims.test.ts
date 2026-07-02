@@ -11,6 +11,7 @@ import {
   collectProbes,
   assembleClaims,
   probeTables,
+  powDisciplineContext,
   type ProbeCandidates,
 } from "@/lib/character/import-claims";
 
@@ -172,11 +173,53 @@ describe("classifyHeader — sheet organization as matching signal", () => {
     expect(classifyHeader("Martial Discipline: Broken Blade")).toBe("pow_maneuver");
   });
 
+  it("Akashic headers steer to akashic_veil — below the drawback/mythic/psionic/sphere/pow rules", () => {
+    expect(classifyHeader("VEILS")).toBe("akashic_veil");
+    expect(classifyHeader("Veils Shaped:")).toBe("akashic_veil");
+    expect(classifyHeader("##### VEILS KNOWN #####")).toBe("akashic_veil");
+    expect(classifyHeader("CHAKRA BINDS")).toBe("akashic_veil");
+    expect(classifyHeader("ESSENCE RECEPTACLES")).toBe("akashic_veil");
+    expect(classifyHeader("VEILWEAVING")).toBe("akashic_veil");
+    expect(classifyHeader("AKASHIC")).toBe("akashic_veil");
+    // The higher rules still outrank akashic (matching the psionic/pow precedence chain).
+    expect(classifyHeader("AKASHIC DRAWBACKS")).toBe("drawback");
+    expect(classifyHeader("MYTHIC VEILS")).toBe("mythic_ability");
+    expect(classifyHeader("PSIONIC VEILS")).toBe("psionic_power");
+    expect(classifyHeader("MANEUVERS KNOWN")).toBe("pow_maneuver"); // unchanged
+    expect(classifyHeader("CASTING TALENTS")).toBe("sphere_talent"); // unchanged
+  });
+
+  it("'AKASHIC FEATS' sections classify as feat (carve-out, like psionic/martial feats)", () => {
+    expect(classifyHeader("AKASHIC FEATS")).toBe("feat");
+    expect(classifyHeader("Akashic Feats:")).toBe("feat");
+    expect(classifyHeader("##### Akashic Bonus Feats #####")).toBe("feat");
+    // …while the veil-section headers keep steering into the veils table.
+    expect(classifyHeader("VEILS SHAPED")).toBe("akashic_veil");
+  });
+
+  it("bare 'essence'/'chakra' never steers akashic; 'VEILED MOON' stays a PoW discipline", () => {
+    // Bare "essence" is kineticist ("elemental essence") / psionic-crystal 1pp vocabulary.
+    expect(classifyHeader("ESSENCE")).toBeNull();
+    expect(classifyHeader("ELEMENTAL ESSENCE")).toBeNull();
+    // Bare "chakra" risks real-world yoga notes — only "chakra bind(s)" steers.
+    expect(classifyHeader("CHAKRA")).toBeNull();
+    expect(classifyHeader("CHAKRA MEDITATION")).toBeNull();
+    // \bveils?\b (word boundary) does not match "VEILED" — the PoW discipline-name divider
+    // mechanism keeps winning for "Veiled Moon" groupings.
+    expect(classifyHeader("VEILED MOON")).toBeNull();
+    expect(classifyHeader("##### VEILED MOON #####")).toBeNull();
+    expect(powDisciplineContext("##### VEILED MOON #####")).toBe("pow_maneuver");
+    // …while the real akashic phrases keep classifying.
+    expect(classifyHeader("CHAKRA BINDS")).toBe("akashic_veil");
+    expect(classifyHeader("ESSENCE RECEPTACLES")).toBe("akashic_veil");
+  });
+
   it("context re-orders a probe's tables", () => {
     expect(probeTables({ kind: "spell", context: "sphere_talent" })[0]).toBe("sphere_talents");
     expect(probeTables({ kind: "trait", context: "mythic_ability" })[0]).toBe("mythic_path_ability_compendium");
     expect(probeTables({ kind: "spell", context: "psionic_power" })[0]).toBe("psionic_power_compendium");
     expect(probeTables({ kind: "feat", context: "pow_maneuver" })[0]).toBe("pow_maneuver_compendium");
+    expect(probeTables({ kind: "feat", context: "akashic_veil" })[0]).toBe("akashic_veil_compendium");
     expect(probeTables({ kind: "feat" })[0]).toBe("feat_compendium");
   });
 });
@@ -338,6 +381,10 @@ describe("collectProbes on the real Anise fixture", () => {
     expect(kinds.filter((k) => k === "unchained")).toHaveLength(2);
     expect(kinds).not.toContain("psionics");
     expect(kinds).not.toContain("path_of_war");
+    // NO akashic either — the Spheres grounding fixture carries no veil/essence markers (HARD
+    // requirement: the detector stays silent, mirroring path_of_war).
+    expect(kinds).not.toContain("akashic");
+    expect(report.probes.some((p) => p.context === "akashic_veil")).toBe(false);
     expect(report.questions.find((q) => q.kind === "unchained")?.defaultAnswer).toBe(true); // UC prefix
   });
 });
@@ -479,6 +526,90 @@ describe("Path of War detector — the psionics detector's exact mirror", () => 
     const c = createDefaultCharacter();
     c.rules.modules.push({ key: "path_of_war", enabled: false, settings: {} });
     expect(collectProbes(c).questions.some((x) => x.kind === "path_of_war")).toBe(true);
+  });
+});
+
+describe("Akashic detector — the Path of War detector's exact mirror", () => {
+  it("asks the akashic question for a veilweaver class line", () => {
+    const c = createDefaultCharacter();
+    c.identity.classes = [{ id: "cls1", name: "Vizier 7", level: 7 }];
+    const q = collectProbes(c).questions.find((x) => x.kind === "akashic");
+    expect(q).toBeTruthy();
+    expect(q!.defaultAnswer).toBe(true);
+    expect(q!.text).toContain("Akashic");
+    // Multiclass and gestalt veilweaver sides count too.
+    const m = createDefaultCharacter();
+    m.identity.classes = [{ id: "cls1", name: "Daevic 3 / Fighter 2", level: 5 }];
+    expect(collectProbes(m).questions.some((x) => x.kind === "akashic")).toBe(true);
+    const g = createDefaultCharacter();
+    g.identity.classes = [{ id: "cls1", name: "Fighter 5 || Guru 5", level: 5 }];
+    expect(collectProbes(g).questions.some((x) => x.kind === "akashic")).toBe(true);
+  });
+
+  it("asks on veil bookkeeping in the notes dump", () => {
+    const mk = (notes: string) => {
+      const c = createDefaultCharacter();
+      c.notes.player = `# Imported from Myth-Weavers\n\n## Notes field\n${notes}`;
+      return collectProbes(c).questions.some((x) => x.kind === "akashic");
+    };
+    expect(mk("Veils Shaped: 3")).toBe(true);
+    expect(mk("Veils Known: 5")).toBe(true);
+    expect(mk("Chakra Binds: Hands, Belt")).toBe(true);
+    expect(mk("Essence Receptacles: 2")).toBe(true);
+    expect(mk("Uses the Akashic Mysteries rules.")).toBe(true);
+    expect(mk("Veilweaving ability: Int")).toBe(true);
+    // A bare "VEILS" section header on its own line is the strongest marker.
+    expect(mk("VEILS:\n• Gorgon Mask")).toBe(true);
+    expect(mk("################# VEILS #################\n• Gorgon Mask")).toBe(true);
+  });
+
+  it("stays quiet when the module is already enabled, and on non-veilweaver sheets", () => {
+    const on = createDefaultCharacter();
+    on.identity.classes = [{ id: "cls1", name: "Guru 5", level: 5 }];
+    on.rules.modules.push({ key: "akashic", enabled: true, settings: {} });
+    expect(collectProbes(on).questions.some((x) => x.kind === "akashic")).toBe(false);
+
+    // Mid-prose "veils", bare "essence"/"chakra", and a PoW "RADIANT DAWN" discipline divider
+    // must NOT fire — mirrors the tight POW_NOTES_RE discipline.
+    const quiet = createDefaultCharacter();
+    quiet.identity.classes = [{ id: "cls1", name: "Fighter 5", level: 5 }];
+    quiet.notes.player =
+      "# Imported from Myth-Weavers\n\n## Notes field\n" +
+      "################# RADIANT DAWN #################\n" +
+      "• Ray of Light Strike\n" +
+      "She wears seven veils to the masquerade.\n" +
+      "Elemental essence infuses her blade.\n" +
+      "Morning chakra meditation keeps her calm.";
+    const report = collectProbes(quiet);
+    expect(report.questions.some((x) => x.kind === "akashic")).toBe(false);
+    expect(report.probes.some((p) => p.context === "akashic_veil")).toBe(false);
+
+    // An archetype can't trip the class check (base names only).
+    const arch = createDefaultCharacter();
+    arch.identity.classes = [{ id: "cls1", name: "Fighter (Vizier's Bodyguard) 5", level: 5 }];
+    expect(collectProbes(arch).questions.some((x) => x.kind === "akashic")).toBe(false);
+  });
+
+  it("veilweaver names inside OTHER multi-word class names never fire — full baseName equality", () => {
+    const ask = (classes: string[]) => {
+      const c = createDefaultCharacter();
+      c.identity.classes = classes.map((name, i) => ({ id: `cls${i}`, name, level: 0 }));
+      return collectProbes(c).questions.some((x) => x.kind === "akashic");
+    };
+    // "Radiant Dawn" is a PoW discipline, not the Radiant class; "Guru Kandari" and the spaced
+    // "Storm Bound" don't equal a listed junction name.
+    expect(ask(["Radiant Dawn 5"])).toBe(false);
+    expect(ask(["Guru Kandari 6"])).toBe(false);
+    expect(ask(["Storm Bound 4"])).toBe(false);
+    // …while the real veilweaver classes still fire, alone or in a multiclass line.
+    expect(ask(["Radiant 5"])).toBe(true);
+    expect(ask(["Fighter 5 / Rajah 3"])).toBe(true);
+  });
+
+  it("asks when the module entry is present but disabled (adapter-flagged)", () => {
+    const c = createDefaultCharacter();
+    c.rules.modules.push({ key: "akashic", enabled: false, settings: {} });
+    expect(collectProbes(c).questions.some((x) => x.kind === "akashic")).toBe(true);
   });
 });
 

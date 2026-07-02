@@ -7,6 +7,7 @@ import type { PowManeuver } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/client";
 // brToNewlines is the shared "<br>"-rich-text normalizer (psionic-powers.ts hosts it for all 3pp pickers).
 import { brToNewlines } from "@/lib/character/psionic-powers";
+import { fetchAllRows } from "@/lib/character/fetch-all-rows";
 import { parseManeuverLevel } from "@/lib/character/path-of-war-presets";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
@@ -123,25 +124,31 @@ export function ManeuverPicker({ ed, onClose }: { ed: CharacterEditorApi; onClos
   }, [ed.draft.pathOfWar?.maneuvers]);
   const isAdded = (r: ManeuverRowData) => added.has(`3pp:${r.slug}`) || added.has(`name:${nameKey(r.name ?? r.slug)}`);
 
-  // The whole table once (758 rows — one request, module-cached, then every keystroke/filter is
-  // instant and complete). Fails soft; a retryable error message shows instead of rows.
+  // The whole table once (758 rows — module-cached, then every keystroke/filter is instant and
+  // complete). Paged via .range() like the veil picker: PostgREST caps ONE response at 1,000 rows,
+  // and a flat `.limit()` would silently truncate the moment the table grows past the cap (that
+  // exact bug hit the 1,332-row veil compendium). Fails soft; a retryable error message shows
+  // instead of rows.
   useEffect(() => {
     if (browseCache) return; // already loaded this page-load — state was seeded from the cache
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: be } = await (supabase as any)
-        .from("pow_maneuver_compendium")
-        .select(MANEUVER_COLUMNS)
-        .order("name")
-        .limit(1000);
+      const { rows: fetched, error: be } = await fetchAllRows<ManeuverRowData>((from, to) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+          .from("pow_maneuver_compendium")
+          .select(MANEUVER_COLUMNS)
+          .order("name")
+          .order("slug")
+          .range(from, to),
+      );
       if (cancelled) return;
       if (be) {
         setError(be.message);
         setBrowseRows([]);
       } else {
-        const rows = ((data ?? []) as ManeuverRowData[]).filter((r) => !!r.name);
+        const rows = fetched.filter((r) => !!r.name);
         browseCache = rows;
         setBrowseRows(rows);
         setError(null);

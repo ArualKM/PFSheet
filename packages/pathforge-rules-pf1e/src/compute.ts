@@ -36,6 +36,7 @@ import { applyStacking, type StackInput } from "./stacking";
 import { getSizeModifiers } from "./sizes";
 import { conditionEffects } from "./conditions";
 import { computePathOfWar, highestInitiatorLevel, type PathOfWarSummary } from "./path-of-war";
+import { computeAkashic, akashicEssencePool, type AkashicSummary } from "./akashic";
 
 /* -------------------------------------------------------------------------- */
 /* Ability modifiers                                                          */
@@ -295,6 +296,25 @@ export function buildModifierIndex(
       for (const e of m.automation) {
         push(classifyTarget(e.target), effectToMod(e.id, m.name, `Stance: ${m.name}`, e, resolver));
       }
+    }
+  }
+
+  // Akashic: an ENABLED shaped veil is a persistent construct — its automation ingests like an
+  // active stance. `@{essenceInvested}` is injected as a per-veil resolver local (set before, and
+  // CLEARED after, each veil's effects) so essence-scaling formulas ("1 + @{essenceInvested}")
+  // resolve against THIS veil's investment. Disabled shaped veils are inert.
+  if (isModuleKeyEnabled(character, "akashic")) {
+    const veilNames = new Map((character.akashic?.veilsKnown ?? []).map((v) => [v.id, v.name]));
+    const localResolver =
+      resolver && "local" in resolver ? (resolver as Resolver & { local: Record<string, number> }) : undefined;
+    for (const s of character.akashic?.shaped ?? []) {
+      if (s.enabled === false || s.automation.length === 0) continue;
+      const name = veilNames.get(s.veilId) || "Veil";
+      if (localResolver) localResolver.local = { essenceInvested: Math.max(0, s.essenceInvested) };
+      for (const e of s.automation) {
+        push(classifyTarget(e.target), effectToMod(e.id, name, `Veil: ${name}`, e, resolver));
+      }
+      if (localResolver) localResolver.local = {};
     }
   }
 
@@ -670,6 +690,20 @@ export class CharacterResolver implements Resolver {
         return isModuleKeyEnabled(this.character, "path_of_war")
           ? highestInitiatorLevel(this.character)
           : undefined;
+      case "akashic.essence.total":
+      case "akashic.essence.invested":
+      case "akashic.essence.available": {
+        // Pure pool derivation (Σ class pools + temporary vs Σ invested) — registered here so
+        // cross-formula references resolve during buildModifierIndex instead of silently
+        // evaluating to 0. Module off → undefined (the standard unknown-ref warning).
+        if (!isModuleKeyEnabled(this.character, "akashic")) return undefined;
+        const pool = akashicEssencePool(this.character);
+        return path === "akashic.essence.total"
+          ? pool.total
+          : path === "akashic.essence.invested"
+            ? pool.invested
+            : pool.available;
+      }
       case "size.acMod":
         return this.size.acMod;
       case "size.attackMod":
@@ -873,6 +907,8 @@ export type ComputedCharacter = {
     };
     /** Path of War initiator roll-up (absent unless the module is enabled). */
     pathOfWar?: PathOfWarSummary;
+    /** Akashic veilweaving roll-up (absent unless the module is enabled). */
+    akashic?: AkashicSummary;
     /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. The level is the
      * character's class level; the milestone total tells you when the next level is earned. */
     milestoneLeveling?: {
@@ -1371,6 +1407,11 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // abilities (so initiation mods see buffed abilities); resets resolver.local after its DC evals.
   const pathOfWar = computePathOfWar(character, abilities, resolver);
 
+  // Akashic veilweaving math (essence pool / capacity cap / per-veil DCs). Runs on the FULL
+  // resolver + abilities (veilweaving mods see buffed abilities); resets resolver.local after
+  // its DC evals.
+  const akashic = computeAkashic(character, abilities, resolver);
+
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
     const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
@@ -1505,6 +1546,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       psionics,
       spheres,
       pathOfWar,
+      akashic,
       milestoneLeveling,
       companion,
     },

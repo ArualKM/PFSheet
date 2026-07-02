@@ -122,7 +122,7 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
   // Every optional-rules module that surfaces its own card must respect §15 like core sections —
   // otherwise enabling Mythic/Psionics/etc. would leak on a public share or the API (both built here).
   const OPTIONAL_SYSTEMS: Array<{
-    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "pathOfWar" | "milestoneLeveling";
+    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "pathOfWar" | "akashic" | "milestoneLeveling";
     label: string;
     setup: (c: ReturnType<typeof createDefaultCharacter>) => void;
   }> = [
@@ -182,6 +182,22 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
             { id: "i1", className: "Stalker", classLevel: 5, initiationAbility: "", recoveryMethod: "standard_action", disciplineKeys: [] },
           ],
           maneuvers: [],
+        };
+      },
+    },
+    {
+      key: "akashic",
+      label: "Akashic",
+      setup: (c) => {
+        c.rules.modules.push({ key: "akashic", enabled: true, settings: {} });
+        c.akashic = {
+          classes: [
+            { id: "a1", className: "Vizier", classLevel: 5, veilweavingAbility: "int", essenceMax: 5, unlockedBinds: ["hands"] },
+          ],
+          veilsKnown: [{ id: "v1", name: "Crown of the Victor", slots: ["Head"] }],
+          shaped: [],
+          otherReceptacles: [],
+          temporaryEssence: 0,
         };
       },
     },
@@ -310,6 +326,61 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     const ownM = build("owner", mutate).pathOfWar!.maneuvers[0]!;
     expect(ownM.description).toBe("You strike a nerve cluster…");
     expect(ownM.notes).toBe("save for boss fights");
+  });
+
+  // Same tiering for Akashic veils: mechanical meta (essence totals, shaped slots/DCs/bind state,
+  // slot lists, counts) is viewer-safe within the gate; the long 3pp rules text (effect/bindEffect)
+  // + notes are owner-only.
+  it("keeps veil rules text owner-only while exposing cached mechanical meta", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "akashic", enabled: true, settings: {} });
+      c.abilities.primary.int.score = 18; // +4 — Vizier keys off Int
+      c.akashic = {
+        classes: [
+          { id: "a1", className: "Vizier", classLevel: 5, veilweavingAbility: "int", essenceMax: 5, veilsShapedMax: 4, unlockedBinds: ["hands"] },
+        ],
+        veilsKnown: [
+          {
+            id: "v1",
+            name: "Armory of the Conqueror",
+            slots: ["Hands"],
+            descriptors: "—",
+            classNames: ["Vizier", "Daevic"],
+            source: "Akashic Mysteries",
+            effect: "You summon a weapon of solidified akasha…",
+            bindEffect: "The weapon fights on its own…",
+            notes: "prefer the glaive form",
+          },
+        ],
+        shaped: [{ id: "s1", veilId: "v1", slot: "Hands", essenceInvested: 1, bound: true, enabled: true, automation: [] }],
+        otherReceptacles: [],
+        temporaryEssence: 0,
+      };
+    };
+    const anon = build("anonymous", mutate).akashic!;
+    expect(anon.essence).toEqual({ total: 5, invested: 1, available: 4, temporary: 0, capacityCap: 1 });
+    expect(anon.classes[0]!.unlockedBinds).toEqual(["hands"]);
+    expect(anon.veilsKnownCount).toBe(1);
+    const anonShaped = anon.shaped[0]!;
+    expect(anonShaped.slot).toBe("Hands");
+    expect(anonShaped.bound).toBe(true);
+    expect(anonShaped.bindValid).toBe(true);
+    expect(anonShaped.saveDc).toBe(15); // 10 + 1 essence + Int 4
+    const anonV = anon.veils[0]!;
+    // The stable ref id ships to every viewer tier — the read view joins shaped rows to their
+    // detail by shaped.veilId → veil.id (a name join collides on same-named veils).
+    expect(anonV.id).toBe("v1");
+    expect(anon.shaped[0]!.veilId).toBe("v1");
+    expect(anonV.slots).toEqual(["Hands"]);
+    expect(anonV.classNames).toEqual(["Vizier", "Daevic"]);
+    expect(anonV.source).toBe("Akashic Mysteries");
+    expect(anonV.effect).toBeUndefined();
+    expect(anonV.bindEffect).toBeUndefined();
+    expect(anonV.notes).toBeUndefined();
+    const ownV = build("owner", mutate).akashic!.veils[0]!;
+    expect(ownV.effect).toBe("You summon a weapon of solidified akasha…");
+    expect(ownV.bindEffect).toBe("The weapon fights on its own…");
+    expect(ownV.notes).toBe("prefer the glaive form");
   });
 
   // Invariants for the systems deliberately NOT section-gated, so a future change can't silently

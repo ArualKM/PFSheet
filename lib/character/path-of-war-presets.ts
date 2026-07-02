@@ -100,6 +100,25 @@ export function readPowProgressionMaxes(progressionJson: unknown, level: number)
 }
 
 /**
+ * The class level to seed for a named class: a matching identity.classes row wins
+ * (case-insensitive, archetype parentheticals stripped) — 3pp characters are commonly multiclass,
+ * and seeding from totalLevel silently inflates the derived level + the progression maxes
+ * (Fighter 5/Warlord 3 must seed Warlord 3, not 8). Falls back to totalLevel only when no class
+ * row matches. Shared by the PoW and Akashic editors' compendium-add flows.
+ */
+export function classLevelFor(
+  identity: { classes: Array<{ name: string; level: number }>; totalLevel: number },
+  className: string,
+): number {
+  const norm = (s: string) =>
+    s.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  const target = norm(className);
+  const row = target ? identity.classes.find((c) => norm(c.name) === target) : undefined;
+  const lvl = row?.level ?? identity.totalLevel;
+  return Math.max(1, Math.floor(lvl || 1));
+}
+
+/**
  * Sensible recovery-method default per initiating class (substring match so archetype-suffixed
  * names like "Warder (Zweihänder Sentinel)" still hit). Everything else — Zealot, Mystic,
  * Harbinger, Medic, homebrew — recovers via the generic standard action.

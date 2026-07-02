@@ -61,6 +61,7 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   mythic: "public",
   psionics: "public",
   pathOfWar: "public",
+  akashic: "public",
   milestoneLeveling: "public",
   companion: "public",
   formulaDetails: "public",
@@ -97,6 +98,7 @@ const SECTION_LABELS: Record<string, string> = {
   mythic: "Mythic",
   psionics: "Psionics",
   pathOfWar: "Path of War",
+  akashic: "Akashic",
   milestoneLeveling: "Milestone Leveling",
   companion: "Companion link",
   backstory: "Backstory & profile",
@@ -180,6 +182,52 @@ export type PathOfWarView = {
     granted: boolean;
     stanceActive: boolean;
     description?: string;
+    notes?: string;
+  }>;
+};
+
+/** Akashic veilweaving as shown on the sheet. Mechanical meta (essence totals, shaped
+ * names/slots/DCs, per-class stats, counts, warnings) is viewer-safe within the section gate,
+ * like a spell's cached fields; the long 3pp rules text (`effect`/`bindEffect`) and `notes` stay
+ * owner-only — the same tiering as psionic powers and PoW maneuvers. */
+export type AkashicView = {
+  essence: { total: number; invested: number; available: number; temporary: number; capacityCap: number };
+  classes: Array<{
+    id: string;
+    name: string;
+    level: number;
+    veilweavingAbility: string;
+    veilweavingMod: number;
+    essenceMax?: number;
+    veilsShapedMax?: number;
+    unlockedBinds: string[];
+  }>;
+  shaped: Array<{
+    id: string;
+    veilId: string;
+    name: string;
+    slot: string;
+    essenceInvested: number;
+    bound: boolean;
+    bindValid: boolean;
+    overCapacity: boolean;
+    enabled: boolean;
+    /** Computed save DC (honors a custom saveDcFormula). */
+    saveDc: number;
+  }>;
+  veilsKnownCount: number;
+  warnings: string[];
+  /** The veils-known list with the picker's cached compendium detail. `id` is the stable ref id
+   * (shaped rows join on it via `veilId` — an opaque row id, viewer-safe like `shaped[].id`). */
+  veils: Array<{
+    id: string;
+    name: string;
+    slots: string[];
+    descriptors?: string;
+    classNames?: string[];
+    source?: string;
+    effect?: string;
+    bindEffect?: string;
     notes?: string;
   }>;
 };
@@ -382,6 +430,8 @@ export type CharacterViewModel = {
   } | null;
   /** Path of War roll-up (null unless the module is enabled). */
   pathOfWar: PathOfWarView | null;
+  /** Akashic veilweaving roll-up (null unless the module is enabled). */
+  akashic: AkashicView | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
     currentXp?: number;
@@ -970,6 +1020,41 @@ export function buildCharacterViewModel(
             stanceActive: m.stanceActive,
             description: isOwnerView ? m.description : undefined,
             notes: isOwnerView ? m.notes : undefined,
+          })),
+        })
+      : null,
+    akashic: computed.summary.akashic
+      ? gate("akashic", {
+          essence: computed.summary.akashic.essence,
+          classes: computed.summary.akashic.classes,
+          // The engine's ComputedValue DC collapses to its number here (the VM ships numbers, like
+          // PoW's maneuver DCs); Show Math reads the full terms from the computed summary.
+          shaped: computed.summary.akashic.shaped.map((s) => ({
+            id: s.id,
+            veilId: s.veilId,
+            name: s.name,
+            slot: s.slot,
+            essenceInvested: s.essenceInvested,
+            bound: s.bound,
+            bindValid: s.bindValid,
+            overCapacity: s.overCapacity,
+            enabled: s.enabled,
+            saveDc: s.dc.value,
+          })),
+          veilsKnownCount: computed.summary.akashic.veilsKnownCount,
+          warnings: computed.summary.akashic.warnings,
+          // Mechanical meta (name/slots/descriptors/lists/source) is viewer-safe within the gate;
+          // the long 3pp rules text + notes stay owner-only (the psionics/PoW tiering).
+          veils: (character.akashic?.veilsKnown ?? []).map((v) => ({
+            id: v.id,
+            name: v.name,
+            slots: v.slots,
+            descriptors: v.descriptors,
+            classNames: v.classNames,
+            source: v.source,
+            effect: isOwnerView ? v.effect : undefined,
+            bindEffect: isOwnerView ? v.bindEffect : undefined,
+            notes: isOwnerView ? v.notes : undefined,
           })),
         })
       : null,

@@ -140,6 +140,13 @@ describe("collectProbes on the Vehti fixture", () => {
     expect(report.questions.some((q) => q.kind === "path_of_war")).toBe(false);
     expect(report.probes.some((p) => p.context === "pow_maneuver")).toBe(false);
   });
+
+  it("never fires the Akashic detector (Shaman||Druid carries no veil/essence markers)", async () => {
+    const c = await vehti();
+    const report = collectProbes(c);
+    expect(report.questions.some((q) => q.kind === "akashic")).toBe(false);
+    expect(report.probes.some((p) => p.context === "akashic_veil")).toBe(false);
+  });
 });
 
 describe("assembleClaims — Vehti feats link once the keys are right", () => {

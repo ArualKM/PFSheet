@@ -17,6 +17,7 @@ import {
   Wand2,
   Flag,
   Target,
+  Meditation,
   GameIcon,
   itemIconName,
 } from "@/components/ui/game-icons";
@@ -25,6 +26,7 @@ import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
 import { PsionicPowerList } from "./psionic-power-list";
 import { ManeuverList } from "./maneuver-list";
+import { VeilList } from "./veil-list";
 import { TalentRow } from "./talent-row";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
@@ -304,6 +306,14 @@ export function CharacterDashboard({
           {vm.pathOfWar && vm.pathOfWar.maneuvers.length > 0 && (
             <SectionCard title="Martial Disciplines" icon={Swords}>
               <ManeuverList maneuvers={vm.pathOfWar.maneuvers} />
+            </SectionCard>
+          )}
+
+          {/* Content-heavy veils list lives in the wide column (shaped loadout + known veils,
+              expandable detail rows); the rail's Akashic card keeps the essence tracker summary. */}
+          {vm.akashic && (vm.akashic.shaped.length > 0 || vm.akashic.veils.length > 0) && (
+            <SectionCard title="Veils & Essence" icon={Meditation}>
+              <VeilList akashic={vm.akashic} />
             </SectionCard>
           )}
 
@@ -703,6 +713,59 @@ export function CharacterDashboard({
                   </div>
                 )}
                 {/* The maneuvers list itself renders as its own main-column card (grouped by discipline). */}
+              </div>
+            </SectionCard>
+          )}
+          {vm.akashic && (
+            <SectionCard title="Akashic" icon={Meditation}>
+              <div className="space-y-1.5 text-sm">
+                {vm.akashic.classes.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <span className="min-w-0 truncate font-medium text-foreground">
+                      {c.name || "Veilweaver"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {c.essenceMax != null && (
+                        <>
+                          essence <span className="tnum text-foreground">{c.essenceMax}</span>
+                        </>
+                      )}
+                      {c.veilsShapedMax != null && (
+                        <>
+                          {c.essenceMax != null && " · "}veils{" "}
+                          <span className="tnum text-foreground">{c.veilsShapedMax}</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ))}
+                <div className="text-muted-foreground">
+                  Essence{" "}
+                  <span
+                    className={cn(
+                      "tnum font-semibold",
+                      vm.akashic.essence.available < 0 ? "text-warning" : "text-rune",
+                    )}
+                  >
+                    {vm.akashic.essence.available}
+                  </span>{" "}
+                  free ·{" "}
+                  <span className="tnum text-foreground">
+                    {vm.akashic.essence.invested}/{vm.akashic.essence.total}
+                  </span>{" "}
+                  invested
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>{vm.akashic.veilsKnownCount} veils known</span>
+                  <span>{vm.akashic.shaped.length} shaped</span>
+                  <span>
+                    Capacity <span className="tnum text-foreground">{vm.akashic.essence.capacityCap}</span>
+                  </span>
+                  {vm.akashic.essence.temporary !== 0 && (
+                    <span className="text-gold">+{vm.akashic.essence.temporary} temp</span>
+                  )}
+                </div>
+                {/* The veils list itself renders as its own main-column card (shaped + known). */}
               </div>
             </SectionCard>
           )}

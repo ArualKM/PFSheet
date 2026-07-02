@@ -11,6 +11,7 @@ import {
 } from "@pathforge/schema";
 import { createClient } from "@/lib/supabase/client";
 import {
+  classLevelFor,
   readPowProgressionMaxes,
   powRecoveryDefault,
   setActiveStance,
@@ -131,24 +132,14 @@ export function PathOfWarEditor({ ed }: { ed: CharacterEditorApi }) {
   const expendedCount = pow?.maneuvers.filter((m) => m.expended).length ?? 0;
   const readiedCount = pow?.maneuvers.filter((m) => m.readied).length ?? 0;
 
-  // The initiator's class level: a matching identity.classes row wins (case-insensitive,
-  // archetype parentheticals stripped) — PoW characters are commonly multiclass, and seeding from
-  // totalLevel silently inflates IL + the progression maxes (Fighter 5/Warlord 3 must seed
-  // Warlord 3, not 8). Fall back to totalLevel only when no class row matches.
-  const classLevelFor = (className: string): number => {
-    const norm = (s: string) =>
-      s.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-    const target = norm(className);
-    const row = target ? ed.draft.identity.classes.find((c) => norm(c.name) === target) : undefined;
-    const lvl = row?.level ?? ed.draft.identity.totalLevel;
-    return Math.max(1, Math.floor(lvl || 1));
-  };
-
   const addFromCompendium = (slug: string) => {
     const row = powClasses.find((r) => r.slug === slug);
     if (!row) return;
     const name = row.name ?? slug;
-    const level = classLevelFor(name);
+    // A matching identity.classes row wins over totalLevel — PoW characters are commonly
+    // multiclass, and seeding from totalLevel silently inflates IL + the progression maxes
+    // (Fighter 5/Warlord 3 must seed Warlord 3, not 8).
+    const level = classLevelFor(ed.draft.identity, name);
     const maxes = readPowProgressionMaxes(row.progression_json, Math.min(20, level));
     const id = newId("init");
     ensure((p) =>

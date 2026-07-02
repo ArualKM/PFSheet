@@ -1,6 +1,7 @@
 import {
   isGestalt,
   gestaltLevel,
+  parseVeilSlots,
   recomputeClassDerived,
   MYTHIC_PATHS,
   type PathForgeCharacterV1,
@@ -131,6 +132,17 @@ export async function applyImportResolutions(
       if (existing) existing.enabled = true;
       else sheet.rules.modules.push({ key: "path_of_war", enabled: true, settings: {} });
       applied.push("Path of War module enabled");
+    }
+  }
+  // Akashic: YES enables the module (linked veils then re-file into character.akashic);
+  // NO changes nothing — linked veils fall back to plain features (pow-mirror, never drop).
+  const akashicQ = questions.find((q) => q.kind === "akashic");
+  if (akashicQ && answerOf(akashicQ)) {
+    const existing = sheet.rules.modules.find((m) => m.key === "akashic");
+    if (!existing?.enabled) {
+      if (existing) existing.enabled = true;
+      else sheet.rules.modules.push({ key: "akashic", enabled: true, settings: {} });
+      applied.push("Akashic module enabled");
     }
   }
 
@@ -525,6 +537,43 @@ export async function applyImportResolutions(
     }
   };
 
+  /** Akashic module ON (adapter-flagged or the question answered YES above) → a real
+   * character.akashic veilsKnown entry; OFF → the veil stays visible as a plain feature,
+   * mirroring addPowManeuver (never silently drop a linked row). Cached text goes through
+   * brToNewlines so both add-paths persist plain text — the compendium's rich-text cells carry
+   * literal "<br>" separators. */
+  const addAkashicVeil = (c: ImportClaim, row: Record<string, unknown>): void => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.rules.modules.some((m) => m.key === "akashic" && m.enabled)) {
+      if (!sheet.akashic) {
+        sheet.akashic = { classes: [], veilsKnown: [], shaped: [], otherReceptacles: [], temporaryEssence: 0 };
+      }
+      const aka = sheet.akashic;
+      if (!aka.veilsKnown.some((v) => v.compendiumId === cid || (normalizeKey(v.name) === normalizeKey(name) && !v.compendiumId))) {
+        aka.veilsKnown.push({
+          id: `import_${c.id}`,
+          compendiumId: cid,
+          name,
+          slots: parseVeilSlots(S(row.slot)),
+          descriptors: brToNewlines(S(row.descriptors)),
+          effect: brToNewlines(S(row.effect)),
+          bindEffect: brToNewlines(S(row.bind_effect)),
+          ...(S(row.source) ? { source: S(row.source) } : {}),
+        });
+      }
+    } else if (!sheet.features.list.some((f) => f.compendiumId === cid || (normalizeKey(f.name) === normalizeKey(name) && !f.compendiumId))) {
+      sheet.features.list.push({
+        id: `import_${c.id}`,
+        name,
+        category: "special_ability",
+        compendiumId: cid,
+        description: brToNewlines(S(row.effect)),
+        automation: [],
+      });
+    }
+  };
+
   const MYTHIC_PATH_SET = new Set<string>(MYTHIC_PATHS);
   const addMythicAbility = (c: ImportClaim, row: Record<string, unknown>): void => {
     const name = S(row.name);
@@ -639,6 +688,17 @@ export async function applyImportResolutions(
       applied.push(
         `${/stance/i.test(S(row.category)) ? "Stance" : "Maneuver"}: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`,
       );
+      return true;
+    }
+    if (link.table === "akashic_veil_compendium") {
+      const { data: row } = await sb
+        .from("akashic_veil_compendium")
+        .select("slug,name,slot,descriptors,effect,bind_effect,source")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      addAkashicVeil(c, row);
+      applied.push(`Veil: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
       return true;
     }
     if (link.table === "mythic_path_ability_compendium") {

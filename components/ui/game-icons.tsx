@@ -28,6 +28,7 @@ const ICON_FILES = {
   languages: "lorc/conversation",
   flag: "lorc/flying-flag",
   sphere: "lorc/concentration-orb",
+  akashic: "lorc/meditation",
   // nav · sheet sections
   dashboard: "lorc/treasure-map",
   character: "delapouite/character",
@@ -105,6 +106,7 @@ export const Eye = make("eye");
 export const EyeOff = make("eye-off");
 export const TreasureMap = make("dashboard");
 export const ConcentrationOrb = make("sphere");
+export const Meditation = make("akashic");
 export const User = make("character");
 export const Helmet = make("classes");
 export const Target = make("skills");

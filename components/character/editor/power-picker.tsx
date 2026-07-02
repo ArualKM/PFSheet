@@ -12,6 +12,7 @@ import {
   baseDiscipline,
   brToNewlines,
 } from "@/lib/character/psionic-powers";
+import { fetchAllRows } from "@/lib/character/fetch-all-rows";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -131,12 +132,20 @@ export function PowerPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: 
         ...classNames.map((c) => `class.ilike.${pgQuote(likePattern(c))}`),
         `class.eq.${pgQuote("All")}`,
       ].join(",");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: jr, error: je } = await (supabase as any)
-        .from("psionic_power_class_level")
-        .select("power,class,level")
-        .or(orExpr)
-        .limit(3000);
+      // Paged via .range(): PostgREST caps ONE response at 1,000 rows, so a flat `.limit(3000)`
+      // would silently truncate the junction the moment the filtered set crosses the cap (the
+      // exact bug that hit the 1,332-row veil compendium).
+      const { rows: jr, error: je } = await fetchAllRows<{ power: string; class: string; level: string | null }>(
+        (from, to) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from("psionic_power_class_level")
+            .select("power,class,level")
+            .or(orExpr)
+            .order("power")
+            .order("class")
+            .range(from, to),
+      );
       if (cancelled) return;
       if (je) {
         setError(je.message);
@@ -146,7 +155,7 @@ export function PowerPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: 
       }
       const originalName = new Map<string, string>();
       const levelByName = new Map<string, number>();
-      for (const row of (jr ?? []) as { power: string; class: string; level: string | null }[]) {
+      for (const row of jr) {
         // Belt-and-suspenders: ilike %psion% could over-match; the split-based helper decides.
         if (!classNames.some((c) => matchesManifesterClass(row.class, c))) continue;
         const key = nameKey(row.power);

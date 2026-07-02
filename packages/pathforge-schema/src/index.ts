@@ -35,6 +35,7 @@ export * from "./abp";
 export * from "./psionics";
 export * from "./psionics-parser";
 export * from "./path-of-war";
+export * from "./akashic";
 export * from "./milestone-leveling";
 export * from "./companion";
 export * from "./familiar-archetypes";

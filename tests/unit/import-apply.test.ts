@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, isGestalt, pathOfWarBlockSchema, type PathForgeCharacterV1 } from "@pathforge/schema";
+import { akashicBlockSchema, createDefaultCharacter, isGestalt, pathOfWarBlockSchema, type PathForgeCharacterV1 } from "@pathforge/schema";
 import { applyImportResolutions, type ClaimAnswers } from "@/lib/character/import-apply";
 import { assembleClaims, type ClaimProbe, type ImportClaim, type ImportQuestion } from "@/lib/character/import-claims";
 import { resolveProbeCandidates } from "@/lib/character/import-candidates";
@@ -521,6 +521,107 @@ describe("applyImportResolutions — re-filing across slots", () => {
     const feature = sheet.features.list.find((f) => f.name === "Steel Flurry Strike");
     expect(feature).toMatchObject({ category: "special_ability", compendiumId: "3pp:steel-flurry-strike" });
     expect(feature!.description).toBe("Make an attack.\nIt flows.");
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
+  });
+
+  it("akashic YES → module enabled + veils re-file into akashic.veilsKnown with parsed slots", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Gorgon Mask", level: 1 }];
+    const q: ImportQuestion = { id: "q-aka", kind: "akashic", text: "enable Akashic?", defaultAnswer: true };
+    const claim = (id: string, slug: string, name: string, over: Partial<ImportClaim> = {}): ImportClaim => ({
+      id,
+      kind: "akashic_veil",
+      sourceKind: "spell",
+      sourceText: name,
+      sourceLabel: "Spells field",
+      matchKey: name,
+      candidates: [{ table: "akashic_veil_compendium", slug, name, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "akashic_veil_compendium", slug },
+      ...over,
+    });
+    const sb = fakeSb({
+      akashic_veil_compendium: [
+        {
+          slug: "gorgon-mask",
+          name: "Gorgon Mask",
+          slot: "Head, Neck",
+          descriptors: "Transmutation",
+          effect: "Your gaze slows enemies.<br><br>They may be staggered.",
+          bind_effect: "Bind: the gaze can petrify.",
+          source: "Akashic Mysteries",
+        },
+        {
+          slug: "storm-gauntlets",
+          name: "Storm Gauntlets",
+          slot: "Hands",
+          effect: "Lightning wreathes your fists.",
+          source: "Akashic Mysteries",
+        },
+      ],
+    });
+    const claims = [
+      claim("c-v", "gorgon-mask", "Gorgon Mask", { draftEntryId: "sp1" }),
+      claim("c-v2", "storm-gauntlets", "Storm Gauntlets", { mined: true, sourceLabel: "Notes field" }),
+    ];
+    const report = await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-aka": true } });
+    expect(sheet.rules.modules.some((m) => m.key === "akashic" && m.enabled)).toBe(true);
+    const mask = sheet.akashic?.veilsKnown.find((v) => v.name === "Gorgon Mask");
+    expect(mask).toMatchObject({
+      compendiumId: "3pp:gorgon-mask",
+      slots: ["Head", "Neck"], // the comma slot cell parsed via parseVeilSlots
+      descriptors: "Transmutation",
+      bindEffect: "Bind: the gaze can petrify.",
+      source: "Akashic Mysteries",
+    });
+    // "<br>" rich text → the same plain-text shape the psionics/pow paths cache.
+    expect(mask!.effect).toBe("Your gaze slows enemies.\n\nThey may be staggered.");
+    expect(JSON.stringify(mask)).not.toContain("<br>");
+    expect(sheet.akashic?.veilsKnown.find((v) => v.name === "Storm Gauntlets")?.slots).toEqual(["Hands"]);
+    // The constructed block satisfies the Track-A schema.
+    const parsed = akashicBlockSchema.safeParse(sheet.akashic);
+    expect(parsed.success).toBe(true);
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // the misfiled spell slot moved
+    expect(report.applied.some((a) => a.includes("Akashic module enabled"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Veil: Gorgon Mask"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Veil: Storm Gauntlets (found in Notes field)"))).toBe(true);
+  });
+
+  it("akashic NO → module stays off and the veil falls back to a features entry (never dropped)", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Gorgon Mask", level: 1 }];
+    const q: ImportQuestion = { id: "q-aka", kind: "akashic", text: "enable Akashic?", defaultAnswer: true };
+    const claims: ImportClaim[] = [
+      {
+        id: "c-v",
+        kind: "akashic_veil",
+        sourceKind: "spell",
+        sourceText: "Gorgon Mask",
+        sourceLabel: "Spells field",
+        matchKey: "Gorgon Mask",
+        candidates: [{ table: "akashic_veil_compendium", slug: "gorgon-mask", name: "Gorgon Mask", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "akashic_veil_compendium", slug: "gorgon-mask" },
+        draftEntryId: "sp1",
+      },
+    ];
+    const sb = fakeSb({
+      akashic_veil_compendium: [
+        {
+          slug: "gorgon-mask",
+          name: "Gorgon Mask",
+          slot: "Head",
+          effect: "Your gaze slows enemies.<br>They stagger.",
+          source: "Akashic Mysteries",
+        },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-aka": false } });
+    expect(sheet.rules.modules.some((m) => m.key === "akashic" && m.enabled)).toBe(false);
+    expect(sheet.akashic?.veilsKnown.length ?? 0).toBe(0);
+    const feature = sheet.features.list.find((f) => f.name === "Gorgon Mask");
+    expect(feature).toMatchObject({ category: "special_ability", compendiumId: "3pp:gorgon-mask" });
+    expect(feature!.description).toBe("Your gaze slows enemies.\nThey stagger.");
     expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
   });
 
