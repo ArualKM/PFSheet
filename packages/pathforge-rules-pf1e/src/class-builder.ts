@@ -132,6 +132,10 @@ export type ArchetypeFeatureRow = {
   level?: number | string | null;
   /** The standard class feature(s) this row replaces (lowercased base names, in the dataset). */
   replaces?: string | null;
+  /** Pre-split replaces names. When present it is authoritative — no comma/";"/"and" re-split — so a
+   * SINGLE feature name containing " and " ("Up Close and Personal") survives intact. Core compendium rows
+   * never set it (their `replaces` cells keep {@link parseReplaces} semantics); the 3pp adapter always does. */
+  replacesList?: string[] | null;
   text?: string | null;
 };
 
@@ -143,9 +147,16 @@ export function parseReplaces(raw: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-/** Every standard feature an archetype's rows replace (deduped, lowercased). */
+/** Every standard feature an archetype's rows replace (deduped, lowercased). A row's pre-split
+ * `replacesList` wins over the re-split of its raw `replaces` cell. */
 export function archetypeReplaces(features: ArchetypeFeatureRow[]): string[] {
-  return [...new Set(features.flatMap((f) => parseReplaces(f.replaces)))];
+  return [
+    ...new Set(
+      features.flatMap((f) =>
+        f.replacesList ? f.replacesList.map((s) => s.trim().toLowerCase()).filter(Boolean) : parseReplaces(f.replaces),
+      ),
+    ),
+  ];
 }
 
 /** Replaced features that an already-applied archetype on this class also replaced → a hard conflict

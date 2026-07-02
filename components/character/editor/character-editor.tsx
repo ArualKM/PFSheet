@@ -103,7 +103,7 @@ import {
   type PrivacyLevel,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures, unapplyArchetype } from "@pathforge/rules-pf1e";
-import type { ComputedValue } from "@pathforge/rules-pf1e";
+import type { ComputedValue, CompendiumFeatureRow } from "@pathforge/rules-pf1e";
 import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
 import { PortraitImage } from "../portrait-image";
@@ -119,9 +119,11 @@ import { RacePicker } from "./race-picker";
 import { MythicAbilityPicker, type MythicAbilityRow } from "./mythic-ability-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
+import { threeppFeaturesFromProgression } from "@/lib/character/threepp-class-adapter";
 import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS, skillTargetOptions } from "./automation-effects-editor";
 import { ModifierListEditor } from "./modifier-list-editor";
-import { StatChip } from "./picker-shell";
+import { StatChip, ThreeppSystemBadge } from "./picker-shell";
+import { enabledThreeppSystems } from "@/lib/character/threepp";
 import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
 import { EntryPicker } from "./entry-picker";
@@ -3006,17 +3008,38 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
       recomputeClassDerived(c, { hpMethod: "manual" });
     });
 
-  // Leveling a compendium class up grants the newly-reached levels' features (idempotent; level-down leaves
-  // existing features in place per the builder's decision). classId + exclude are captured at click time and
-  // the row is matched by id (not array index) so a concurrent class add/remove can't corrupt the grant.
-  const regrantFeatures = async (className: string, classId: string, fromLevel: number, toLevel: number, exclude: string[]) => {
+  // Fetch the feature rows a class grants. 3pp classes (compendiumId "3pp:<slug>") have NO
+  // class_feature_compendium rows — their features are synthesized from the threepp progression's
+  // "Special" column, so level-up regrants and archetype-removal restores must re-synthesize from the
+  // same source the picker's apply used (otherwise they silently grant/restore nothing).
+  const fetchFeatureRows = async (className: string, compendiumId: string | undefined): Promise<CompendiumFeatureRow[]> => {
+    if (compendiumId?.startsWith("3pp:")) {
+      const slug = compendiumId.slice("3pp:".length);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from("threepp_class_compendium").select("slug,progression_json").eq("slug", slug).maybeSingle();
+      return data ? threeppFeaturesFromProgression(data.progression_json, slug) : [];
+    }
     const [{ data: feats }, { data: fx }] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
     ]);
-    const rows = buildFeatureRows(feats ?? [], fx ?? []);
+    return buildFeatureRows(feats ?? [], fx ?? []);
+  };
+
+  // Leveling a compendium class up grants the newly-reached levels' features (idempotent; level-down leaves
+  // existing features in place per the builder's decision). classId + exclude are captured at click time and
+  // the row is matched by id (not array index) so a concurrent class add/remove can't corrupt the grant.
+  const regrantFeatures = async (
+    className: string,
+    classId: string,
+    fromLevel: number,
+    toLevel: number,
+    exclude: string[],
+    compendiumId: string | undefined,
+  ) => {
+    const rows = await fetchFeatureRows(className, compendiumId);
     ed.update((c) => {
       if (!c.identity.classes.some((r) => r.id === classId)) return; // the class was removed during the fetch
       grantClassFeatures(c, { features: rows, fromLevel, toLevel, exclude });
@@ -3025,15 +3048,15 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
 
   // Restore specific standard class features (the ones an un-applied archetype had replaced) — re-fetches the
   // class's features and re-grants only the named ones, excluding anything a remaining archetype still replaces.
-  const restoreStandardFeatures = async (className: string, classId: string, toLevel: number, restore: string[]) => {
+  const restoreStandardFeatures = async (
+    className: string,
+    classId: string,
+    toLevel: number,
+    restore: string[],
+    compendiumId: string | undefined,
+  ) => {
     const restoreSet = new Set(restore.map((s) => s.toLowerCase()));
-    const [{ data: feats }, { data: fx }] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
-    ]);
-    const rows = buildFeatureRows(feats ?? [], fx ?? []).filter((r) => restoreSet.has(r.feature.trim().toLowerCase()));
+    const rows = (await fetchFeatureRows(className, compendiumId)).filter((r) => restoreSet.has(r.feature.trim().toLowerCase()));
     if (!rows.length) return;
     ed.update((c) => {
       const r = c.identity.classes.find((x) => x.id === classId);
@@ -3046,13 +3069,13 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
     const className = cl.compendiumPreset?.name ?? cl.name;
     const classId = cl.id;
     const toLevel = cl.level;
-    const hasCompendium = !!cl.compendiumId;
+    const compendiumId = cl.compendiumId;
     let restore: string[] = [];
     ed.update((c) => {
       restore = unapplyArchetype(c, { classId, archetype: a }).restore;
       if (c.identity.classes.some((x) => resolveClassPreset(x))) recomputeClassDerived(c, { hpMethod: "manual" });
     });
-    if (restore.length && hasCompendium) void restoreStandardFeatures(className, classId, toLevel, restore);
+    if (restore.length && compendiumId) void restoreStandardFeatures(className, classId, toLevel, restore, compendiumId);
   };
 
   const displayName = preset?.name ?? cl.name;
@@ -3115,7 +3138,7 @@ function ClassRow({ ed, cl, i }: { ed: EditorApi; cl: ClassEntry; i: number }) {
               });
               if (cl.compendiumId && v > oldLevel) {
                 const exclude = (cl.archetypes ?? []).flatMap((a) => a.replaces);
-                void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, cl.id, oldLevel, v, exclude);
+                void regrantFeatures(cl.compendiumPreset?.name ?? cl.name, cl.id, oldLevel, v, exclude, cl.compendiumId);
               }
             }}
             className="w-16"
@@ -5283,6 +5306,9 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
   // The id of a just-added entry, so its EntryCard mounts already-open for editing (custom add = full editor).
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const addedTraitIds = new Set(ed.draft.traits.list.map((t) => t.compendiumId).filter(Boolean) as string[]);
+  // 3pp gating (docs/3PP_MASTER_PLAN.md D1): third-party traits union into the picker ONLY when a
+  // matching module is enabled — with none enabled, no secondary query fires at all.
+  const threeppSystems = useMemo(() => enabledThreeppSystems(ed.draft), [ed.draft]);
 
   const featureMax = (f: (typeof features)[number]) => (typeof f.uses?.max === "number" ? f.uses.max : 0);
   const featureRemaining = (f: (typeof features)[number]) => f.uses?.current ?? featureMax(f);
@@ -5565,6 +5591,32 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                     automation: [],
                   });
                 })
+              }
+              secondary={
+                threeppSystems.length > 0
+                  ? {
+                      rpc: "search_threepp_trait_compendium",
+                      label: "Third-party",
+                      // Only enabled systems surface (rows tagged other/rune_magic never appear).
+                      filter: (r) => typeof r.system === "string" && (threeppSystems as string[]).includes(r.system),
+                      rowId: (r) => `3pp:${r.slug}`,
+                      renderBadges: (r) => <ThreeppSystemBadge system={typeof r.system === "string" ? r.system : null} />,
+                      renderMeta: (r) => [r.type, r.source].filter(Boolean).map(String).join(" · "),
+                      onAdd: (r) =>
+                        ed.update((c) => {
+                          const cid = `3pp:${r.slug}`;
+                          if (c.traits.list.some((t) => t.compendiumId === cid)) return;
+                          c.traits.list.push({
+                            id: newId("trait"),
+                            name: String(r.name),
+                            type: r.type ? String(r.type) : undefined,
+                            compendiumId: cid,
+                            description: r.description ? String(r.description).replace(/<br>/g, " ") : undefined,
+                            automation: [],
+                          });
+                        }),
+                    }
+                  : undefined
               }
             />
           </div>

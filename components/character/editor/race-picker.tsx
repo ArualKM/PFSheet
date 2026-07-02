@@ -4,9 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Check, User } from "lucide-react";
 import { applyRace, parseAbilityMods, type RaceApplyResult } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
+import { enabledThreeppSystems } from "@/lib/character/threepp";
+import { parseLandSpeed, type ThreeppRaceRow } from "@/lib/character/threepp-class-adapter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDetail } from "./picker-shell";
+import {
+  PickerShell,
+  PickerSearch,
+  PickerError,
+  PickerList,
+  PickerRow,
+  PickerDetail,
+  PickerDivider,
+  ThreeppSystemBadge,
+} from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type RaceRow = { slug: string; name: string; category: string | null };
@@ -20,11 +31,17 @@ const ABBR: Record<string, string> = { str: "Str", dex: "Dex", con: "Con", int: 
  * standard traits), preview, and apply via applyRace (adds mods to the base score, sets size + speed, grants
  * the standard traits as a feature; re-applying reverts the prior race). Alternate racial traits are listed
  * (with what they replace) and added as features — the standard traits are prose, so a "replaces" is a note.
+ *
+ * 3pp union (Phase 2b-B): with a 3pp module enabled, `threepp_race_compendium` rows for enabled systems (the
+ * 20 akashic races) list under a "Third-party" divider. A 3pp row already carries its ability modifiers / size
+ * / speed / traits, so selection is synchronous (no trait-row fetch) and apply reuses the same applyRace path
+ * — `parseAbilityMods` handles the dataset's full ability names ("+2 Dexterity, -2 Intelligence").
  */
 export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<RaceRow[]>([]);
+  const [tppRows, setTppRows] = useState<ThreeppRaceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RaceRow | null>(null);
@@ -32,24 +49,38 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
   const [alts, setAlts] = useState<AltTrait[]>([]);
   const [report, setReport] = useState<RaceApplyResult | null>(null);
 
+  // 3pp gating (docs/3PP_MASTER_PLAN.md D1) — string-keyed so the effect re-fires only on a module toggle.
+  const threeppKey = useMemo(() => enabledThreeppSystems(ed.draft).join(","), [ed.draft]);
+
   useEffect(() => {
     const term = q.trim();
     if (term.length === 1) return;
     let cancelled = false;
+    const systems = threeppKey ? threeppKey.split(",") : [];
     const t = setTimeout(async () => {
       setLoading(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: e } = await (supabase as any).rpc("search_race_compendium", { p_query: term, p_limit: 30 });
+      // Gate BEFORE querying: with no enabled 3pp module, the union query never fires.
+      const [core, tp] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).rpc("search_race_compendium", { p_query: term, p_limit: 30 }),
+        systems.length > 0
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).rpc("search_threepp_race_compendium", { p_query: term, p_limit: 60 })
+          : Promise.resolve(null),
+      ]);
       if (cancelled) return;
-      setError(e?.message ?? null);
-      setRows((data ?? []) as RaceRow[]);
+      setError(core.error?.message ?? null);
+      setRows((core.data ?? []) as RaceRow[]);
+      // The 3pp union fails soft; only enabled systems surface (today all 20 rows are akashic).
+      const tpRows = tp && !tp.error ? ((tp.data ?? []) as ThreeppRaceRow[]) : [];
+      setTppRows(tpRows.filter((r) => !!r.system && systems.includes(r.system)));
       setLoading(false);
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, supabase]);
+  }, [q, supabase, threeppKey]);
 
   const select = async (row: RaceRow) => {
     setSelected(row);
@@ -69,6 +100,24 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     }
     setTrait((traitRes.data ?? null) as TraitRow | null);
     setAlts((altRes.data ?? []) as AltTrait[]);
+  };
+
+  /** 3pp selection is fully synchronous — the row already carries mods/size/speed/traits, so it maps straight
+   * onto the TraitRow the detail + apply path consume ("30 feet (land); 20 feet (climb)" → land 30). The
+   * `3pp:`-prefixed slug keeps `identity.raceApplied` revert + compendiumId clear of core slugs. */
+  const selectTpp = (row: ThreeppRaceRow) => {
+    setSelected({ slug: `3pp:${row.slug}`, name: row.name ?? row.slug, category: null });
+    setReport(null);
+    setAlts([]);
+    setQ("");
+    setError(null);
+    const speed = parseLandSpeed(row.speed);
+    setTrait({
+      ability_modifiers: row.ability_modifiers,
+      size: row.size,
+      speed: speed != null ? String(speed) : null,
+      standard_traits: row.racial_traits,
+    });
   };
 
   const mods = useMemo(() => (trait ? parseAbilityMods(trait.ability_modifiers) : {}), [trait]);
@@ -112,7 +161,10 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
         <>
           <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label="Search races" placeholder="Search races — e.g. Dwarves, Tiefling, Aasimar…" />
           <PickerError message={error} />
-          <PickerList isEmpty={rows.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No races found."}>
+          <PickerList
+            isEmpty={rows.length === 0 && tppRows.length === 0 && !loading}
+            hint={q.trim().length === 1 ? "Keep typing…" : "No races found."}
+          >
             {rows.map((r) => (
               <PickerRow key={r.slug} onClick={() => select(r)} ariaLabel={`Select ${r.name}`}>
                 <span className="flex items-center justify-between gap-2">
@@ -121,6 +173,22 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                 </span>
               </PickerRow>
             ))}
+            {tppRows.length > 0 && (
+              <>
+                <PickerDivider label="Third-party" />
+                {tppRows.map((r) => (
+                  <PickerRow key={`3pp-${r.slug}`} onClick={() => selectTpp(r)} ariaLabel={`Select ${r.name ?? r.slug} (third-party)`}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">{r.name ?? r.slug}</span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {r.size && <Badge variant="outline">{r.size}</Badge>}
+                        <ThreeppSystemBadge system={r.system} />
+                      </span>
+                    </span>
+                  </PickerRow>
+                ))}
+              </>
+            )}
           </PickerList>
         </>
       ) : (

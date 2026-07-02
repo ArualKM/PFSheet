@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { Search, Loader2, X, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { THREEPP_SYSTEM_LABEL } from "@/lib/character/threepp";
 
 /**
  * Shared chrome for the compendium builder pickers (feat / trait / class-options / class / archetype / prestige
@@ -125,6 +126,30 @@ export function PickerRow({
     );
   }
   return <li className={base}>{children}</li>;
+}
+
+/** The system badge on gated third-party picker rows (Psionics / Path of War / Akashic / Spheres).
+ * Gold-tinted border/background with `text-foreground` so it stays WCAG-safe on every theme. */
+export function ThreeppSystemBadge({ system }: { system: string | null | undefined }) {
+  if (!system) return null;
+  const label = (THREEPP_SYSTEM_LABEL as Record<string, string>)[system] ?? system;
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-gold/50 bg-gold/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+      {label}
+    </span>
+  );
+}
+
+/** The "Third-party" (or similar) group divider inside a PickerList — separates the gated 3pp union
+ * from core results so core always reads first. */
+export function PickerDivider({ label }: { label: string }) {
+  return (
+    <li className="mt-1.5 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span aria-hidden className="h-px flex-1 bg-border/70" />
+      {label}
+      <span aria-hidden className="h-px flex-1 bg-border/70" />
+    </li>
+  );
 }
 
 /** A small coloured chip for a class/archetype feature type (Su / Ex / Sp) — themed, WCAG-safe foreground text. */

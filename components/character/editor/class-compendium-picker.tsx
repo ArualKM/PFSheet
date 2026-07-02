@@ -20,6 +20,13 @@ import {
   parseProgressionTable,
   type ClassCompendiumRow,
 } from "@/lib/character/class-compendium";
+import { enabledThreeppSystems } from "@/lib/character/threepp";
+import {
+  normalizeProgression,
+  threeppClassRowToInput,
+  threeppFeaturesFromProgression,
+  type ThreeppClassRow,
+} from "@/lib/character/threepp-class-adapter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NumberField } from "./fields";
@@ -30,6 +37,8 @@ import {
   PickerList,
   PickerRow,
   PickerDetail,
+  PickerDivider,
+  ThreeppSystemBadge,
   FeatureTypeChip,
   Segmented,
 } from "./picker-shell";
@@ -49,16 +58,25 @@ const firstNum = (s: string) => s.match(/[+-]?\d+/)?.[0] ?? s;
  * whole UI instead of a separate button). Search the compendium, preview the parsed BAB/saves/caster, browse a
  * per-level PROGRESSION ACCORDION (each level's BAB/saves + the features gained, tagged Su/Ex/Sp; levels above
  * the chosen one dimmed), then apply via applyCompendiumClass.
+ *
+ * 3pp union (Phase 2b-B): with a 3pp module enabled, `threepp_class_compendium` rows for enabled systems list
+ * under a "Third-party" divider (base/prestige follows the mode filter). Their `progression_json` comes in two
+ * shapes (header-row 2D array like PFcore, or the Miraheze scraper's array-of-objects) — `normalizeProgression`
+ * converts the latter, so the SAME parseProgression/accordion/applyCompendiumClass path applies them; the
+ * adapter maps columns and synthesizes name-only feature grants from the "Special" column.
  */
 export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<ClassCompendiumRow[]>([]);
+  const [tppRows, setTppRows] = useState<ThreeppClassRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<ClassCompendiumRow | null>(null);
+  /** Set alongside `selected` when the selection is a third-party row — apply runs through the 3pp adapter. */
+  const [tppSelected, setTppSelected] = useState<ThreeppClassRow | null>(null);
   const [progression, setProgression] = useState<unknown>(null);
   const [parsed, setParsed] = useState<ReturnType<typeof parseProgression> | null>(null);
   const [features, setFeatures] = useState<CompendiumFeatureRow[]>([]);
@@ -72,37 +90,58 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
 
   const isPrestige = mode === "prestige";
 
+  // 3pp gating (docs/3PP_MASTER_PLAN.md D1): third-party classes surface ONLY for enabled modules.
+  // Keyed as a string so the search effect re-fires only on a real module toggle, not every draft edit.
+  const threeppKey = useMemo(() => enabledThreeppSystems(ed.draft).join(","), [ed.draft]);
+
   useEffect(() => {
     const term = q.trim();
     if (term.length === 1) return;
     let cancelled = false;
     const rpc = isPrestige ? "search_prestige_class_compendium" : "search_class_compendium";
+    const systems = threeppKey ? threeppKey.split(",") : [];
     const t = setTimeout(async () => {
       setLoading(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: e } = await (supabase as any).rpc(rpc, { p_query: term, p_limit: 30 });
+      // Gate BEFORE querying: with no enabled 3pp module, the union query never fires. p_limit covers the
+      // whole 133-row table so browse-all still shows every row after the client system/type filter.
+      const [core, tp] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).rpc(rpc, { p_query: term, p_limit: 30 }),
+        systems.length > 0
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).rpc("search_threepp_class_compendium", { p_query: term, p_limit: 200 })
+          : Promise.resolve(null),
+      ]);
       if (cancelled) return;
-      setError(e?.message ?? null);
-      setRows((data ?? []) as ClassCompendiumRow[]);
+      setError(core.error?.message ?? null);
+      setRows((core.data ?? []) as ClassCompendiumRow[]);
+      // The 3pp union fails soft — a third-party hiccup never blocks core picking. The RPC can't filter by
+      // system/type, so both are applied client-side (enabled systems only; base vs prestige follows the mode).
+      const wantedType = isPrestige ? "prestige" : "base";
+      const tpRows = tp && !tp.error ? ((tp.data ?? []) as ThreeppClassRow[]) : [];
+      setTppRows(tpRows.filter((r) => !!r.system && systems.includes(r.system) && (r.class_type ?? "base") === wantedType));
       setLoading(false);
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, supabase, isPrestige]);
+  }, [q, supabase, isPrestige, threeppKey]);
 
   const changeMode = (m: ClassMode) => {
     if (m === mode) return;
     setMode(m);
     setSelected(null);
+    setTppSelected(null);
     setQ("");
     setRows([]);
+    setTppRows([]);
     setError(null);
   };
 
   const select = async (row: ClassCompendiumRow) => {
     setSelected(row);
+    setTppSelected(null);
     setReport(null);
     setParsed(null);
     setProgression(null);
@@ -149,11 +188,54 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
     setCasterType(def.casterType);
   };
 
+  /** 3pp selection is fully synchronous — the search RPC already returned the whole row (progression included),
+   * so unlike the PFcore path there is nothing left to fetch. The progression is normalized (object-format →
+   * header-row) so the preview badges + accordion see the same shape apply does. Features are synthesized from
+   * the progression's "Special" column (name-only grants; the 3pp tables have no per-feature rows). */
+  const selectTpp = (row: ThreeppClassRow) => {
+    setTppSelected(row);
+    // Mirror the shared detail fields onto the ClassCompendiumRow shape the detail panel renders.
+    setSelected({
+      slug: `3pp:${row.slug}`,
+      name: row.name ?? row.slug,
+      hit_die: row.hit_die,
+      class_skills: null,
+      skill_points_per_level: row.skill_points,
+      role: null,
+      source: row.source,
+    });
+    setReport(null);
+    setExpanded(new Set());
+    setQ("");
+    setError(null);
+    const prog = normalizeProgression(row.progression_json ?? null) ?? null;
+    setProgression(prog);
+    const p = parseProgression(prog);
+    // 4 real rows (Medic/Parasite/Rajah/Universal Servant) have no progression table. Apply still works via
+    // the engine's parse fallback (½ BAB / poor saves) — replace the parser's own warning with the honest one.
+    if (!prog) p.warnings = ["No progression table — BAB/saves default to ½/poor; features not auto-granted."];
+    setParsed(p);
+    setFeatures(threeppFeaturesFromProgression(prog, row.slug));
+    const def = casterDefaults(row.name ?? row.slug);
+    setCastingAbility(def.castingAbility);
+    setCasterType(def.casterType);
+  };
+
   const apply = () => {
-    if (!selected || !progression) return;
+    // A 3pp row with a null progression is still appliable (the parse fallback yields ½ BAB / poor saves);
+    // the PFcore paths keep requiring a progression (no core row lacks one).
+    if (!selected || (!progression && !tppSelected)) return;
     setApplying(true);
     let res: ApplyCompendiumClassResult | undefined;
-    if (isPrestige) {
+    if (tppSelected) {
+      // Same applyCompendiumClass path as PFcore, via the 3pp adapter. 3pp prestige classes advance an
+      // existing pool/caster, so — like PFcore prestige — casting from spell-like columns is suppressed.
+      const input = threeppClassRowToInput(tppSelected, { castingAbility, casterType });
+      const suppress = (tppSelected.class_type ?? "base") === "prestige";
+      ed.update((c) => {
+        res = applyCompendiumClass(c, { input, level, hpMethod, features, suppressCaster: suppress });
+      });
+    } else if (isPrestige) {
       // A prestige class advances an existing caster ("+1 level of existing class"), so we suppress the spurious
       // new-caster the spell columns would create; the player raises their real caster's level manually.
       const input: CompendiumClassInput = {
@@ -218,7 +300,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
           />
           <PickerError message={error} />
           <PickerList
-            isEmpty={rows.length === 0 && !loading}
+            isEmpty={rows.length === 0 && tppRows.length === 0 && !loading}
             hint={q.trim().length === 1 ? "Keep typing…" : isPrestige ? "No prestige classes found." : "No classes found."}
           >
             {rows.map((r) => (
@@ -236,10 +318,32 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 </span>
               </PickerRow>
             ))}
+            {tppRows.length > 0 && (
+              <>
+                <PickerDivider label="Third-party" />
+                {tppRows.map((r) => (
+                  <PickerRow key={`3pp-${r.slug}`} onClick={() => selectTpp(r)} ariaLabel={`Select ${r.name ?? r.slug} (third-party)`}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{r.name ?? r.slug}</span>
+                      <span className="flex min-w-0 shrink items-center justify-end gap-1.5">
+                        {r.hit_die && <Badge variant="gold">d{parseHitDie(r.hit_die)}</Badge>}
+                        <ThreeppSystemBadge system={r.system} />
+                      </span>
+                    </span>
+                  </PickerRow>
+                ))}
+              </>
+            )}
           </PickerList>
         </>
       ) : (
-        <PickerDetail title={selected.name} onBack={() => setSelected(null)}>
+        <PickerDetail
+          title={selected.name}
+          onBack={() => {
+            setSelected(null);
+            setTppSelected(null);
+          }}
+        >
           <PickerError message={error} />
           {!parsed ? (
             <p className="text-xs text-muted-foreground">Loading progression…</p>
@@ -254,6 +358,8 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 {!isPrestige && parsed.caster && (
                   <Badge variant="rune">caster (CL {parsed.caster.clProgression.replace("_", "-")})</Badge>
                 )}
+                {tppSelected && <ThreeppSystemBadge system={tppSelected.system} />}
+                {tppSelected?.source && <span className="min-w-0 truncate text-[11px] text-muted-foreground">{tppSelected.source}</span>}
               </div>
 
               <div className="flex flex-wrap items-end gap-3">
@@ -373,7 +479,7 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
                 </ul>
               )}
 
-              <Button size="sm" disabled={applying || !progression} onClick={apply}>
+              <Button size="sm" disabled={applying || (!progression && !tppSelected)} onClick={apply}>
                 {applying ? <Loader2 className="size-4 animate-spin" /> : null}
                 Apply {selected.name} {level}
               </Button>

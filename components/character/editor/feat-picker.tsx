@@ -12,9 +12,10 @@ import {
   type PrereqContext,
 } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/client";
+import { enabledThreeppSystems } from "@/lib/character/threepp";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { Button } from "@/components/ui/button";
-import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow } from "./picker-shell";
+import { PickerShell, PickerSearch, PickerError, PickerList, PickerRow, PickerDivider, ThreeppSystemBadge } from "./picker-shell";
 import { Badge } from "@/components/ui/badge";
 
 type FeatResult = {
@@ -30,9 +31,27 @@ type FeatResult = {
   mythic: string | null;
 };
 
+/** A threepp_feat_compendium row (3pp feats have no feat_prerequisite rows and no feat_effect seeds). */
+type ThreeppFeatResult = {
+  slug: string;
+  name: string | null;
+  type: string | null;
+  system: string | null;
+  prerequisites: string | null;
+  benefit: string | null;
+  normal: string | null;
+  special: string | null;
+  source: string | null;
+};
+
 function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
+
+// PostgREST `.or()` escaping — same semantics as compendium-browser.tsx: double-quote the value (escaping
+// one level for the quoted string) and escape LIKE metacharacters inside the pattern.
+const pgQuote = (v: string) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+const likePattern = (v: string) => `%${v.replace(/\\/g, "\\\\").replace(/[%_]/g, (m) => `\\${m}`)}%`;
 
 /** Build the prerequisite-checking context from the live draft + the editor's cached computed values. */
 function usePrereqContext(ed: CharacterEditorApi): PrereqContext {
@@ -73,6 +92,7 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
   const [feats, setFeats] = useState<FeatResult[]>([]);
+  const [threepp, setThreepp] = useState<ThreeppFeatResult[]>([]);
   const [prereqs, setPrereqs] = useState<Record<string, CompendiumPrereq[]>>({});
   const [effects, setEffects] = useState<Record<string, CompendiumEffectSeed[]>>({});
   const [loading, setLoading] = useState(false);
@@ -83,24 +103,53 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     () => new Set(ed.draft.feats.list.map((f) => f.compendiumId).filter(Boolean) as string[]),
     [ed.draft.feats.list],
   );
+  // 3pp gating (docs/3PP_MASTER_PLAN.md D1): third-party feats surface ONLY for enabled modules.
+  // Keyed as a string so the search effect re-fires only on a real module toggle, not every draft edit.
+  const threeppKey = useMemo(() => enabledThreeppSystems(ed.draft).join(","), [ed.draft]);
 
   useEffect(() => {
     const term = q.trim();
     if (term.length === 1) return;
     let cancelled = false;
+    const systems = threeppKey ? threeppKey.split(",") : [];
     const timer = setTimeout(async () => {
       setLoading(true);
-      const { data, error: rpcErr } = await supabase.rpc("search_feat_compendium", { p_query: term, p_limit: 40 });
+      // Gate BEFORE querying: with no enabled 3pp module, the union query never fires. The table is queried
+      // directly (not the search RPC) so the system filter runs SERVER-SIDE — the mixed 860-row table is
+      // mostly spheres/other rows, and an unfiltered 40-row window would starve small systems (psionic has
+      // only 2 feats) before the client filter ever saw them. Search matches the 0026 RPC semantics:
+      // name SUBSTRING or whole-word FTS.
+      let tppQuery: PromiseLike<{ data: unknown; error: { message: string } | null }> | null = null;
+      if (systems.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let tq = (supabase as any)
+          .from("threepp_feat_compendium")
+          .select("slug,name,type,system,prerequisites,benefit,normal,special,source")
+          .in("system", systems)
+          .order("name")
+          .limit(40);
+        if (term) tq = tq.or(`name.ilike.${pgQuote(likePattern(term))},search.wfts(english).${pgQuote(term)}`);
+        tppQuery = tq;
+      }
+      const [core, tp] = await Promise.all([
+        supabase.rpc("search_feat_compendium", { p_query: term, p_limit: 40 }),
+        tppQuery ?? Promise.resolve(null),
+      ]);
       if (cancelled) return;
-      if (rpcErr) {
-        setError(rpcErr.message);
+      if (core.error) {
+        setError(core.error.message);
         setFeats([]);
+        setThreepp([]);
         setLoading(false);
         return;
       }
-      const rows = (data ?? []) as FeatResult[];
+      const rows = (core.data ?? []) as FeatResult[];
       setError(null);
       setFeats(rows);
+      // The 3pp union fails soft — a third-party hiccup never blocks core picking. The client system
+      // filter is belt-and-suspenders on top of the server-side `.in("system", …)`.
+      const tpRows = tp && !tp.error ? ((tp.data ?? []) as ThreeppFeatResult[]) : [];
+      setThreepp(tpRows.filter((r) => !!r.name && !!r.system && systems.includes(r.system)));
       const names = rows.map((r) => r.name);
       if (names.length) {
         const [{ data: pr }, { data: fx }] = await Promise.all([
@@ -142,7 +191,7 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, supabase]);
+  }, [q, supabase, threeppKey]);
 
   const addFeat = (r: FeatResult) =>
     ed.update((c) => {
@@ -166,6 +215,26 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
       });
     });
 
+  // 3pp add — same FeatEntry shape, but `3pp:` prefixes the compendiumId so it never collides with a
+  // core slug, and there are no effect seeds to pre-fill (automation stays empty).
+  const addThreeppFeat = (r: ThreeppFeatResult) =>
+    ed.update((c) => {
+      const cid = `3pp:${r.slug}`;
+      if (c.feats.list.some((f) => f.compendiumId === cid)) return;
+      c.feats.list.push({
+        id: newId("feat"),
+        name: r.name ?? r.slug,
+        type: r.type ?? undefined,
+        compendiumId: cid,
+        prerequisites: r.prerequisites ?? undefined,
+        benefit: r.benefit ?? undefined,
+        normal: r.normal ?? undefined,
+        special: r.special ?? undefined,
+        tags: [],
+        automation: [],
+      });
+    });
+
   return (
     <PickerShell icon={<Swords />} title="Feat compendium" onClose={onClose}>
       <PickerSearch
@@ -177,7 +246,10 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
         placeholder="Search feats by name, type, or benefit…"
       />
       <PickerError message={error} />
-      <PickerList isEmpty={feats.length === 0 && !loading} hint={q.trim().length === 1 ? "Keep typing…" : "No feats found."}>
+      <PickerList
+        isEmpty={feats.length === 0 && threepp.length === 0 && !loading}
+        hint={q.trim().length === 1 ? "Keep typing…" : "No feats found."}
+      >
         {feats.map((r) => {
           const isAdded = added.has(r.slug);
           const checks = evaluatePrerequisites(prereqs[r.name] ?? [], ctx);
@@ -258,6 +330,64 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
             </PickerRow>
           );
         })}
+        {threepp.length > 0 && (
+          <>
+            <PickerDivider label="Third-party" />
+            {threepp.map((r) => {
+              const cid = `3pp:${r.slug}`;
+              const isAdded = added.has(cid);
+              // 3pp prereqs are free text (no feat_prerequisite rows) — rendered in the manual-check
+              // chip style, split into per-requirement chips for scanability. Never auto-evaluated.
+              const prereqBits = (r.prerequisites ?? "")
+                .split(/[;,]\s*/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+              return (
+                <PickerRow key={cid}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                      {r.type && <Badge variant="rune">{r.type}</Badge>}
+                      <ThreeppSystemBadge system={r.system} />
+                      {r.source && <span className="min-w-0 truncate text-[11px] text-muted-foreground">{r.source}</span>}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={isAdded ? "ghost" : "secondary"}
+                      disabled={isAdded}
+                      onClick={() => addThreeppFeat(r)}
+                      aria-label={`Add ${r.name ?? r.slug}`}
+                      className="shrink-0"
+                    >
+                      {isAdded ? (
+                        <>
+                          <Check className="size-4" /> Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="size-4" /> Add
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {prereqBits.length > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {prereqBits.map((p, pi) => (
+                        <span
+                          key={pi}
+                          title={`${p} — third-party prerequisite; check manually`}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </PickerRow>
+              );
+            })}
+          </>
+        )}
       </PickerList>
     </PickerShell>
   );
