@@ -659,12 +659,17 @@ function SectionSheet({
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 md:hidden" />
+        {/* Sized EXPLICITLY (w-full + 100dvh with an h-screen fallback) rather than inset-0: on
+            real phones an overflowing page can widen the initial containing block, dragging an
+            inset-anchored overlay past the screen edge (owner-reported — the ✕ was unreachable);
+            and inset-0's bottom can sit under the dynamic browser toolbar. overflow-hidden clips
+            any stray child overflow; the nav owns all scrolling. */}
         <Dialog.Content
           aria-describedby={undefined}
-          className="pf-sheet-in fixed inset-0 z-50 flex flex-col bg-background focus:outline-none md:hidden"
+          className="pf-sheet-in fixed left-0 top-0 z-50 flex h-screen w-full max-w-[100vw] flex-col overflow-hidden bg-background focus:outline-none md:hidden"
           style={{
+            height: "100dvh",
             paddingTop: "env(safe-area-inset-top)",
-            paddingBottom: "env(safe-area-inset-bottom)",
           }}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-border py-1 pl-4 pr-1">
@@ -679,7 +684,13 @@ function SectionSheet({
               </button>
             </Dialog.Close>
           </div>
-          <nav aria-label="Sheet sections" className="min-h-0 flex-1 overflow-y-auto p-2">
+          {/* overscroll-contain stops scroll chaining to the page; the big bottom padding keeps the
+              last rows tappable above phone browser toolbars / the home indicator. */}
+          <nav
+            aria-label="Sheet sections"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2"
+            style={{ paddingBottom: "max(4rem, env(safe-area-inset-bottom))" }}
+          >
             <div className="space-y-0.5">
               {sections.map((s) => {
                 const Icon = s.icon;
@@ -692,14 +703,14 @@ function SectionSheet({
                       onClick={() => go(s.key, s.items[0]!.key)}
                       aria-current={isActive && !multi ? "true" : undefined}
                       className={cn(
-                        "tap-target flex w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium",
+                        "tap-target flex w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-medium",
                         isActive && !multi
                           ? "bg-surface-raised text-foreground"
                           : "text-foreground hover:bg-surface-raised/60",
                       )}
                     >
                       <Icon className={cn("size-5 shrink-0", isActive ? "text-gold" : "text-muted-foreground")} />
-                      {s.label}
+                      <span className="truncate">{s.label}</span>
                     </button>
                     {multi && (
                       <div className="mb-1 ml-[1.4rem] border-l border-border pl-1.5">
@@ -712,13 +723,13 @@ function SectionSheet({
                               onClick={() => go(s.key, i.key)}
                               aria-current={isSub ? "true" : undefined}
                               className={cn(
-                                "tap-target flex w-full items-center rounded-lg px-3 text-left text-sm",
+                                "tap-target flex w-full min-w-0 items-center rounded-lg px-3 text-left text-sm",
                                 isSub
                                   ? "bg-surface-raised font-medium text-foreground"
                                   : "text-muted-foreground hover:text-foreground",
                               )}
                             >
-                              {i.label}
+                              <span className="truncate">{i.label}</span>
                             </button>
                           );
                         })}

@@ -120,6 +120,12 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* Cap the initial containing block at the device width: any accidentally-overflowing element
+       (a wide table row, a long unbroken string) must scroll inside its own container instead of
+       widening the page — which on real phones drags every `fixed inset-0` overlay wider than the
+       screen (the mobile section navigator bled off-screen, owner-reported 2026-07-01). `clip`
+       rather than `hidden` so no scroll container is created and position:sticky keeps working. */
+    overflow-x: clip;
   }
 
   body {
