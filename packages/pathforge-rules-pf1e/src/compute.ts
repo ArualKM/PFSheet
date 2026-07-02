@@ -15,6 +15,7 @@ import {
   computeMaxHpFromLevels,
   maxMythicPower,
   mythicSurgeDie,
+  MYTHIC_BASE_ABILITIES,
   isGestalt,
   bonusPowerPoints,
   computeProwessBonuses,
@@ -728,6 +729,8 @@ export type ComputedCharacter = {
       pathAbilities: number;
       /** Hard to Kill (tier 1+): death threshold doubled to −2×Con. */
       hardToKill: boolean;
+      /** Tier-gated base abilities unlocked at the current tier (name + tier + rules note). */
+      baseAbilities: { tier: number; name: string; note: string }[];
     };
     /** Psionics roll-up (absent unless the module is enabled). */
     psionics?: {
@@ -1287,6 +1290,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       abilityBoosts: character.mythic?.abilityBoosts?.length ?? 0,
       pathAbilities: character.mythic?.pathAbilities?.length ?? 0,
       hardToKill: mythicHardToKill,
+      // The tier-gated base abilities the character has unlocked (Mythic Adventures pg. 14–15).
+      baseAbilities: MYTHIC_BASE_ABILITIES.filter((a) => tier >= a.tier),
     };
   }
 

@@ -73,4 +73,23 @@ describe("mythic", () => {
     expect(m.pathAbilities).toBe(1);
     expect(m.hardToKill).toBe(true);
   });
+
+  it("tier-gated base abilities unlock cumulatively by tier", () => {
+    const t1 = computeCharacter(enabled(1)).summary.mythic!.baseAbilities.map((a) => a.name);
+    expect(t1).toContain("Hard to Kill");
+    expect(t1).toContain("Surge");
+    expect(t1).not.toContain("Amazing Initiative");
+    expect(t1).not.toContain("Recuperation");
+
+    const t5 = computeCharacter(enabled(5)).summary.mythic!.baseAbilities.map((a) => a.name);
+    expect(t5).toContain("Amazing Initiative");
+    expect(t5).toContain("Recuperation");
+    expect(t5).toContain("Mythic Saving Throws");
+    expect(t5).toContain("Force of Will");
+    expect(t5).not.toContain("Unstoppable");
+
+    const t10 = computeCharacter(enabled(10)).summary.mythic!.baseAbilities;
+    expect(t10).toHaveLength(10);
+    expect(t10.map((a) => a.name)).toContain("Legendary Hero");
+  });
 });

@@ -22,7 +22,15 @@ const CAP = 12;
  * already-authorized data (no new fetch). The prepared used/total counter is rendered internally
  * (a function prop can't cross the server→client boundary — see CharacterDashboard).
  */
-export function SpellListViewer({ title, spells }: { title: string; spells: SpellEntry[] }) {
+export function SpellListViewer({
+  title,
+  spells,
+  mythicAugments = false,
+}: {
+  title: string;
+  spells: SpellEntry[];
+  mythicAugments?: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("level");
   const [showAll, setShowAll] = useState(false);
@@ -84,6 +92,7 @@ export function SpellListViewer({ title, spells }: { title: string; spells: Spel
           <SpellRow
             key={`${sp.name}-${sp.level}-${i}`}
             spell={sp}
+            mythicAugments={mythicAugments}
             right={
               sp.prepared != null ? (
                 <span className="shrink-0 text-[11px] text-muted-foreground">

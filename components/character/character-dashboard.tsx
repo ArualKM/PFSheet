@@ -237,16 +237,17 @@ export function CharacterDashboard({
                 </p>
 
                 {vm.spellcasting.prepared && vm.spellcasting.prepared.length > 0 && (
-                  <SpellListViewer title="Prepared" spells={vm.spellcasting.prepared} />
+                  <SpellListViewer title="Prepared" spells={vm.spellcasting.prepared} mythicAugments={!!vm.mythic} />
                 )}
                 {vm.spellcasting.known.length > 0 && (
                   <SpellListViewer
                     title={vm.spellcasting.prepared ? "Known" : "Spells"}
                     spells={vm.spellcasting.known}
+                    mythicAugments={!!vm.mythic}
                   />
                 )}
                 {vm.spellcasting.spellbook && vm.spellcasting.spellbook.length > 0 && (
-                  <SpellListViewer title="Spellbook" spells={vm.spellcasting.spellbook} />
+                  <SpellListViewer title="Spellbook" spells={vm.spellcasting.spellbook} mythicAugments={!!vm.mythic} />
                 )}
                 {vm.spellcasting.slas.length > 0 && (
                   <div>
@@ -287,17 +288,26 @@ export function CharacterDashboard({
             <SectionCard title="Feats" icon={Sparkles}>
               <ShowMore cap={12} noun="feats" className="space-y-1.5">
                 {vm.feats.map((f, i) => {
-                  const hasDetail = [f.prerequisites, f.benefit, f.special, f.normal, f.notes].some((v) => v && v.trim());
+                  const hasDetail = [f.prerequisites, f.benefit, f.special, f.normal, f.mythicBenefit, f.notes].some(
+                    (v) => v && v.trim(),
+                  );
                   return (
                     <EntryDetailRow
                       key={i}
                       name={f.name}
                       badges={
-                        f.type && f.type.trim() ? (
-                          <Badge variant="outline" className="shrink-0 text-[10px]">
-                            {f.type}
-                          </Badge>
-                        ) : undefined
+                        <>
+                          {f.type && f.type.trim() ? (
+                            <Badge variant="outline" className="shrink-0 text-[10px]">
+                              {f.type}
+                            </Badge>
+                          ) : undefined}
+                          {f.mythicBenefit && f.mythicBenefit.trim() ? (
+                            <Badge variant="gold" className="shrink-0 text-[10px]">
+                              Mythic
+                            </Badge>
+                          ) : undefined}
+                        </>
                       }
                       details={
                         hasDetail ? (
@@ -306,6 +316,7 @@ export function CharacterDashboard({
                             <DetailPara value={f.benefit} />
                             <DetailPara label="Special" value={f.special} />
                             <DetailPara label="Normal" value={f.normal} />
+                            <DetailPara label="Mythic" value={f.mythicBenefit} />
                             <DetailPara label="Notes" value={f.notes} tone="gold" />
                           </>
                         ) : undefined
@@ -520,7 +531,7 @@ export function CharacterDashboard({
                     {vm.mythic.power.current}/{vm.mythic.power.max}
                   </span>
                 </div>
-                {(vm.mythic.abilityBoosts > 0 || vm.mythic.pathAbilities > 0 || vm.mythic.hardToKill) && (
+                {(vm.mythic.abilityBoosts > 0 || vm.mythic.pathAbilities > 0) && (
                   <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                     {vm.mythic.abilityBoosts > 0 && (
                       <span>
@@ -532,7 +543,19 @@ export function CharacterDashboard({
                         {vm.mythic.pathAbilities} path {vm.mythic.pathAbilities === 1 ? "ability" : "abilities"}
                       </span>
                     )}
-                    {vm.mythic.hardToKill && <span className="text-gold">Hard to Kill</span>}
+                  </div>
+                )}
+                {vm.mythic.baseAbilities.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {vm.mythic.baseAbilities.map((a) => (
+                      <span
+                        key={a.name}
+                        title={a.note}
+                        className="rounded-full border border-gold/35 bg-gold/10 px-1.5 py-0.5 text-[10px] text-foreground"
+                      >
+                        {a.name}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>

@@ -46,6 +46,22 @@ export const mythicBlockSchema = z.object({
 });
 export type MythicBlock = z.infer<typeof mythicBlockSchema>;
 
+/** The tier-gated BASE abilities every mythic character gains (Mythic Adventures pg. 14–15),
+ * independent of path. Amazing Initiative and Hard to Kill also have computed effects in the
+ * engine; the rest are play-time abilities surfaced for reference. */
+export const MYTHIC_BASE_ABILITIES: { tier: number; name: string; note: string }[] = [
+  { tier: 1, name: "Hard to Kill", note: "Automatically stabilize below 0 hp; you die at negative double your Con score." },
+  { tier: 1, name: "Mythic Power", note: "3 + 2×tier uses per day fuel your mythic abilities." },
+  { tier: 1, name: "Surge", note: "Spend 1 power to add your surge die to any d20 roll just made." },
+  { tier: 2, name: "Amazing Initiative", note: "+tier to initiative; spend 1 power for an extra move action each round." },
+  { tier: 3, name: "Recuperation", note: "Fully healed after 8 hours' rest; 1 power + 1 hour restores half hp and removes most conditions." },
+  { tier: 4, name: "Mythic Saving Throws", note: "A successful save against a non-mythic source negates the effect entirely." },
+  { tier: 5, name: "Force of Will", note: "Spend 1 power to reroll a d20 you just rolled, or force a non-mythic reroll." },
+  { tier: 7, name: "Unstoppable", note: "Spend 1 power as a free action to end one hindering condition on yourself." },
+  { tier: 9, name: "Immortal", note: "If killed by a non-mythic source, you return to life after 24 hours." },
+  { tier: 10, name: "Legendary Hero", note: "Regain uses of mythic power at the rate of 1 per hour." },
+];
+
 /** Mythic power pool maximum: 3 + 2×tier uses/day (0 at tier 0). */
 export function maxMythicPower(tier: number): number {
   return tier > 0 ? 3 + 2 * tier : 0;

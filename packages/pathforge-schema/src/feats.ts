@@ -18,6 +18,9 @@ export const featEntrySchema = z.object({
   benefit: z.string().optional(),
   normal: z.string().optional(),
   special: z.string().optional(),
+  /** The feat's MYTHIC version text (Mythic Adventures model: a base feat + its mythic upgrade).
+   * Populated from feat_compendium.mythic when applied on a mythic character. */
+  mythicBenefit: z.string().optional(),
   chosenOptions: z.record(z.string(), z.unknown()).optional(),
   tags: z.array(z.string()).default([]),
   automation: z.array(automationEffectSchema).default([]),

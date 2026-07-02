@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Check, Zap, Swords } from "lucide-react";
-import { ABILITY_KEYS } from "@pathforge/schema";
+import { ABILITY_KEYS, isModuleKeyEnabled } from "@pathforge/schema";
 import {
   evaluatePrerequisites,
   prereqSummary,
@@ -26,6 +26,8 @@ type FeatResult = {
   benefit: string | null;
   normal: string | null;
   special: string | null;
+  /** The feat's mythic-version rules text (null when the feat has no mythic upgrade). */
+  mythic: string | null;
 };
 
 function newId(prefix: string): string {
@@ -153,6 +155,9 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
         benefit: r.benefit ?? undefined,
         normal: r.normal ?? undefined,
         special: r.special ?? undefined,
+        // Carry the mythic-version text onto the sheet when the character is mythic, so the read
+        // view can show the upgraded benefit alongside the base one.
+        mythicBenefit: isModuleKeyEnabled(c, "mythic") ? (r.mythic ?? undefined) : undefined,
         tags: [],
         // Pre-fill engine effects from the compendium seed (Phase 3). Clean unconditional effects compute
         // immediately; choice/toggle/damage effects come in with a `condition` (recorded, not auto-applied).
@@ -182,6 +187,14 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                   <div className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
                     {r.types && <Badge variant="rune">{r.types}</Badge>}
+                    {r.mythic && (
+                      <span
+                        title="Has a mythic version — its upgraded benefit is saved with the feat on mythic characters"
+                        className="inline-flex shrink-0 items-center rounded-full border border-gold/50 bg-gold/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                      >
+                        mythic
+                      </span>
+                    )}
                     {(effects[r.name]?.length ?? 0) > 0 && (
                       <span
                         title="Auto-fills this feat's mechanical effects on your sheet"

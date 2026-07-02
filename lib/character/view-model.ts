@@ -205,6 +205,8 @@ export type CharacterViewModel = {
     benefit?: string;
     special?: string;
     normal?: string;
+    /** The feat's mythic-version rules text (present on mythic characters). */
+    mythicBenefit?: string;
     /** Owner-only tactical notes. */
     notes?: string;
   }> | null;
@@ -244,6 +246,8 @@ export type CharacterViewModel = {
     abilityBoosts: number;
     pathAbilities: number;
     hardToKill: boolean;
+    /** Tier-gated base abilities unlocked (Surge, Recuperation, …). */
+    baseAbilities: { tier: number; name: string; note: string }[];
   } | null;
   /** Psionics roll-up (null unless the module is enabled). */
   psionics: {
@@ -674,6 +678,7 @@ export function buildCharacterViewModel(
         benefit: f.benefit,
         special: f.special,
         normal: f.normal,
+        mythicBenefit: f.mythicBenefit,
         // Tactical notes are owner-only (mirrors spells/buffs).
         notes: isOwnerView ? f.notes : undefined,
       })),
@@ -741,6 +746,7 @@ export function buildCharacterViewModel(
           abilityBoosts: computed.summary.mythic.abilityBoosts,
           pathAbilities: computed.summary.mythic.pathAbilities,
           hardToKill: computed.summary.mythic.hardToKill,
+          baseAbilities: computed.summary.mythic.baseAbilities,
         })
       : null,
     psionics: computed.summary.psionics

@@ -1,7 +1,8 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { SpellView } from "@/lib/character/view-model";
@@ -11,9 +12,38 @@ import type { SpellView } from "@/lib/character/view-model";
  * the full cached compendium detail. Used on the read-only sheet and the public share
  * view. `right` renders trailing content (e.g. a used/prepared counter or an action).
  */
-export function SpellRow({ spell, right }: { spell: SpellView; right?: ReactNode }) {
+export function SpellRow({
+  spell,
+  right,
+  mythicAugments = false,
+}: {
+  spell: SpellView;
+  right?: ReactNode;
+  /** Mythic characters: fetch + show the spell's mythic augmentation on expand (never cached on the sheet). */
+  mythicAugments?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  // undefined = not looked up yet; null = looked up, no augment; string = the augment text.
+  const [augment, setAugment] = useState<string | null | undefined>(undefined);
   const panelId = useId();
+
+  useEffect(() => {
+    if (!open || !mythicAugments || augment !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (createClient() as any)
+        .from("mythic_spell_augment")
+        .select("mythic")
+        .ilike("name", spell.name)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setAugment((data?.mythic as string | undefined) ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, mythicAugments, augment, spell.name]);
 
   const schoolLine = [spell.subschool, spell.descriptor].filter(Boolean).join(", ");
   const hasDetail = Boolean(
@@ -88,6 +118,12 @@ export function SpellRow({ spell, right }: { spell: SpellView; right?: ReactNode
           </dl>
           {spell.description && (
             <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{spell.description}</p>
+          )}
+          {mythicAugments && augment && (
+            <p className="mt-2 whitespace-pre-wrap text-muted-foreground">
+              <span className="font-semibold text-gold">Mythic: </span>
+              {augment}
+            </p>
           )}
           {spell.notes && <p className="mt-2 whitespace-pre-wrap text-gold">Notes: {spell.notes}</p>}
         </div>

@@ -114,6 +114,7 @@ import { SpherePicker, type SpherePickerMode } from "./sphere-picker";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { ArchetypePicker } from "./archetype-picker";
 import { RacePicker } from "./race-picker";
+import { MythicAbilityPicker, type MythicAbilityRow } from "./mythic-ability-picker";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { AutomationEffectsEditor, AUTOMATION_TARGET_OPTIONS, skillTargetOptions } from "./automation-effects-editor";
@@ -1035,6 +1036,8 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
   const pathAbilities = mythic?.pathAbilities ?? [];
   const [boostAbility, setBoostAbility] = useState("str");
   const [newAbilityName, setNewAbilityName] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+  const baseAbilities = ed.computed.summary.mythic?.baseAbilities ?? [];
 
   const ensure = (mut: (m: MythicBlock) => void) =>
     ed.update((c) => {
@@ -1057,6 +1060,18 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
     ensure((m) => m.pathAbilities.push({ id: newId("mpath"), name, category: "path" }));
     setNewAbilityName("");
   };
+  const addFromCompendium = (row: MythicAbilityRow) =>
+    ensure((m) => {
+      const p = (row.path ?? "").toLowerCase();
+      m.pathAbilities.push({
+        id: newId("mpath"),
+        name: row.name,
+        category: p === "universal" ? "universal" : "path",
+        path: (MYTHIC_PATHS as readonly string[]).includes(p) ? (p as MythicBlock["path"]) : undefined,
+        tierGained: m.tier > 0 ? m.tier : undefined,
+        description: row.description ?? undefined,
+      });
+    });
   const removePathAbility = (id: string) =>
     ensure((m) => {
       m.pathAbilities = m.pathAbilities.filter((a) => a.id !== id);
@@ -1151,13 +1166,43 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
         )}
       </div>
 
+      {baseAbilities.length > 0 && (
+        <div className="space-y-2 border-t border-border/40 pt-3">
+          <span className="text-sm font-semibold text-foreground">Base abilities (tier {tier})</span>
+          <div className="space-y-1">
+            {baseAbilities.map((a) => (
+              <div key={a.name} className="rounded-md border border-border px-2 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{a.name}</span>
+                  <StatChip label="tier" value={a.tier} />
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">{a.note}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2 border-t border-border/40 pt-3">
-        <span className="text-sm font-semibold text-foreground">Path &amp; universal abilities</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-foreground">Path &amp; universal abilities</span>
+          <Button size="sm" variant="secondary" onClick={() => setShowPicker((v) => !v)}>
+            <Search className="size-4" /> Browse abilities
+          </Button>
+        </div>
+        {showPicker && (
+          <MythicAbilityPicker
+            characterPath={mythic?.path ?? "none"}
+            addedNames={new Set(pathAbilities.map((a) => a.name.toLowerCase()))}
+            onAdd={addFromCompendium}
+            onClose={() => setShowPicker(false)}
+          />
+        )}
         <div className="flex items-center gap-2">
           <Input
             value={newAbilityName}
             aria-label="Path or universal ability name"
-            placeholder="e.g. Fleet Charge, Sustained by Faith"
+            placeholder="Or type a name by hand…"
             onChange={(e) => setNewAbilityName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -1176,27 +1221,53 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
         ) : (
           <div className="space-y-1">
             {pathAbilities.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-sm"
-              >
-                <span className="text-foreground">{a.name}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Remove ${a.name}`}
-                  onClick={() => removePathAbility(a.id)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
+              <MythicAbilityRowItem key={a.id} ability={a} onRemove={() => removePathAbility(a.id)} />
             ))}
           </div>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        A searchable mythic compendium (path abilities, mythic feats) lands with the compendium picker pass.
-      </p>
+    </div>
+  );
+}
+
+/** One recorded path/universal ability: name + chips, with the rules text behind a disclosure. */
+function MythicAbilityRowItem({
+  ability,
+  onRemove,
+}: {
+  ability: { id: string; name: string; category?: string; tierGained?: number; description?: string };
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-md border border-border px-2 py-1">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          disabled={!ability.description}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-1.5 text-left text-foreground",
+            ability.description && "hover:text-gold",
+          )}
+        >
+          <span className="truncate">{ability.name}</span>
+          {ability.category === "universal" && <StatChip value="universal" />}
+          {ability.tierGained ? <StatChip label="tier" value={ability.tierGained} /> : null}
+          {ability.description && (
+            <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-180")} />
+          )}
+        </button>
+        <Button variant="ghost" size="icon" aria-label={`Remove ${ability.name}`} onClick={onRemove}>
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+      {open && ability.description && (
+        <p className="whitespace-pre-wrap border-t border-border/40 py-1.5 text-xs text-muted-foreground">
+          {ability.description}
+        </p>
+      )}
     </div>
   );
 }
@@ -5140,6 +5211,14 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
                   <TextAreaField label="Special" rows={2} value={f.special ?? ""} onChange={(v) => setFeat((t) => (t.special = v || undefined))} />
                   <TextAreaField label="Normal" rows={2} value={f.normal ?? ""} onChange={(v) => setFeat((t) => (t.normal = v || undefined))} />
                 </div>
+                {(isModuleKeyEnabled(ed.draft, "mythic") || f.mythicBenefit) && (
+                  <TextAreaField
+                    label="Mythic benefit"
+                    rows={2}
+                    value={f.mythicBenefit ?? ""}
+                    onChange={(v) => setFeat((t) => (t.mythicBenefit = v || undefined))}
+                  />
+                )}
                 <TextField label="Notes" value={f.notes ?? ""} onChange={(v) => setFeat((t) => (t.notes = v || undefined))} />
                 <AutomationEffectsEditor effects={f.automation} idPrefix="featfx" skillTargets={skillTargetOptions(ed.draft)} onChange={(next) => setFeat((t) => (t.automation = next))} />
               </EntryCard>
