@@ -621,7 +621,7 @@ is class-guaranteed, not pixel-verified). See [[pathforge-editor-chip-disclosure
   "Fighter Base d10 Core Rulebook". See [[pathforge-icon-pack]].
 
 **"Finish PFSheet" session (2026-07-01).** Six owner-requested passes, each gate-green
-(lint/typecheck/458 tests/prod build), the big ones shipped after adversarial Workflow reviews.
+(lint/typecheck/483 tests/prod build), the big ones shipped after adversarial Workflow reviews.
 **Migrations now run through `0026`.**
 - **Compendium search fix** (`5489fb2`, migration `0026`): all 19 PFcore search RPCs only matched
   complete words ("Wiza" never found Wizard). Regenerated on the spell/sphere ILIKE pattern
@@ -655,9 +655,27 @@ is class-guaranteed, not pixel-verified). See [[pathforge-editor-chip-disclosure
   swaps; statblock autofill from the 214/187-row compendiums; master-save + edit-page-load sync
   (admin client, sheet_version CAS, stale-review flip); nested /characters; §15 "companion"
   privacy section. See `lib/character/companion-sync.ts` + [[pathforge-companion-system]].
-- **Import verification wizard** DESIGNED (not built): `docs/IMPORT_VERIFICATION_PLAN.md` — the
-  claims/candidates/resolutions model between preview and commit, reusing compendium-hunt + the
-  M12 appliers. Its P1 (classes/race) is the recommended next epic.
+- **Import verification wizard SHIPPED** (`ad60fb7`; plan + full status banner in
+  `docs/IMPORT_VERIFICATION_PLAN.md`): every assertion an import makes becomes a CLAIM the player
+  confirms/corrects/keeps/skips in a new wizard **Verify step**, then commit applies confirmed
+  links through the M12 appliers (class builder / archetypes / race / feat automation seeds).
+  Pure claims engine (`lib/character/import-claims.ts`: gestalt "A/B || C" per-segment tracks, UC
+  spellings, notes MINING with junk filters) + server candidate resolution (`import-candidates.ts`:
+  chunked quote-safe batched exacts keeping ALL same-name rows, capped ranked-search fallback) +
+  `import-verify.tsx` (questions panel — the core-vs-Unchained toggle re-picks the class row LIVE;
+  candidate radios + per-claim search; level gating blocks commit) + `import-apply.ts` (order-
+  correct apply; claims re-read from the job row). **Header context steers matching**
+  (`classifyHeader`: "##### Rogue Class Features #####" / "CASTING TALENTS" / "MYTHIC" / "RACE
+  TRAITS:" re-order each probe's tables) across 11 targets incl. `sphere_talents`,
+  `mythic_path_ability_compendium`, `alternate_racial_trait_compendium` (each with an apply
+  branch); multi-match with no tie-break (context > slot kind > linked-class-owns-feature) is
+  AMBIGUOUS — never auto-linked, all candidates in a selector. A 28-agent adversarial review
+  confirmed 23 findings, all fixed (gestalt-track error path, dead unchained toggle, spell-slot
+  re-file no-ops, classLevels NaN → bricked sheet, skipped-class data loss, postgrest quote-key
+  batch poisoning…). Live-verified on the real Anise fixture: totalLevel 20, both classes →
+  (Unchained) rows on tracks a/b, 25 features granted, 5 mined traits linked. 483 unit tests
+  (fixture-driven claims tests + fake-Supabase apply tests). Deferred: P4 archetype-depth
+  matching; PoW/Akashic/Psionics detectors (warn-only until those systems ship).
 
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
