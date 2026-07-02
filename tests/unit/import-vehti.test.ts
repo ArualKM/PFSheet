@@ -126,6 +126,13 @@ describe("collectProbes on the Vehti fixture", () => {
     expect(classes[1]).toMatchObject({ track: "b", level: 3 });
     expect(report.probes.some((p) => p.kind === "archetype" && p.sourceText === "Reincarnated")).toBe(true);
   });
+
+  it("never fires the psionics detector (Shaman||Druid; 'Spirit Magic' and hex text aren't PP markers)", async () => {
+    const c = await vehti();
+    const report = collectProbes(c);
+    expect(report.questions.some((q) => q.kind === "psionics")).toBe(false);
+    expect(report.probes.some((p) => p.context === "psionic_power")).toBe(false);
+  });
 });
 
 describe("assembleClaims — Vehti feats link once the keys are right", () => {

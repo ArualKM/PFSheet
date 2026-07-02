@@ -38,6 +38,22 @@ export const psionicPowerEntrySchema = z.object({
   /** Links to a future power_compendium row (paste/pick cache). */
   compendiumId: z.string().optional(),
   source: sourceRefSchema.optional(),
+  // Cached compendium detail (additive — the power picker fills these so the sheet + read view
+  // render full detail with no DB round-trip, same pattern as knownSpells' cached fields).
+  display: z.string().optional(),
+  manifestingTime: z.string().optional(),
+  range: z.string().optional(),
+  /** Target / Area / Effect line ("20-ft.-radius spread") — core mechanical meta for area powers. */
+  targetAreaEffect: z.string().optional(),
+  duration: z.string().optional(),
+  savingThrow: z.string().optional(),
+  powerResistance: z.string().optional(),
+  /** Power descriptors ("[Mind-Affecting]", "[Force]"). */
+  descriptors: z.string().optional(),
+  /** The power's "Special" rules note (e.g. bonus-power availability) — owner-only rules text. */
+  special: z.string().optional(),
+  /** The power's mythic-version rules text (when it has one). */
+  mythic: z.string().optional(),
 });
 export type PsionicPowerEntry = z.infer<typeof psionicPowerEntrySchema>;
 

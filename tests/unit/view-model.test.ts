@@ -198,6 +198,57 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     });
   }
 
+  // The power picker caches compendium detail onto powersKnown entries. Inside the psionics gate,
+  // short mechanical meta (range/display/save/…) is viewer-safe like a spell's cached fields, but
+  // the long rules text (description/augment/mythic) stays owner-only — as it always has.
+  it("keeps psionic power rules text owner-only while exposing cached mechanical meta", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+      c.psionics = {
+        classes: [
+          { id: "p1", className: "Psion", manifesterLevel: 5, keyAbility: "int", basePowerPoints: 25, discipline: "telepathy" },
+        ],
+        powersKnown: [
+          {
+            id: "pw1",
+            name: "Energy Ray",
+            level: 1,
+            ppCost: 1,
+            discipline: "Psychokinesis",
+            descriptors: "see text",
+            display: "Auditory",
+            manifestingTime: "1 standard action",
+            range: "Close (25 ft. + 5 ft./2 levels)",
+            targetAreaEffect: "Ray",
+            duration: "Instantaneous",
+            savingThrow: "None",
+            powerResistance: "Yes",
+            description: "You create a ray of energy…",
+            augment: "For each additional power point…",
+            special: "This power can be taken as a talent…",
+            mythic: "The ray deals more damage…",
+          },
+        ],
+      };
+    };
+    const anonPower = build("anonymous", mutate).psionics!.powers[0]!;
+    expect(anonPower.range).toBe("Close (25 ft. + 5 ft./2 levels)");
+    expect(anonPower.display).toBe("Auditory");
+    expect(anonPower.ppCost).toBe(1);
+    // Target/Area + descriptors are mechanical meta — viewer-safe like range/duration.
+    expect(anonPower.targetAreaEffect).toBe("Ray");
+    expect(anonPower.descriptors).toBe("see text");
+    expect(anonPower.description).toBeUndefined();
+    expect(anonPower.augment).toBeUndefined();
+    expect(anonPower.special).toBeUndefined();
+    expect(anonPower.mythic).toBeUndefined();
+    const ownPower = build("owner", mutate).psionics!.powers[0]!;
+    expect(ownPower.description).toBe("You create a ray of energy…");
+    expect(ownPower.augment).toBe("For each additional power point…");
+    expect(ownPower.special).toBe("This power can be taken as a talent…");
+    expect(ownPower.mythic).toBe("The ray deals more damage…");
+  });
+
   // Invariants for the systems deliberately NOT section-gated, so a future change can't silently
   // flip them: Wounds & Vigor is a dual-pool HP REPLACEMENT (same category as hp — always-public core
   // vitals), senses is a core trait (only its notes are owner-only), and advancement/XP is owner-only.

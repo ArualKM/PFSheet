@@ -334,6 +334,204 @@ describe("applyImportResolutions — re-filing across slots", () => {
     expect(covered).toContain("0: Create Water, Detect Magic");
   });
 
+  it("psionics YES → module enabled + a spell-slot power re-files into psionics.powersKnown", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Energy Ray - 1 PP", level: 1 }];
+    const q: ImportQuestion = { id: "q-psi", kind: "psionics", text: "enable psionics?", defaultAnswer: true };
+    const claims: ImportClaim[] = [
+      {
+        id: "c-pow",
+        kind: "psionic_power",
+        sourceKind: "spell",
+        sourceText: "Energy Ray - 1 PP",
+        sourceLabel: "Spells field",
+        matchKey: "Energy Ray",
+        candidates: [{ table: "psionic_power_compendium", slug: "energy-ray", name: "Energy Ray", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "psionic_power_compendium", slug: "energy-ray" },
+        draftEntryId: "sp1",
+        level: 1,
+      },
+    ];
+    const sb = fakeSb({
+      psionic_power_compendium: [
+        {
+          slug: "energy-ray",
+          name: "Energy Ray",
+          discipline: "Psychokinesis",
+          power_points: "1",
+          augment: "For every additional power point you spend…",
+          description: "You create a ray of energy.",
+        },
+      ],
+    });
+    const report = await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-psi": true } });
+    expect(sheet.rules.modules.some((m) => m.key === "psionics" && m.enabled)).toBe(true);
+    const power = sheet.psionics?.powersKnown.find((p) => p.name === "Energy Ray");
+    expect(power).toMatchObject({ compendiumId: "3pp:energy-ray", discipline: "Psychokinesis", ppCost: 1, level: 1 });
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // the misfiled spell slot moved
+    expect(report.applied.some((a) => a.includes("Psionics module enabled"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Psionic power: Energy Ray"))).toBe(true);
+  });
+
+  it("psionics NO → module stays off and the power falls back to a features entry (never dropped)", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.spellcasting.knownSpells = [{ id: "sp1", name: "Energy Ray", level: 1 }];
+    const q: ImportQuestion = { id: "q-psi", kind: "psionics", text: "enable psionics?", defaultAnswer: true };
+    const claims: ImportClaim[] = [
+      {
+        id: "c-pow",
+        kind: "psionic_power",
+        sourceKind: "spell",
+        sourceText: "Energy Ray",
+        sourceLabel: "Spells field",
+        matchKey: "Energy Ray",
+        candidates: [{ table: "psionic_power_compendium", slug: "energy-ray", name: "Energy Ray", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "psionic_power_compendium", slug: "energy-ray" },
+        draftEntryId: "sp1",
+        level: 1,
+      },
+    ];
+    const sb = fakeSb({
+      psionic_power_compendium: [
+        { slug: "energy-ray", name: "Energy Ray", discipline: "Psychokinesis", power_points: "1", description: "You create a ray of energy." },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-psi": false } });
+    expect(sheet.rules.modules.some((m) => m.key === "psionics" && m.enabled)).toBe(false);
+    expect(sheet.psionics?.powersKnown.length ?? 0).toBe(0);
+    const feature = sheet.features.list.find((f) => f.name === "Energy Ray");
+    expect(feature).toMatchObject({ category: "special_ability", compendiumId: "3pp:energy-ray" });
+    expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
+  });
+
+  it("normalizes '<br>' compendium text, refuses variant PP costs, and reads the junction level", async () => {
+    const sheet = createDefaultCharacter();
+    sheet.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+    sheet.psionics = {
+      classes: [
+        { id: "pc1", className: "Psion", manifesterLevel: 7, keyAbility: "int", basePowerPoints: 35, discipline: "generalist" },
+      ],
+      powersKnown: [],
+    };
+    const claims: ImportClaim[] = [
+      {
+        id: "c-pow",
+        kind: "psionic_power",
+        sourceKind: "trait", // mined notes entries arrive as trait-sourced claims
+        sourceText: "Energy Missile",
+        sourceLabel: "Notes field",
+        matchKey: "Energy Missile",
+        candidates: [{ table: "psionic_power_compendium", slug: "energy-missile", name: "Energy Missile", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "psionic_power_compendium", slug: "energy-missile" },
+        mined: true,
+        // NO level — mined powers never carry a slot level; the junction supplies the real one.
+      },
+    ];
+    const sb = fakeSb({
+      psionic_power_compendium: [
+        {
+          slug: "energy-missile",
+          name: "Energy Missile",
+          discipline: "Psychokinesis<br>Clairsentience",
+          power_points: "3 (dread), 5 (psion/wilder)",
+          target_area_effect: "Area: 20-ft.-radius spread",
+          description: "Two or more creatures.<br><br>You unleash missiles of energy.",
+          augment: "For every 2 additional power points…<br>Also this.",
+          special: "Kineticists may learn this power<br>as a 2nd-level power.",
+        },
+      ],
+      psionic_power_class_level: [
+        { power: "Energy Missile", class: "Psion/Wilder", level: "2" },
+        { power: "Energy Missile", class: "Dread", level: "1" },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, claims, [], {});
+    const power = sheet.psionics!.powersKnown.find((p) => p.name === "Energy Missile")!;
+    expect(power).toBeTruthy();
+    // "<br>" rich text → the same plain-text shape the picker caches.
+    expect(power.discipline).toBe("Psychokinesis; Clairsentience");
+    expect(power.description).toBe("Two or more creatures.\n\nYou unleash missiles of energy.");
+    expect(power.augment).toBe("For every 2 additional power points…\nAlso this.");
+    expect(power.special).toBe("Kineticists may learn this power\nas a 2nd-level power.");
+    expect(power.targetAreaEffect).toBe("Area: 20-ft.-radius spread");
+    expect(JSON.stringify(power)).not.toContain("<br>");
+    // Per-class-variant PP text must never cache the (possibly wrong) leading number.
+    expect(power.ppCost).toBeUndefined();
+    // The junction level, preferring the sheet's own manifester class (Psion → 2), NOT the
+    // global minimum (Dread → 1) and NOT the level-1 default.
+    expect(power.level).toBe(2);
+  });
+
+  it("junction level falls back to the lowest ANY-class level, then to 1", async () => {
+    const claim = (id: string, slug: string, name: string): ImportClaim => ({
+      id,
+      kind: "psionic_power",
+      sourceKind: "trait",
+      sourceText: name,
+      sourceLabel: "Notes field",
+      matchKey: name,
+      candidates: [{ table: "psionic_power_compendium", slug, name, match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "psionic_power_compendium", slug },
+      mined: true,
+    });
+    const sheet = createDefaultCharacter();
+    sheet.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+    // No manifester classes on the sheet → no "mine" preference is possible.
+    const sb = fakeSb({
+      psionic_power_compendium: [
+        { slug: "psychic-crush", name: "Psychic Crush", discipline: "Telepathy", power_points: "9" },
+        { slug: "mystery-power", name: "Mystery Power", discipline: "Telepathy", power_points: "1" },
+      ],
+      psionic_power_class_level: [
+        { power: "Psychic Crush", class: "Psion/Wilder", level: "5" },
+        { power: "Psychic Crush", class: "Tactician", level: "6" },
+        // Mystery Power has NO junction rows at all.
+      ],
+    });
+    await applyImportResolutions(
+      sb,
+      sheet,
+      [claim("c1", "psychic-crush", "Psychic Crush"), claim("c2", "mystery-power", "Mystery Power")],
+      [],
+      {},
+    );
+    const crush = sheet.psionics!.powersKnown.find((p) => p.name === "Psychic Crush")!;
+    expect(crush.level).toBe(5); // lowest across all classes
+    expect(crush.ppCost).toBe(9); // bare integer still caches
+    const mystery = sheet.psionics!.powersKnown.find((p) => p.name === "Mystery Power")!;
+    expect(mystery.level).toBe(1); // no junction data → the schema default
+  });
+
+  it("module-off features fallback normalizes '<br>' descriptions too", async () => {
+    const sheet = createDefaultCharacter();
+    const claims: ImportClaim[] = [
+      {
+        id: "c-pow",
+        kind: "psionic_power",
+        sourceKind: "trait",
+        sourceText: "Mind Thrust",
+        sourceLabel: "Notes field",
+        matchKey: "Mind Thrust",
+        candidates: [{ table: "psionic_power_compendium", slug: "mind-thrust", name: "Mind Thrust", match: "exact" }],
+        confidence: "high",
+        resolution: { mode: "linked", table: "psionic_power_compendium", slug: "mind-thrust" },
+        mined: true,
+      },
+    ];
+    const sb = fakeSb({
+      psionic_power_compendium: [
+        { slug: "mind-thrust", name: "Mind Thrust", discipline: "Telepathy", power_points: "1", description: "A massive assault.<br>It hurts." },
+      ],
+    });
+    await applyImportResolutions(sb, sheet, claims, [], {});
+    const feature = sheet.features.list.find((f) => f.name === "Mind Thrust")!;
+    expect(feature.description).toBe("A massive assault.\nIt hurts.");
+  });
+
   it("applies question answers with zero claims (mythic 'No' clears the variant)", async () => {
     const sheet = createDefaultCharacter();
     sheet.rules.variants.mythic = true;

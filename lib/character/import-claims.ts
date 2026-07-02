@@ -41,6 +41,7 @@ export type ClaimKind =
   | "spell"
   | "drawback"
   | "sphere_talent"
+  | "psionic_power"
   | "mythic_ability"
   | "racial_trait";
 
@@ -55,6 +56,7 @@ export const KIND_TABLES: Record<ClaimKind, string[]> = {
   spell: ["spell_compendium", "feat_compendium", "class_feature_compendium"],
   drawback: ["drawback_compendium", "trait_compendium"],
   sphere_talent: ["sphere_talents", "feat_compendium", "class_feature_compendium"],
+  psionic_power: ["psionic_power_compendium", "spell_compendium", "feat_compendium"],
   mythic_ability: ["mythic_path_ability_compendium", "feat_compendium"],
   racial_trait: ["alternate_racial_trait_compendium", "trait_compendium", "feat_compendium"],
 };
@@ -70,6 +72,7 @@ export const TABLE_KIND: Record<string, ClaimKind> = {
   spell_compendium: "spell",
   drawback_compendium: "drawback",
   sphere_talents: "sphere_talent",
+  psionic_power_compendium: "psionic_power",
   mythic_path_ability_compendium: "mythic_ability",
   alternate_racial_trait_compendium: "racial_trait",
 };
@@ -132,7 +135,7 @@ export type ImportClaim = {
 
 export type ImportQuestion = {
   id: string;
-  kind: "gestalt" | "mythic" | "unchained";
+  kind: "gestalt" | "mythic" | "unchained" | "psionics";
   text: string;
   /** For unchained questions: which base class. */
   className?: string;
@@ -217,6 +220,13 @@ export function classifyHeader(raw: string): ClaimKind | null {
   if (/\brac(?:e|ial)\b/.test(t)) return "racial_trait";
   if (/\bdrawbacks?\b|\bflaws?\b/.test(t)) return "drawback";
   if (/\bmythic\b/.test(t)) return "mythic_ability";
+  // "PSIONIC FEATS" / "Psionic Bonus Feats" are FEAT sections (standard Ultimate Psionics
+  // statblock vocabulary) — they must win BEFORE the psionic rule so a mined feat can't be
+  // steered into the powers table (7 real feat/power name collisions in prod, e.g. Sidestep).
+  if (/\bpsionics?\b.*\bfeats?\b/.test(t)) return "feat";
+  // Above sphere ("MANIFESTING TALENTS") AND the generic powers?→feature rule ("PSIONIC POWERS"
+  // must not fall through to feature the way "MONK KI POWERS" deliberately does).
+  if (/\bpsionic|\bmanifest|\bpower points?\b|\bpsion\b|\bpsychic warriors?\b|\bwilders?\b/.test(t)) return "psionic_power";
   if (/\bspheres?\b|\btalents?\b|\bcasting\b/.test(t)) return "sphere_talent";
   if (/\bclass features?\b|\bki powers?\b|\bclass abilit/.test(t)) return "feature";
   if (/\bfeats?\b/.test(t)) return "feat";
@@ -334,6 +344,17 @@ export function entryKeys(raw: string): string[] {
 /* --------------------------------------------------------------------------- */
 
 const UNCHAINED_CLASSES = ["barbarian", "monk", "rogue", "summoner"];
+
+/** Dreamscarred Press manifester/psionic base classes — a class-line hit is a psionics marker
+ * (docs/3PP_MASTER_PLAN.md Phase 3: the detector goes live now that the system is LIVE).
+ * Matched against parsed segment BASE names so an archetype like "(Dread Vanguard)" can't trip it. */
+const PSIONIC_CLASS_RE =
+  /\b(?:psion|psychic warrior|wilder|soulknife|vitalist|aegis|tactician|marksman|cryptic|dread)s?\b/i;
+/** Psionic bookkeeping in the preserved notes dump ("Power Points: 37", "Manifester Level 7",
+ * "21 PP/day", a literal "PSIONIC POWERS" section). The PP marker requires an adjacent "/day" or
+ * "per day" so platinum-piece ledgers can't trip it — neither via bare amounts ("32 pp, 14 gp")
+ * nor via same-line day-words ("12 pp each today", "pp spent on payday"). */
+const PSIONIC_NOTES_RE = /power points?|manifester level|\bpsionics?\b|\bpp\b\s*(?:\/|per\s+)day\b/i;
 
 export type ParsedClassSegment = {
   raw: string;
@@ -551,11 +572,13 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
 
   // ── Class line(s) ──────────────────────────────────────────────────────────
   let classLine: ParsedClassLine | undefined;
+  const allSegments: ParsedClassSegment[] = [];
   const totalLevel = character.identity.totalLevel ?? 0;
   for (const cls of character.identity.classes) {
     if (cls.compendiumId) continue; // already structured (e.g. a PathForge re-import)
     const parsed = parseClassLine(cls.name);
     classLine = classLine ?? parsed;
+    allSegments.push(...parsed.segments);
     if (parsed.gestalt) {
       questions.push({
         id: pid("q-gestalt"),
@@ -621,6 +644,25 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
       text: "Mythic content was detected — keep the Mythic module enabled?",
       defaultAnswer: true,
     });
+  }
+
+  // ── Psionics detection (the deferred detector, live now the system is) ─────
+  // Markers: an adapter-flagged psionics module entry, a manifester class on the class line, or
+  // power-point bookkeeping in the notes dump. The question only ENABLES the module — header
+  // context steering into psionic_power_compendium works regardless of the answer. Already
+  // enabled → nothing to ask (refileLinked files powers into character.psionics as-is).
+  if (!character.rules.modules.some((m) => m.key === "psionics" && m.enabled)) {
+    const flagged = character.rules.modules.some((m) => m.key === "psionics");
+    const classHit = PSIONIC_CLASS_RE.test(allSegments.map((s) => s.baseName).join(" | "));
+    const notesHit = PSIONIC_NOTES_RE.test(character.notes.player ?? "");
+    if (flagged || classHit || notesHit) {
+      questions.push({
+        id: pid("q-psionics"),
+        kind: "psionics",
+        text: "Psionic content was detected — enable the Psionics module and link powers?",
+        defaultAnswer: true,
+      });
+    }
   }
 
   // ── Race ───────────────────────────────────────────────────────────────────

@@ -15,6 +15,13 @@ import {
 } from "@pathforge/rules-pf1e";
 import { buildClassInput, buildFeatureRows, casterDefaults, type ClassCompendiumRow } from "./class-compendium";
 import {
+  brToNewlines,
+  disciplineParts,
+  extractPpCost,
+  matchesManifesterClass,
+  parseJunctionLevel,
+} from "./psionic-powers";
+import {
   isDivider,
   normalizeKey,
   pickClassCandidate,
@@ -103,6 +110,17 @@ export async function applyImportResolutions(
   if (mythicQ && !answerOf(mythicQ)) {
     sheet.rules.variants.mythic = undefined;
     applied.push("Mythic module disabled per your answer");
+  }
+  // Psionics: YES enables the module (linked powers then re-file into character.psionics);
+  // NO changes nothing — linked powers fall back to plain features (mythic-mirror, never drop).
+  const psionicsQ = questions.find((q) => q.kind === "psionics");
+  if (psionicsQ && answerOf(psionicsQ)) {
+    const existing = sheet.rules.modules.find((m) => m.key === "psionics");
+    if (!existing?.enabled) {
+      if (existing) existing.enabled = true;
+      else sheet.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+      applied.push("Psionics module enabled");
+    }
   }
 
   // The core-vs-Unchained answers re-pick each class claim's candidate (an explicit per-claim
@@ -383,6 +401,69 @@ export async function applyImportResolutions(
     return { ok: true, name: S(row.talent_name) };
   };
 
+  /** Psionics module ON (adapter-flagged or the question answered YES above) → a real
+   * powersKnown entry; OFF → the power stays visible as a plain feature, mirroring
+   * addMythicAbility (never silently drop a linked row). Cached text goes through the picker's
+   * pure normalizers (brToNewlines/disciplineParts/extractPpCost) so both add-paths persist the
+   * SAME plain-text shape — the compendium's rich-text cells carry literal "<br>" separators. */
+  const addPsionicPower = async (c: ImportClaim, row: Record<string, unknown>): Promise<void> => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.rules.modules.some((m) => m.key === "psionics" && m.enabled)) {
+      if (!sheet.psionics) sheet.psionics = { classes: [], powersKnown: [] };
+      const psi = sheet.psionics;
+      if (!psi.powersKnown.some((p) => p.compendiumId === cid || (normalizeKey(p.name) === normalizeKey(name) && !p.compendiumId))) {
+        // The compendium row has no universal level (per-class levels live in the junction) —
+        // the probe's slot level wins when it carried one. Otherwise consult the junction:
+        // lowest level among the sheet's own manifester classes, else the lowest level ANY
+        // class gets it, else 1 (mined-notes powers never carry a slot level, so without this
+        // every imported power would land at level 1).
+        let lvl = Math.trunc(Number(c.level));
+        if (!(Number.isFinite(lvl) && lvl >= 0)) {
+          const { data: jr } = await sb
+            .from("psionic_power_class_level")
+            .select("class,level")
+            .eq("power", name);
+          let mine: number | undefined;
+          let any: number | undefined;
+          for (const j of (jr ?? []) as { class: string; level: string | null }[]) {
+            const parsed = parseJunctionLevel(j.level);
+            if (parsed == null) continue;
+            if (any == null || parsed < any) any = parsed;
+            const isMine = psi.classes.some((cl) => matchesManifesterClass(j.class, cl.className));
+            if (isMine && (mine == null || parsed < mine)) mine = parsed;
+          }
+          lvl = mine ?? any ?? 1;
+        }
+        // power_points is text — only a BARE integer is a trustworthy universal cost
+        // (per-class variants like "3 (dread), 5 (psion/wilder)" must not cache a wrong number).
+        const ppCost = extractPpCost(S(row.power_points));
+        psi.powersKnown.push({
+          id: `import_${c.id}`,
+          name,
+          level: Math.max(0, Math.min(9, lvl)),
+          discipline: disciplineParts(S(row.discipline)).join("; ") || undefined,
+          descriptors: brToNewlines(S(row.descriptors)),
+          ...(ppCost != null ? { ppCost } : {}),
+          targetAreaEffect: brToNewlines(S(row.target_area_effect)),
+          augment: brToNewlines(S(row.augment)),
+          description: brToNewlines(S(row.description)),
+          special: brToNewlines(S(row.special)),
+          compendiumId: cid,
+        });
+      }
+    } else if (!sheet.features.list.some((f) => f.compendiumId === cid || (normalizeKey(f.name) === normalizeKey(name) && !f.compendiumId))) {
+      sheet.features.list.push({
+        id: `import_${c.id}`,
+        name,
+        category: "special_ability",
+        compendiumId: cid,
+        description: brToNewlines(S(row.description)),
+        automation: [],
+      });
+    }
+  };
+
   const MYTHIC_PATH_SET = new Set<string>(MYTHIC_PATHS);
   const addMythicAbility = (c: ImportClaim, row: Record<string, unknown>): void => {
     const name = S(row.name);
@@ -474,6 +555,17 @@ export async function applyImportResolutions(
       const res = await addSphereTalent(c, link.slug);
       if (res.ok) applied.push(`Sphere talent: ${res.name}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
       return res.ok;
+    }
+    if (link.table === "psionic_power_compendium") {
+      const { data: row } = await sb
+        .from("psionic_power_compendium")
+        .select("slug,name,discipline,descriptors,power_points,target_area_effect,augment,description,special")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      await addPsionicPower(c, row);
+      applied.push(`Psionic power: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
+      return true;
     }
     if (link.table === "mythic_path_ability_compendium") {
       const { data: row } = await sb

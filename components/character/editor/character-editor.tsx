@@ -126,6 +126,7 @@ import { StatChip, ThreeppSystemBadge } from "./picker-shell";
 import { enabledThreeppSystems } from "@/lib/character/threepp";
 import { EntryCard } from "./entry-card";
 import { FeatPicker } from "./feat-picker";
+import { PowerPicker } from "./power-picker";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -2137,6 +2138,9 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
   const current = Math.min(ps?.powerPointsCurrent ?? max, max);
   const [pasteText, setPasteText] = useState("");
   const [pasteMsg, setPasteMsg] = useState("");
+  const [powerPickerOpen, setPowerPickerOpen] = useState(false);
+  // The id of a just-added power, so its EntryCard mounts already-open for editing (custom add = full editor).
+  const [openPowerId, setOpenPowerId] = useState<string | null>(null);
 
   const ensure = (mut: (p: PsionicsBlock) => void) =>
     ed.update((c) => {
@@ -2266,46 +2270,112 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
       </section>
 
       <section>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">Powers known ({ps?.powersKnown.length ?? 0})</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => ensure((p) => p.powersKnown.push({ id: newId("pow"), name: "New power", level: 1 }))}
-          >
-            <Plus className="size-4" /> Power
-          </Button>
+          <div className="flex gap-1.5">
+            <Button size="sm" variant={powerPickerOpen ? "default" : "secondary"} onClick={() => setPowerPickerOpen((o) => !o)}>
+              <Search className="size-4" /> Browse
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const id = newId("pow");
+                ensure((p) => p.powersKnown.push({ id, name: "New power", level: 1 }));
+                setOpenPowerId(id);
+              }}
+            >
+              <Plus className="size-4" /> Power
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          {ps?.powersKnown
-            .slice()
-            .map((pw, i) => (
-              <div key={pw.id} className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 p-1.5">
-                <TextField
-                  label="Power"
-                  value={pw.name}
-                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.name = v; })}
-                  className="min-w-[10rem] flex-1"
+        {powerPickerOpen && (
+          <div className="mb-3">
+            <PowerPicker ed={ed} onClose={() => setPowerPickerOpen(false)} />
+          </div>
+        )}
+        <div className="space-y-2">
+          {ps?.powersKnown.map((pw, i) => {
+            const setPower = (mut: (t: NonNullable<PsionicsBlock["powersKnown"]>[number]) => void) =>
+              ensure((p) => {
+                const t = p.powersKnown[i];
+                if (t) mut(t);
+              });
+            return (
+              <EntryCard
+                key={pw.id}
+                name={pw.name}
+                nameLabel="Power"
+                onNameChange={(v) => setPower((t) => (t.name = v))}
+                onRemove={() => ensure((p) => p.powersKnown.splice(i, 1))}
+                removeLabel={`Remove ${pw.name}`}
+                defaultOpen={pw.id === openPowerId}
+                chips={
+                  <>
+                    <StatChip label="lvl" value={pw.level} tone="rune" />
+                    {pw.ppCost != null && <StatChip label="pp" value={pw.ppCost} tone="gold" />}
+                    {pw.discipline && <StatChip value={pw.discipline} />}
+                  </>
+                }
+              >
+                <div className="flex flex-wrap items-end gap-2">
+                  <NumberField
+                    label="Level"
+                    value={pw.level}
+                    min={0}
+                    max={9}
+                    onChange={(v) => setPower((t) => (t.level = Math.max(0, Math.min(9, v))))}
+                    className="w-16"
+                  />
+                  <NumberField
+                    label="PP cost"
+                    value={pw.ppCost ?? 0}
+                    min={0}
+                    onChange={(v) => setPower((t) => (t.ppCost = v || undefined))}
+                    className="w-20"
+                  />
+                  <TextField
+                    label="Discipline"
+                    value={pw.discipline ?? ""}
+                    onChange={(v) => setPower((t) => (t.discipline = v || undefined))}
+                    className="min-w-[10rem] flex-1"
+                  />
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <TextField
+                    label="Display"
+                    value={pw.display ?? ""}
+                    onChange={(v) => setPower((t) => (t.display = v || undefined))}
+                    className="min-w-[8rem] flex-1"
+                  />
+                  <TextField
+                    label="Range"
+                    value={pw.range ?? ""}
+                    onChange={(v) => setPower((t) => (t.range = v || undefined))}
+                    className="min-w-[8rem] flex-1"
+                  />
+                  <TextField
+                    label="Duration"
+                    value={pw.duration ?? ""}
+                    onChange={(v) => setPower((t) => (t.duration = v || undefined))}
+                    className="min-w-[8rem] flex-1"
+                  />
+                </div>
+                <TextAreaField
+                  label="Description"
+                  value={pw.description ?? ""}
+                  onChange={(v) => setPower((t) => (t.description = v || undefined))}
+                  rows={3}
                 />
-                <NumberField
-                  label="Lvl"
-                  value={pw.level}
-                  min={0}
-                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.level = v; })}
-                  className="w-14"
+                <TextAreaField
+                  label="Augment"
+                  value={pw.augment ?? ""}
+                  onChange={(v) => setPower((t) => (t.augment = v || undefined))}
+                  rows={2}
                 />
-                <NumberField
-                  label="PP"
-                  value={pw.ppCost ?? 0}
-                  min={0}
-                  onChange={(v) => ensure((p) => { const t = p.powersKnown[i]; if (t) t.ppCost = v || undefined; })}
-                  className="w-14"
-                />
-                <Button variant="ghost" size="icon" aria-label="Remove power" onClick={() => ensure((p) => p.powersKnown.splice(i, 1))}>
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            ))}
+              </EntryCard>
+            );
+          })}
         </div>
         <div className="mt-3 rounded-lg border border-border/60 p-2">
           <p className="mb-1 text-xs font-medium text-foreground">Paste powers to import</p>

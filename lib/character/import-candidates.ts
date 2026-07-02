@@ -107,6 +107,14 @@ const TABLES: Record<string, TableCfg> = {
     meta: (r) => [S(r.sphere_name), S(r.talent_category)].filter(Boolean).join(" · "),
     group: (r) => S(r.sphere_name) || undefined,
   },
+  psionic_power_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_psionic_power_compendium",
+    select: "slug,name,discipline,power_points,source",
+    meta: (r) => [S(r.discipline), S(r.power_points) ? `${S(r.power_points)} PP` : "", S(r.source)].filter(Boolean).join(" · "),
+    // Disciplines aren't class-owned the way class features/paths/races are — no group guard.
+  },
   mythic_path_ability_compendium: {
     label: "name",
     key: "slug",

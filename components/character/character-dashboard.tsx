@@ -23,6 +23,7 @@ import {
 import { TriangleAlert } from "lucide-react";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { SpellListViewer } from "./spell-list-viewer";
+import { PsionicPowerList } from "./psionic-power-list";
 import { TalentRow } from "./talent-row";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
@@ -282,6 +283,14 @@ export function CharacterDashboard({
           {vm.spheres && (
             <SectionCard title="Spheres" icon={Wand2}>
               <SpheresCard spheres={vm.spheres} />
+            </SectionCard>
+          )}
+
+          {/* Content-heavy powers list lives in the wide column (grouped by level, expandable
+              detail rows); the rail's Psionics card keeps the PP/ML/focus tracker summary. */}
+          {vm.psionics && vm.psionics.powers.length > 0 && (
+            <SectionCard title="Psionic Powers" icon={Wand2}>
+              <PsionicPowerList powers={vm.psionics.powers} />
             </SectionCard>
           )}
 
@@ -632,21 +641,7 @@ export function CharacterDashboard({
                   <span>{vm.psionics.powersKnown} powers</span>
                   {vm.psionics.focused && <span className="text-gold">Focused</span>}
                 </div>
-                {vm.psionics.powers.length > 0 && (
-                  <ShowMore cap={10} noun="powers" className="space-y-0.5 pt-1">
-                    {[...vm.psionics.powers]
-                      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
-                      .map((p, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="min-w-0 truncate text-foreground">{p.name}</span>
-                          <span className="shrink-0 text-muted-foreground">
-                            L{p.level}
-                            {p.ppCost != null ? ` · ${p.ppCost} PP` : ""}
-                          </span>
-                        </div>
-                      ))}
-                  </ShowMore>
-                )}
+                {/* The powers list itself renders as its own main-column card (grouped by level). */}
               </div>
             </SectionCard>
           )}

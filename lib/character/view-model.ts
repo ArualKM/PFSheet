@@ -267,8 +267,27 @@ export type CharacterViewModel = {
     manifesterLevel: number;
     powersKnown: number;
     focused: boolean;
-    /** The actual powers-known list (was only a count before). */
-    powers: Array<{ name: string; level: number; discipline?: string; ppCost?: number; augment?: string; description?: string }>;
+    /** The actual powers-known list with the picker's cached compendium detail. Short mechanical
+     * meta is safe within the section gate (like a spell's cached fields); the long rules text
+     * (description / augment / special / mythic) stays owner-only, as it always has. */
+    powers: Array<{
+      name: string;
+      level: number;
+      discipline?: string;
+      descriptors?: string;
+      ppCost?: number;
+      display?: string;
+      manifestingTime?: string;
+      range?: string;
+      targetAreaEffect?: string;
+      duration?: string;
+      savingThrow?: string;
+      powerResistance?: string;
+      augment?: string;
+      description?: string;
+      special?: string;
+      mythic?: string;
+    }>;
   } | null;
   /** Spheres of Power/Might/Guile roll-up (null unless a spheres module is enabled). */
   spheres: {
@@ -793,9 +812,19 @@ export function buildCharacterViewModel(
             name: p.name,
             level: p.level,
             discipline: p.discipline,
+            descriptors: p.descriptors,
             ppCost: p.ppCost,
+            display: p.display,
+            manifestingTime: p.manifestingTime,
+            range: p.range,
+            targetAreaEffect: p.targetAreaEffect,
+            duration: p.duration,
+            savingThrow: p.savingThrow,
+            powerResistance: p.powerResistance,
             augment: isOwnerView ? p.augment : undefined,
             description: isOwnerView ? p.description : undefined,
+            special: isOwnerView ? p.special : undefined,
+            mythic: isOwnerView ? p.mythic : undefined,
           })),
         })
       : null,

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { runImportPipeline } from "@pathforge/importers";
-import type { PathForgeCharacterV1 } from "@pathforge/schema";
+import { createDefaultCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
 import {
   parseClassLine,
   entryKeys,
@@ -99,9 +99,34 @@ describe("classifyHeader — sheet organization as matching signal", () => {
     expect(classifyHeader("####################")).toBeNull();
   });
 
+  it("psionic headers win over the generic powers→feature rule and the sphere talents rule", () => {
+    expect(classifyHeader("PSIONIC POWERS")).toBe("psionic_power");
+    expect(classifyHeader("##### Powers Known - Manifester Level 7 #####")).toBe("psionic_power");
+    expect(classifyHeader("POWER POINTS")).toBe("psionic_power");
+    expect(classifyHeader("MANIFESTING TALENTS")).toBe("psionic_power"); // manifest outranks sphere talents
+    expect(classifyHeader("PSION CLASS FEATURES")).toBe("psionic_power");
+    // Non-psionic powers stay feature; the higher rules still outrank psionic.
+    expect(classifyHeader("MONK KI POWERS")).toBe("feature");
+    expect(classifyHeader("MYTHIC PSIONICS")).toBe("mythic_ability");
+    expect(classifyHeader("PSIONIC DRAWBACKS")).toBe("drawback");
+  });
+
+  it("'PSIONIC FEATS' sections classify as feat, not psionic_power (feat/power name collisions)", () => {
+    // Standard Ultimate Psionics statblock vocabulary — entries beneath are FEATS (7 prod
+    // feat/power exact-name collisions like Sidestep would otherwise auto-link to the power).
+    expect(classifyHeader("PSIONIC FEATS")).toBe("feat");
+    expect(classifyHeader("Psionic Feats:")).toBe("feat");
+    expect(classifyHeader("##### Psionic Bonus Feats #####")).toBe("feat");
+    // …while the power-section headers keep steering into the powers table.
+    expect(classifyHeader("PSIONIC POWERS")).toBe("psionic_power");
+    expect(classifyHeader("POWER POINTS")).toBe("psionic_power");
+    expect(classifyHeader("Manifester Level 7")).toBe("psionic_power");
+  });
+
   it("context re-orders a probe's tables", () => {
     expect(probeTables({ kind: "spell", context: "sphere_talent" })[0]).toBe("sphere_talents");
     expect(probeTables({ kind: "trait", context: "mythic_ability" })[0]).toBe("mythic_path_ability_compendium");
+    expect(probeTables({ kind: "spell", context: "psionic_power" })[0]).toBe("psionic_power_compendium");
     expect(probeTables({ kind: "feat" })[0]).toBe("feat_compendium");
   });
 });
@@ -222,12 +247,78 @@ describe("collectProbes on the real Anise fixture", () => {
     const mined = report.probes.filter((p) => p.mined);
     expect(mined.map((m) => m.sourceText)).toEqual(expect.arrayContaining(["Fate's Favored"]));
 
-    // Questions: gestalt + mythic + two unchained.
+    // Questions: gestalt + mythic + two unchained. NO psionics — Rogue/Monk + sphere/mythic
+    // notes carry no manifester markers ("Time"/"Warp" spheres must not trip the detector).
     const kinds = report.questions.map((q) => q.kind);
     expect(kinds).toContain("gestalt");
     expect(kinds).toContain("mythic");
     expect(kinds.filter((k) => k === "unchained")).toHaveLength(2);
+    expect(kinds).not.toContain("psionics");
     expect(report.questions.find((q) => q.kind === "unchained")?.defaultAnswer).toBe(true); // UC prefix
+  });
+});
+
+describe("psionics detector — the deferred detector is live", () => {
+  it("asks the psionics question for a manifester class line", () => {
+    const c = createDefaultCharacter();
+    c.identity.classes = [{ id: "cls1", name: "Psion 7", level: 7 }];
+    const q = collectProbes(c).questions.find((x) => x.kind === "psionics");
+    expect(q).toBeTruthy();
+    expect(q!.defaultAnswer).toBe(true);
+    // Gestalt manifester sides count too.
+    const g = createDefaultCharacter();
+    g.identity.classes = [{ id: "cls1", name: "Fighter 5 || Psychic Warrior 5", level: 5 }];
+    expect(collectProbes(g).questions.some((x) => x.kind === "psionics")).toBe(true);
+  });
+
+  it("asks on power-point bookkeeping in the notes dump", () => {
+    const c = createDefaultCharacter();
+    c.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\nPower Points: 37\nManifester Level: 7";
+    expect(collectProbes(c).questions.some((x) => x.kind === "psionics")).toBe(true);
+    const pp = createDefaultCharacter();
+    pp.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\n21 PP/day base";
+    expect(collectProbes(pp).questions.some((x) => x.kind === "psionics")).toBe(true);
+    const perDay = createDefaultCharacter();
+    perDay.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\n21 pp per day";
+    expect(collectProbes(perDay).questions.some((x) => x.kind === "psionics")).toBe(true);
+  });
+
+  it("asks on a literal 'PSIONIC POWERS' notes section (no PP/ML bookkeeping needed)", () => {
+    // An Elan Fighter with Wild Talent: a powers section without any "Power Points:" text is
+    // the strongest psionics signal — the word itself is the marker.
+    const c = createDefaultCharacter();
+    c.identity.classes = [{ id: "cls1", name: "Fighter 5", level: 5 }];
+    c.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\n## PSIONIC POWERS\n• Mind Thrust";
+    expect(collectProbes(c).questions.some((x) => x.kind === "psionics")).toBe(true);
+    const lower = createDefaultCharacter();
+    lower.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\nHas a minor psionic knack.";
+    expect(collectProbes(lower).questions.some((x) => x.kind === "psionics")).toBe(true);
+  });
+
+  it("stays quiet when the module is already enabled, and on non-psionic sheets", () => {
+    const on = createDefaultCharacter();
+    on.identity.classes = [{ id: "cls1", name: "Psychic Warrior 5", level: 5 }];
+    on.rules.modules.push({ key: "psionics", enabled: true, settings: {} });
+    expect(collectProbes(on).questions.some((x) => x.kind === "psionics")).toBe(false);
+
+    const plain = createDefaultCharacter();
+    plain.identity.classes = [{ id: "cls1", name: "Fighter 5", level: 5 }];
+    // Platinum-piece ledgers ("32 pp") must not trip the PP marker without a "/day".
+    plain.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\nCoins: 32 pp, 14 gp";
+    expect(collectProbes(plain).questions.some((x) => x.kind === "psionics")).toBe(false);
+
+    // Same-line day-WORDS ("today", "payday", "Sunday") must not satisfy the /day qualifier.
+    const ledger = createDefaultCharacter();
+    ledger.identity.classes = [{ id: "cls1", name: "Fighter 5", level: 5 }];
+    ledger.notes.player =
+      "# Imported from Myth-Weavers\n\n## Notes field\nParty split: 12 pp each today\nSpent 3 pp on payday drinks Sunday";
+    expect(collectProbes(ledger).questions.some((x) => x.kind === "psionics")).toBe(false);
+  });
+
+  it("asks when the module entry is present but disabled (adapter-flagged)", () => {
+    const c = createDefaultCharacter();
+    c.rules.modules.push({ key: "psionics", enabled: false, settings: {} });
+    expect(collectProbes(c).questions.some((x) => x.kind === "psionics")).toBe(true);
   });
 });
 
