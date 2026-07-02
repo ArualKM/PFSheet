@@ -55,8 +55,14 @@ type ImportClaim = {
 
 1. **Normalize** the source text with the existing `candidateKeys` tricks (strip slot
    bookkeeping, `[tags]`, `(parens)`), plus new class-name heuristics:
-   - `UCRogue | U.Rogue | Unchained Rogue | Rogue (Unchained)` → candidates
-     `Rogue (Unchained)` **and** `Rogue` (the DB has both as separate rows — verified).
+   - **Unchained variants — all four**: Barbarian, Monk, Rogue, and Summoner each exist in
+     `class_compendium` as BOTH a core row and an `X (Unchained)` row (slug `x-unchained` —
+     verified against prod). Define `UNCHAINED_CLASSES = ["Barbarian", "Monk", "Rogue",
+     "Summoner"]` and normalize every spelling players actually type —
+     `UCRogue | UC Monk | U.Barbarian | Unchained Summoner | X (Unchained) | X (UC)` — to
+     candidates for **both** rows. A BARE `Rogue`/`Monk`/`Barbarian`/`Summoner` also produces
+     both candidates (core ranked first) because the source sheet usually doesn't say which
+     the table uses — that's what the clarifying question resolves.
    - `Skald 7 / Dragon Disciple 3` → split multiclass strings; prestige detection by table.
 2. **Score**: exact-normalized = high; prefix/substring via the search RPC = medium (top 5 as
    candidates); nothing = low (candidates from a loose FTS query, may be empty).
@@ -64,7 +70,14 @@ type ImportClaim = {
    - ≥2 base classes at similar levels + total level ≈ max(track) → *"Is this a gestalt game?"*
      (accepting toggles the module + recomputes via `gestaltLevel`).
    - Any "tier/mythic" text in notes/slots → *"Is this a mythic game?"* (enable + seed tier).
-   - A class matching both core and unchained rows → *"Which Rogue does your table use?"*
+   - Any class in `UNCHAINED_CLASSES` detected → *"Which {Rogue} does your table use — core or
+     unchained?"* Asked ONCE as a game-level question when possible ("This game uses the
+     Pathfinder Unchained classes") with per-class overrides, since tables usually adopt
+     unchained wholesale; the answer re-ranks the class claim AND its class-feature claims
+     (unchained rogue/monk/barbarian have different feature tables). **Summoner note:** the
+     unchained answer also matters to the companion system — the eidolon subsheet built from
+     `eidolon_base_form_compendium` differs between the two, so the eidolon companion claim
+     (if any) must inherit the summoner variant answer.
    - Spheres/psionics markers (the adapters already flag these) → module questions.
 
 ### UI (the owner's ask: hierarchical, beautiful, correctable)
