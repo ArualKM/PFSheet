@@ -17,6 +17,17 @@ type CharacterRow = {
   visibility: string;
   computed_summary: { totalLevel?: number; ac?: number; hp?: { current?: number; max?: number } } | null;
   updated_at: string;
+  parent_character_id: string | null;
+  companion_type: string | null;
+};
+
+const COMPANION_LABEL: Record<string, string> = {
+  animal_companion: "Animal Companion",
+  familiar: "Familiar",
+  eidolon: "Eidolon",
+  cohort: "Cohort",
+  mount: "Mount",
+  other: "Companion",
 };
 
 export default async function CharactersPage() {
@@ -24,11 +35,16 @@ export default async function CharactersPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("characters")
-    .select("id, name, visibility, computed_summary, updated_at")
+    .select("id, name, visibility, computed_summary, updated_at, parent_character_id, companion_type")
     .eq("is_archived", false)
     .order("updated_at", { ascending: false });
 
-  const characters = (data ?? []) as CharacterRow[];
+  const all = (data ?? []) as CharacterRow[];
+  // Companions nest under their parent's card; a companion whose parent isn't in the list
+  // (deleted parent → FK set null keeps it top-level anyway; archived parent) stays top-level.
+  const topLevelIds = new Set(all.filter((c) => !c.parent_character_id).map((c) => c.id));
+  const characters = all.filter((c) => !c.parent_character_id || !topLevelIds.has(c.parent_character_id));
+  const companionsOf = (parentId: string) => all.filter((c) => c.parent_character_id === parentId);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -70,34 +86,68 @@ export default async function CharactersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {characters.map((c) => (
-            <Link key={c.id} href={`/characters/${c.id}`}>
-              <Card className="transition-colors hover:border-gold/40">
-                <CardContent className="flex items-center justify-between gap-3 p-5">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-foreground">{c.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Level {c.computed_summary?.totalLevel ?? 0}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="tnum text-lg font-semibold text-foreground">
-                        {c.computed_summary?.ac ?? "—"}
+        <div className="grid items-start gap-3 sm:grid-cols-2">
+          {characters.map((c) => {
+            // Only TRUE top-level cards nest companions — a fallback card (companion whose parent
+            // is absent) must not nest, or its children would render twice (nested + top-level).
+            const linked = topLevelIds.has(c.id) ? companionsOf(c.id) : [];
+            return (
+              <div key={c.id}>
+                <Link href={`/characters/${c.id}`}>
+                  <Card className="transition-colors hover:border-gold/40">
+                    <CardContent className="flex items-center justify-between gap-3 p-5">
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-foreground">{c.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Level {c.computed_summary?.totalLevel ?? 0}
+                          {c.companion_type && (
+                            <span className="ml-1.5 text-xs">
+                              · {COMPANION_LABEL[c.companion_type] ?? "Companion"}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        AC
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="tnum text-lg font-semibold text-foreground">
+                            {c.computed_summary?.ac ?? "—"}
+                          </div>
+                          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            AC
+                          </div>
+                        </div>
+                        <Badge variant={c.visibility === "public" ? "rune" : "default"} className="capitalize">
+                          {c.visibility}
+                        </Badge>
                       </div>
-                    </div>
-                    <Badge variant={c.visibility === "public" ? "rune" : "default"} className="capitalize">
-                      {c.visibility}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+                {linked.length > 0 && (
+                  <ul className="ml-4 border-l border-border/60 pl-3 pt-1.5">
+                    {linked.map((comp) => (
+                      <li key={comp.id} className="py-0.5">
+                        <Link
+                          href={`/characters/${comp.id}`}
+                          className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface-raised"
+                        >
+                          <span className="min-w-0 truncate font-medium text-foreground">{comp.name}</span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              L{comp.computed_summary?.totalLevel ?? 0} · AC {comp.computed_summary?.ac ?? "—"}
+                            </span>
+                            <Badge variant="gold" className="text-[10px]">
+                              {COMPANION_LABEL[comp.companion_type ?? ""] ?? "Companion"}
+                            </Badge>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

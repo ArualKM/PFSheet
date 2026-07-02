@@ -23,6 +23,13 @@ import {
   talentSystem,
   milestoneRequirementForLevel,
   MILESTONE_MAX_LEVEL,
+  familiarNaturalArmor,
+  familiarIntelligence,
+  familiarGrantedAbilities,
+  familiarArchetypeAlters,
+  familiarMaxHp,
+  type CompanionMasterCache,
+  type FamiliarGrantedAbility,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
 import { applyStacking, type StackInput } from "./stacking";
@@ -40,6 +47,12 @@ export type AbilityComputation = {
   effectiveScore: number;
   modifier: number;
 };
+
+/** The master cache when this character is a familiar with the master link enabled (else undefined). */
+function familiarLink(character: PathForgeCharacterV1): CompanionMasterCache | undefined {
+  const c = character.companion;
+  return c?.syncEnabled && c.type === "familiar" && c.master ? c.master : undefined;
+}
 
 function num(v: unknown, fallback = 0): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -340,6 +353,31 @@ export function buildModifierIndex(
     }
   }
 
+  // Familiar master link: Intelligence rises with the master's level (CRB table). Applied as a
+  // raise-to delta over the BASE score, so buffs (fox's cunning) still add on top and later
+  // master levels lift it without overwriting anything the user typed. Archetypes alter this:
+  // a Sage's Int is 5 + master level uncapped; an Ambassador/Mauler's Int never rises.
+  {
+    const master = familiarLink(character);
+    if (master) {
+      const alters = familiarArchetypeAlters(character.companion?.archetype);
+      if (alters.int !== "frozen") {
+        const target =
+          alters.int === "masterLevelUncapped" ? 5 + master.level : familiarIntelligence(master.level);
+        const baseInt = num(character.abilities.primary.int?.score, 10);
+        if (target > baseInt) {
+          push("ability.int", {
+            id: "familiar-int",
+            label: `Familiar Intelligence (master L${master.level})`,
+            source: "Familiar",
+            value: target - baseInt,
+            bonusType: "untyped",
+          });
+        }
+      }
+    }
+  }
+
   // Automatic Bonus Progression: the deterministic "big six" bonuses by character level. Each has a
   // distinct bonus type so they stack with one another (and with any real gear still in play). Mental/
   // Physical Prowess (player-chosen ability enhancements) are entered via the ability enhancement fields.
@@ -525,7 +563,20 @@ export class CharacterResolver implements Resolver {
     if (name === "maxDexPenalty") return this.maxDexPenalty();
     const type = AC_COMPONENT_TYPES[name];
     if (!type) return 0;
-    return stackTotalOfType(this.bucket("ac"), type);
+    let total = stackTotalOfType(this.bucket("ac"), type);
+    // Familiar master link: the natural-armor ADJUSTMENT ("in addition to the familiar's existing
+    // natural armor") is added at the component level so it reaches total + flat-footed but never
+    // touch AC — an untyped index mod would wrongly land in @{ac.misc} (which touch includes).
+    // The Sage archetype advances it as if the master's level were half.
+    if (name === "naturalArmor") {
+      const master = familiarLink(this.character);
+      if (master) {
+        const alters = familiarArchetypeAlters(this.character.companion?.archetype);
+        const effLevel = alters.naturalArmor === "halfMasterLevel" ? Math.floor(master.level / 2) : master.level;
+        total += familiarNaturalArmor(effLevel);
+      }
+    }
+    return total;
   }
 
   /**
@@ -555,18 +606,31 @@ export class CharacterResolver implements Resolver {
       return abil[2] === "mod" ? a.modifier : a.effectiveScore;
     }
 
+    // Familiar master link (CRB): the familiar uses the MASTER'S base attack bonus outright, and
+    // the BETTER of its own or the master's base save bonuses (its own ability mods still apply).
+    const master = familiarLink(this.character);
+
     switch (path) {
       case "level.total":
       case "level":
         return this.character.identity.totalLevel;
       case "combat.bab.total":
-        return num(this.character.combat.bab.total);
+        return master ? master.bab : num(this.character.combat.bab.total);
       case "saves.fortitude.base":
-        return num(this.character.defenses.savingThrows.fortitude.base);
+        return Math.max(
+          num(this.character.defenses.savingThrows.fortitude.base),
+          master ? master.saves.fortitude : Number.NEGATIVE_INFINITY,
+        );
       case "saves.reflex.base":
-        return num(this.character.defenses.savingThrows.reflex.base);
+        return Math.max(
+          num(this.character.defenses.savingThrows.reflex.base),
+          master ? master.saves.reflex : Number.NEGATIVE_INFINITY,
+        );
       case "saves.will.base":
-        return num(this.character.defenses.savingThrows.will.base);
+        return Math.max(
+          num(this.character.defenses.savingThrows.will.base),
+          master ? master.saves.will : Number.NEGATIVE_INFINITY,
+        );
       case "saves.fortitude.misc":
         return stackTotal([...this.bucket("save.fortitude"), ...this.bucket("save.all")]);
       case "saves.reflex.misc":
@@ -680,6 +744,8 @@ export type ComputedCharacter = {
   /** Compact summary for dashboard cards / API. */
   summary: {
     totalLevel: number;
+    /** Effective base attack bonus (a master-linked familiar reports the master's). */
+    bab: number;
     abilityMods: Record<string, number>;
     ac: number;
     touch: number;
@@ -731,6 +797,20 @@ export type ComputedCharacter = {
       hardToKill: boolean;
       /** Tier-gated base abilities unlocked at the current tier (name + tier + rules note). */
       baseAbilities: { tier: number; name: string; note: string }[];
+    };
+    /** Companion roll-up (absent unless character.companion.type is set). */
+    companion?: {
+      type: string;
+      archetype?: string;
+      /** True when the master link is on and a master cache is present. */
+      synced: boolean;
+      master?: { characterId?: string; name?: string; level: number; syncedAt?: string };
+      /** Familiar granted abilities at the master's level, archetype swaps applied. */
+      grantedAbilities: FamiliarGrantedAbility[];
+      /** Familiar natural-armor adjustment currently applied to AC. */
+      naturalArmorAdj?: number;
+      /** Familiar spell resistance (master level + 5 at master level 11+). */
+      spellResistance?: number;
     };
     /** Psionics roll-up (absent unless the module is enabled). */
     psionics?: {
@@ -981,6 +1061,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
 
   // Skills — evaluate each row with a local scope overlay.
   const skills: Record<string, ComputedValue> = {};
+  const familiarMaster = familiarLink(character);
+  const familiarAlters = familiarArchetypeAlters(character.companion?.archetype);
+  // The Sage archetype trades away sharing the master's skill ranks.
+  const shareMasterRanks = familiarAlters.shareSkillRanks !== false;
   const classBonusDefault = character.skills.settings.classSkillBonusDefault ?? 3;
   // Total armor check penalty from equipped armor/shields, applied to ACP-affected skills (Climb,
   // Swim, Stealth, …). Honors the sheet-wide toggle, and uses the magnitude so a sheet that stores
@@ -1004,9 +1088,12 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     // @{ranks}/@{abilityMod} sees THIS row (not the previous iteration's stale overlay). @{misc}
     // is pinned to 0 here — a misc formula referencing the misc total would be self-referential —
     // and patched to the real total below before the row formula evaluates.
+    // Familiar master link: use the BETTER of the familiar's own ranks or the master's ranks in
+    // the same skill (CRB) — the familiar still applies its own ability modifiers.
+    const masterRanks = shareMasterRanks ? (familiarMaster?.skillRanks[skill.key] ?? 0) : 0;
     resolver.local = {
       // Background Skills: adventuring ranks + ranks bought from the background pool both count.
-      ranks: skill.ranks + (skill.backgroundRanks ?? 0),
+      ranks: Math.max(skill.ranks, masterRanks) + (skill.backgroundRanks ?? 0),
       abilityMod,
       classSkillBonus,
       armorCheckPenalty: skill.armorCheckPenalty ? -equippedAcp : 0,
@@ -1067,8 +1154,11 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     });
 
   // Equipped weapons with stats generate a computed attack alongside the manual ones.
+  // The EFFECTIVE BAB is the single source of truth: a master-linked familiar uses the master's
+  // BAB everywhere (weapon rows, @{combat.bab.total} refs via the resolver, and summary.bab —
+  // which the read view, exporters, and feat-prereq checks read instead of the stored value).
   const sizeMods = getSizeModifiers(character.identity.size);
-  const babTotal = num(character.combat.bab.total);
+  const babTotal = familiarMaster ? familiarMaster.bab : num(character.combat.bab.total);
   const weaponAttacks: ComputedAttack[] = allInventory(character)
     .filter((i) => i.equipped && i.weapon)
     .map((i) => {
@@ -1295,6 +1385,33 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  let companion: ComputedCharacter["summary"]["companion"];
+  const companionType = character.companion?.type;
+  if (companionType) {
+    const comp = character.companion!;
+    const m = comp.master;
+    const isFamiliar = companionType === "familiar";
+    // Only familiars have master-link rules — a stray syncEnabled on another type is inert.
+    const linked = Boolean(isFamiliar && comp.syncEnabled && m);
+    const granted = isFamiliar && m ? familiarGrantedAbilities(m.level, comp.archetype) : [];
+    // The archetype may have traded Spell Resistance away — the SR number must agree with the
+    // granted-abilities list on the same card.
+    const hasSR = granted.some((a) => !a.fromArchetype && a.name === "Spell Resistance");
+    const alters = familiarArchetypeAlters(comp.archetype);
+    const naLevel = alters.naturalArmor === "halfMasterLevel" ? Math.floor((m?.level ?? 0) / 2) : (m?.level ?? 0);
+    companion = {
+      type: companionType,
+      archetype: comp.archetype,
+      synced: linked,
+      master: m
+        ? { characterId: m.characterId, name: m.name, level: m.level, syncedAt: m.syncedAt }
+        : undefined,
+      grantedAbilities: granted,
+      naturalArmorAdj: linked && m ? familiarNaturalArmor(naLevel) : undefined,
+      spellResistance: linked && m && m.level >= 11 && hasSR ? m.level + 5 : undefined,
+    };
+  }
+
   return {
     abilities,
     armorClass,
@@ -1306,6 +1423,8 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     spellcasting,
     summary: {
       totalLevel: character.identity.totalLevel,
+      /** Effective base attack bonus (a master-linked familiar reports the master's). */
+      bab: babTotal,
       abilityMods: Object.fromEntries(
         ABILITY_KEYS.map((k: AbilityKey) => [k, abilities[k]?.modifier ?? 0]),
       ),
@@ -1321,7 +1440,12 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       hp: {
         current: character.health.currentHp,
         // Energy drain lowers the hp ceiling by 5 per negative level; automation/buffs add hpBonus.
-        max: Math.max(0, num(character.health.maxHp) + hpBonus - 5 * negLevels),
+        // A master-linked familiar has HALF the master's max hp (CRB: "regardless of its actual
+        // Hit Dice") — its own stored maxHp and hp automation are ignored while the link is on.
+        // Archetype HP rules apply (Protector's Able Defender = full at master 11+; Figment = ¼).
+        max: familiarMaster
+          ? Math.max(0, familiarMaxHp(familiarMaster.hpMax, familiarMaster.level, familiarAlters) - 5 * negLevels)
+          : Math.max(0, num(character.health.maxHp) + hpBonus - 5 * negLevels),
         temp: character.health.tempHp,
         nonlethal: character.health.nonlethalDamage,
         negativeLevels: negLevels,
@@ -1352,6 +1476,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       psionics,
       spheres,
       milestoneLeveling,
+      companion,
     },
   };
 }

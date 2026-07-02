@@ -61,6 +61,7 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   mythic: "public",
   psionics: "public",
   milestoneLeveling: "public",
+  companion: "public",
   formulaDetails: "public",
   backstory: "public",
   // Public by default — a shared sheet is opt-in, so most owners want it all visible. Owners who want
@@ -95,6 +96,7 @@ const SECTION_LABELS: Record<string, string> = {
   mythic: "Mythic",
   psionics: "Psionics",
   milestoneLeveling: "Milestone Leveling",
+  companion: "Companion link",
   backstory: "Backstory & profile",
   inventory: "Inventory",
   wealth: "Wealth",
@@ -248,6 +250,16 @@ export type CharacterViewModel = {
     hardToKill: boolean;
     /** Tier-gated base abilities unlocked (Surge, Recuperation, …). */
     baseAbilities: { tier: number; name: string; note: string }[];
+  } | null;
+  /** Companion roll-up (null unless this character IS a companion). Master name is owner-only. */
+  companion: {
+    type: string;
+    archetype?: string;
+    synced: boolean;
+    master?: { characterId?: string; name?: string; level: number; syncedAt?: string };
+    grantedAbilities: Array<{ level: number; name: string; note: string; fromArchetype?: boolean }>;
+    naturalArmorAdj?: number;
+    spellResistance?: number;
   } | null;
   /** Psionics roll-up (null unless the module is enabled). */
   psionics: {
@@ -446,8 +458,10 @@ export function buildCharacterViewModel(
 
   // BAB is usually a stored number (class presets set it); a formula-valued BAB is rare and
   // simply yields no full-attack routine here rather than a misleading guess.
+  // The EFFECTIVE BAB from the engine (a master-linked familiar reports the master's), falling
+  // back to the stored value for any legacy computed blob without summary.bab.
   const babRaw = character.combat.bab.total;
-  const bab = typeof babRaw === "number" ? babRaw : 0;
+  const bab = computed.summary.bab ?? (typeof babRaw === "number" ? babRaw : 0);
 
   const toSpellView = (ref: SpellRef): SpellView => ({
     name: ref.name,
@@ -747,6 +761,26 @@ export function buildCharacterViewModel(
           pathAbilities: computed.summary.mythic.pathAbilities,
           hardToKill: computed.summary.mythic.hardToKill,
           baseAbilities: computed.summary.mythic.baseAbilities,
+        })
+      : null,
+    // §15-gated like every other optional-system block (default public; hideable in the privacy
+    // editor). Inside the gate, the master's identity stays owner-only — a public viewer sees the
+    // link exists (and the level-driven abilities) without the master's name or id.
+    companion: computed.summary.companion
+      ? gate("companion", {
+          ...computed.summary.companion,
+          master: computed.summary.companion.master
+            ? {
+                level: computed.summary.companion.master.level,
+                ...(isOwnerView
+                  ? {
+                      characterId: computed.summary.companion.master.characterId,
+                      name: computed.summary.companion.master.name,
+                      syncedAt: computed.summary.companion.master.syncedAt,
+                    }
+                  : {}),
+              }
+            : undefined,
         })
       : null,
     psionics: computed.summary.psionics

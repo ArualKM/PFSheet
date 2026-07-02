@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { PortraitImage } from "./portrait-image";
 import {
   Heart,
@@ -511,6 +512,62 @@ export function CharacterDashboard({
                 {vm.stamina.current}
                 <span className="text-sm text-muted-foreground">/{vm.stamina.max}</span>
               </span>
+            </SectionCard>
+          )}
+          {vm.companion && (
+            <SectionCard title="Companion" icon={Sparkles}>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-semibold capitalize text-gold">
+                    {vm.companion.type.replace(/_/g, " ")}
+                    {vm.companion.archetype && (
+                      <span className="ml-1 font-normal text-muted-foreground">· {vm.companion.archetype}</span>
+                    )}
+                  </span>
+                  {vm.companion.synced && vm.companion.master && (
+                    <span className="text-xs text-muted-foreground">
+                      linked · master L{vm.companion.master.level}
+                    </span>
+                  )}
+                </div>
+                {vm.companion.master?.name && (
+                  <div className="text-xs text-muted-foreground">
+                    Master:{" "}
+                    {vm.companion.master.characterId ? (
+                      <Link
+                        href={`/characters/${vm.companion.master.characterId}`}
+                        className="text-rune hover:underline"
+                      >
+                        {vm.companion.master.name}
+                      </Link>
+                    ) : (
+                      <span className="text-foreground">{vm.companion.master.name}</span>
+                    )}
+                  </div>
+                )}
+                {(vm.companion.naturalArmorAdj || vm.companion.spellResistance) && (
+                  <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    {vm.companion.naturalArmorAdj ? <span>Natural armor +{vm.companion.naturalArmorAdj}</span> : null}
+                    {vm.companion.spellResistance ? <span>SR {vm.companion.spellResistance}</span> : null}
+                  </div>
+                )}
+                {vm.companion.grantedAbilities.length > 0 && (
+                  <ShowMore cap={6} noun="abilities" className="space-y-0.5 pt-1">
+                    {vm.companion.grantedAbilities.map((a, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2 text-xs" title={a.note}>
+                        <span className="min-w-0 truncate text-foreground">
+                          {a.name}
+                          {a.fromArchetype && <span className="ml-1 text-gold">†</span>}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground">L{a.level}</span>
+                      </div>
+                    ))}
+                  </ShowMore>
+                )}
+                {vm.companion.grantedAbilities.some((a) => a.fromArchetype) && (
+                  <p className="text-[10px] text-muted-foreground">† from the {vm.companion.archetype} archetype</p>
+                )}
+              </div>
             </SectionCard>
           )}
           {vm.mythic && (

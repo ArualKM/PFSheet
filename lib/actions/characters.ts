@@ -3,10 +3,16 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
-import { createDefaultCharacter, safeParseCharacter } from "@pathforge/schema";
-import { computeCharacter } from "@pathforge/rules-pf1e";
+import { createDefaultCharacter, safeParseCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
+import { computeCharacter, type ComputedCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  applyCompanionStatblock,
+  buildMasterCache,
+  masterCacheEquals,
+  type CompanionStatblockRow,
+} from "@/lib/character/companion-sync";
 import type { Database } from "@/lib/supabase/types";
 
 const VISIBILITIES = ["private", "campaign", "unlisted", "public"] as const;
@@ -90,20 +96,61 @@ type CompanionType = (typeof COMPANION_TYPES)[number];
 /**
  * Phase 9 (PFcore M12): create a linked companion — a normal character owned by the same user, linked to its
  * parent via parent_character_id. RLS (owner-based) covers it; we also verify the caller owns the parent.
+ *
+ * `options` (all optional): autofill from a companion compendium statblock, choose a familiar
+ * archetype, and enable the familiar master link (HP/BAB/saves/skills/Int synced from the parent).
  */
 export async function createCompanionAction(
   parentId: string,
   companionType: string,
   name: string,
+  options?: {
+    compendiumTable?: "animal_companion_compendium" | "familiar_compendium";
+    compendiumSlug?: string;
+    archetype?: string;
+    linkToMaster?: boolean;
+  },
 ): Promise<{ error?: string; id?: string }> {
   const { supabase, user } = await authedClient();
   if (!COMPANION_TYPES.includes(companionType as CompanionType)) return { error: "Invalid companion type." };
 
-  const { data: parent } = await supabase.from("characters").select("id, owner_id").eq("id", parentId).maybeSingle();
+  const { data: parent } = await supabase
+    .from("characters")
+    .select("id, owner_id, sheet_data, parent_character_id")
+    .eq("id", parentId)
+    .maybeSingle();
   if (!parent || parent.owner_id !== user.id) return { error: "Parent character not found." };
+  // No companion-of-companion chains — they'd render ambiguously on /characters and have no
+  // rules meaning (a familiar doesn't get its own familiar).
+  if (parent.parent_character_id) return { error: "A companion can't have its own companions." };
 
   const finalName = name.trim() || "Companion";
   const sheet = createDefaultCharacter({ name: finalName, playerName: userDisplayName(user) });
+
+  // Compendium autofill: copy the statblock (abilities/size/speed/natural armor/attacks) and
+  // preserve the full source text as features. Failure to find the row is non-fatal.
+  if (options?.compendiumTable && options.compendiumSlug) {
+    const { data: row } = await supabase
+      .from(options.compendiumTable)
+      .select("*")
+      .eq("slug", options.compendiumSlug)
+      .maybeSingle();
+    if (row) applyCompanionStatblock(sheet, row as unknown as CompanionStatblockRow);
+  }
+
+  // The companion block: rules-side linkage. The master cache is seeded from the parent's sheet
+  // so a familiar computes correctly from the first render.
+  const parentParsed = safeParseCharacter(parent.sheet_data);
+  sheet.companion = {
+    type: companionType as CompanionType,
+    compendiumId: options?.compendiumSlug,
+    archetype: options?.archetype?.trim() || undefined,
+    syncEnabled: options?.linkToMaster ?? companionType === "familiar",
+    master: parentParsed.ok
+      ? buildMasterCache(parentId, parentParsed.character, computeCharacter(parentParsed.character))
+      : undefined,
+  };
+
   const computed = computeCharacter(sheet);
 
   const { data, error } = await supabase
@@ -160,6 +207,64 @@ export async function setCharacterVisibilityAction(
 
   revalidatePath(`/characters/${characterId}`);
   return { slug, visibility };
+}
+
+/**
+ * Refresh the cached master stats on every master-linked companion of `masterId` and recompute
+ * them. Runs through the ADMIN client (the same pattern as the §16.3 stale flip below): the
+ * caller has already proven edit rights on the MASTER via the RLS-gated save, and the saver may
+ * be an editor collaborator with no RLS grant on the owner's companion rows — a user-client
+ * sync would silently no-op for them. Scoped to this master's linked familiars only.
+ *
+ * Each write is a compare-and-swap on the sheet_version that was read: a concurrent companion
+ * save between our read and write would otherwise be wholesale overwritten (the silent
+ * last-write-wins class migration 0016 eliminated). On a CAS miss we skip — the companion
+ * edit-page load and the master's next save both re-sync. Companions whose cache actually
+ * changed get their approved campaign reviews flipped stale (their computed numbers changed),
+ * mirroring what a manual edit through saveCharacterSheetAction would do.
+ */
+async function syncCompanionCaches(
+  masterId: string,
+  masterSheet: PathForgeCharacterV1,
+  masterComputed: ComputedCharacter,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: companions } = await admin
+    .from("characters")
+    .select("id, sheet_data, sheet_version")
+    .eq("parent_character_id", masterId);
+  if (!companions || companions.length === 0) return;
+  const cache = buildMasterCache(masterId, masterSheet, masterComputed);
+  const changedIds: string[] = [];
+  for (const row of companions) {
+    const parsed = safeParseCharacter(row.sheet_data);
+    if (!parsed.ok) continue;
+    const comp = parsed.character.companion;
+    if (!comp?.syncEnabled || comp.type !== "familiar") continue;
+    if (masterCacheEquals(comp.master, cache)) continue;
+    comp.master = cache;
+    const computed = computeCharacter(parsed.character);
+    const { data: updated } = await admin
+      .from("characters")
+      .update({
+        sheet_data: parsed.character as unknown as Json,
+        computed_summary: computed.summary as unknown as Json,
+        last_calculated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id)
+      .eq("sheet_version", row.sheet_version)
+      .select("id")
+      .maybeSingle();
+    if (updated) changedIds.push(row.id);
+    else console.warn(`syncCompanionCaches: CAS miss for companion ${row.id} (concurrent save) — skipped`);
+  }
+  if (changedIds.length > 0) {
+    await admin
+      .from("campaign_characters")
+      .update({ gm_review_status: "stale_after_changes" })
+      .in("character_id", changedIds)
+      .in("gm_review_status", ["approved", "approved_with_notes"]);
+  }
 }
 
 export type SaveSheetState = {
@@ -237,6 +342,16 @@ export async function saveCharacterSheetAction(
       return { ok: false, conflict: { serverSheet: current.sheet_data, serverVersion: current.sheet_version } };
     }
     return { ok: false, error: "The sheet could not be saved — you may not have edit access." };
+  }
+
+  // Master→companion sync: a save on a character that has master-linked companions refreshes
+  // each companion's cached master stats (level/BAB/hp/saves/skill ranks) and recomputes it, so
+  // a familiar's halved hp and borrowed BAB track the master without a manual step. Best-effort —
+  // never blocks the master's save.
+  try {
+    await syncCompanionCaches(characterId, parsed.character, computed);
+  } catch (e) {
+    console.error("saveCharacterSheetAction: companion sync failed", e);
   }
 
   // §16.3 stale detection: editing an approved sheet marks it "changed since

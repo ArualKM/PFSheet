@@ -54,8 +54,9 @@ function usePrereqContext(ed: CharacterEditorApi): PrereqContext {
       ]),
       featureNames: new Set(ed.draft.features.list.map((f) => f.name.toLowerCase())),
       abilityScores: Object.fromEntries(ABILITY_KEYS.map((k) => [k, computed.abilities[k]?.effectiveScore ?? 10])),
-      // bab.total is a number once the class system sets it (a hand-entered formula is the rare exception).
-      bab: typeof ed.draft.combat.bab.total === "number" ? ed.draft.combat.bab.total : 0,
+      // The engine's effective BAB (master-linked familiars use the master's); the stored value
+      // is the fallback for a hand-entered formula on a legacy computed blob.
+      bab: computed.summary.bab ?? (typeof ed.draft.combat.bab.total === "number" ? ed.draft.combat.bab.total : 0),
       totalLevel: ed.draft.identity.totalLevel ?? 0,
       casterLevel,
       skillRanks,

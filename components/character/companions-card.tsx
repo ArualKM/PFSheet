@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2, PawPrint } from "lucide-react";
+import { Plus, Loader2, PawPrint, Search, X } from "lucide-react";
+import { FAMILIAR_ARCHETYPES } from "@pathforge/schema";
 import { createCompanionAction } from "@/lib/actions/characters";
+import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,28 +21,50 @@ const TYPES: { value: string; label: string }[] = [
 ];
 const LABEL = Object.fromEntries(TYPES.map((t) => [t.value, t.label]));
 
+/** Which compendium backs the statblock search for a companion type (absent = no statblocks). */
+const STATBLOCK_TABLE: Record<string, { table: "animal_companion_compendium" | "familiar_compendium"; rpc: string; hint: string } | undefined> = {
+  animal_companion: { table: "animal_companion_compendium", rpc: "search_animal_companion_compendium", hint: "Wolf, roc, big cat…" },
+  mount: { table: "animal_companion_compendium", rpc: "search_animal_companion_compendium", hint: "Horse, wolf…" },
+  familiar: { table: "familiar_compendium", rpc: "search_familiar_compendium", hint: "Cat, owl, thrush…" },
+};
+
 export type CompanionRow = { id: string; name: string; companion_type: string | null };
 
+type StatblockPick = { slug: string; name: string };
+
 /**
- * Phase 9 — linked-row companions. Lists the parent's companions (each a real, separately-editable character)
- * and creates a new one via the server action, then jumps to its sheet. Owner-only (rendered only for the owner).
+ * Phase 9 — linked-row companions, now with compendium statblock autofill (214 animal companions /
+ * 187 familiars), familiar archetypes, and the master link (familiar stats synced from this
+ * character). Each companion is a real, separately-editable character. Owner-only.
  */
 export function CompanionsCard({ parentId, companions }: { parentId: string; companions: CompanionRow[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [type, setType] = useState("animal_companion");
+  const [statblock, setStatblock] = useState<StatblockPick | null>(null);
+  const [archetype, setArchetype] = useState("");
+  const [linkToMaster, setLinkToMaster] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const statblockCfg = STATBLOCK_TABLE[type];
+  const isFamiliar = type === "familiar";
 
   const create = () => {
     setError(null);
     startTransition(async () => {
-      const res = await createCompanionAction(parentId, type, name);
+      const res = await createCompanionAction(parentId, type, name, {
+        compendiumTable: statblock && statblockCfg ? statblockCfg.table : undefined,
+        compendiumSlug: statblock?.slug,
+        archetype: isFamiliar ? archetype || undefined : undefined,
+        linkToMaster: isFamiliar ? linkToMaster : false,
+      });
       if (res.error) {
         setError(res.error);
         return;
       }
       setName("");
+      setStatblock(null);
       if (res.id) router.push(`/characters/${res.id}/edit`);
     });
   };
@@ -85,7 +109,10 @@ export function CompanionsCard({ parentId, companions }: { parentId: string; com
             <span className="mb-1 block font-medium text-muted-foreground">Type</span>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => {
+                setType(e.target.value);
+                setStatblock(null);
+              }}
               aria-label="Companion type"
               className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
             >
@@ -100,8 +127,142 @@ export function CompanionsCard({ parentId, companions }: { parentId: string; com
             {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Add companion
           </Button>
         </div>
+
+        {statblockCfg && (
+          <div className="mt-2">
+            <StatblockSearch
+              key={type}
+              rpc={statblockCfg.rpc}
+              hint={statblockCfg.hint}
+              picked={statblock}
+              onPick={setStatblock}
+            />
+          </div>
+        )}
+
+        {isFamiliar && (
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <label className="text-xs">
+              <span className="mb-1 block font-medium text-muted-foreground">Archetype (optional)</span>
+              <select
+                value={archetype}
+                onChange={(e) => setArchetype(e.target.value)}
+                aria-label="Familiar archetype"
+                className="h-11 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:h-9"
+              >
+                <option value="">Standard familiar</option>
+                {FAMILIAR_ARCHETYPES.map((a) => (
+                  <option key={a.name} value={a.name}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 pt-4 text-xs text-foreground">
+              <input
+                type="checkbox"
+                checked={linkToMaster}
+                onChange={(e) => setLinkToMaster(e.target.checked)}
+                className="size-4 accent-[var(--pf-gold)]"
+              />
+              Link stats to this character (HP · BAB · saves · skills · Int)
+            </label>
+          </div>
+        )}
+
         {error && <p className="mt-2 text-xs text-danger">{error}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+/** Inline debounced compendium statblock search — pick one to autofill the new companion's sheet. */
+function StatblockSearch({
+  rpc,
+  hint,
+  picked,
+  onPick,
+}: {
+  rpc: string;
+  hint: string;
+  picked: StatblockPick | null;
+  onPick: (p: StatblockPick | null) => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<StatblockPick[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const term = q.trim();
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      if (term.length < 2) {
+        if (!cancelled) {
+          setRows([]);
+          setLoading(false); // an in-flight fetch may have been cancelled with the spinner on
+        }
+        return;
+      }
+      setLoading(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).rpc(rpc, { p_query: term, p_limit: 8 });
+      if (!cancelled) {
+        setRows(((data ?? []) as { slug: string; name: string }[]).map((r) => ({ slug: r.slug, name: r.name })));
+        setLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [q, rpc, supabase]);
+
+  if (picked) {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-medium text-muted-foreground">Statblock:</span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-foreground">
+          {picked.name}
+          <button type="button" aria-label="Clear statblock" onClick={() => onPick(null)} className="text-muted-foreground hover:text-foreground">
+            <X className="size-3" />
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-xs">
+      <span className="mb-1 block font-medium text-muted-foreground">
+        Statblock (optional — autofills abilities, AC, attacks)
+      </span>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={hint}
+          aria-label="Search companion statblocks"
+          className="h-11 w-full rounded-lg border border-border bg-background pl-7 pr-2 text-sm text-foreground sm:h-9 sm:max-w-xs"
+        />
+        {loading && <Loader2 className="absolute right-2 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />}
+      </div>
+      {rows.length > 0 && (
+        <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-border bg-surface sm:max-w-xs">
+          {rows.map((r) => (
+            <li key={r.slug}>
+              <button
+                type="button"
+                onClick={() => onPick(r)}
+                className="block w-full px-2.5 py-1.5 text-left text-sm text-foreground hover:bg-surface-raised"
+              >
+                {r.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

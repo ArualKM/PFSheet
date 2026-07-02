@@ -35,6 +35,8 @@ export * from "./abp";
 export * from "./psionics";
 export * from "./psionics-parser";
 export * from "./milestone-leveling";
+export * from "./companion";
+export * from "./familiar-archetypes";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";

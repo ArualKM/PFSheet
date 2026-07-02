@@ -171,9 +171,9 @@ function statRow(doc: Doc, cells: { label: string; value: string }[]): void {
 
 function combat(doc: Doc, character: PathForgeCharacterV1, computed: ComputedCharacter): void {
   const s = computed.summary;
-  // bab.total may be a formula object (numberOrFormula) — guard to a finite number, matching the
-  // engine's num() fallback to 0, so the cell never prints "NaN".
-  const babRaw = Number(character.combat?.bab?.total ?? 0);
+  // Prefer the engine's effective BAB (a master-linked familiar reports the master's); fall back
+  // to the stored value guarded to a finite number so the cell never prints "NaN".
+  const babRaw = Number(s.bab ?? character.combat?.bab?.total ?? 0);
   const bab = Number.isFinite(babRaw) ? babRaw : 0;
   sectionHeader(doc, "Combat & Defenses");
   statRow(doc, [

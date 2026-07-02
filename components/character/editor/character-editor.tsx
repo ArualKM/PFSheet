@@ -95,6 +95,8 @@ import {
   setSystemTraditionFields,
   type MilestoneLevelingBlock,
   type MilestoneDifficulty,
+  COMPANION_TYPES,
+  FAMILIAR_ARCHETYPES,
   MILESTONE_DIFFICULTIES,
   MILESTONE_MAX_JOB_LEVEL,
   milestoneJobReward,
@@ -298,6 +300,9 @@ export function CharacterEditor({
         { key: "languages", label: "Languages", render: () => <LanguagesEditor ed={ed} /> },
         { key: "speed", label: "Speed", render: () => <SpeedEditor ed={ed} /> },
         { key: "health", label: "Health & wounds", render: () => <HealthEditor ed={ed} /> },
+        ...(ed.draft.companion
+          ? [{ key: "companion", label: "Companion link", render: () => <CompanionEditor ed={ed} /> }]
+          : []),
       ],
     },
     {
@@ -2500,6 +2505,116 @@ function privacyDisplayLevel(l: PrivacyLevel): PrivacyLevel {
   return l;
 }
 
+/** Companion-link panel (shown only on companion sheets): type, familiar archetype, the master
+ * link toggle, and a read-only view of the cached master stats + granted abilities. */
+function CompanionEditor({ ed }: { ed: EditorApi }) {
+  const comp = ed.draft.companion;
+  const summary = ed.computed.summary.companion;
+  if (!comp) return null;
+  const isFamiliar = comp.type === "familiar";
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        This character is a linked companion. A familiar with the master link on computes HP (half the
+        master&apos;s), BAB (the master&apos;s), saves (better of the two), skill ranks (better of the two),
+        Intelligence, and natural armor from its master — refreshed automatically when the master saves.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <SelectField
+          label="Companion type"
+          value={comp.type ?? "other"}
+          onChange={(v) =>
+            ed.update((c) => {
+              if (!c.companion) return;
+              c.companion.type = v as typeof comp.type;
+              // The link + archetype are familiar-only; leaving them set on another type would
+              // show a "linked" badge with no rules behind it and no control to turn it off.
+              if (v !== "familiar") {
+                c.companion.syncEnabled = false;
+                c.companion.archetype = undefined;
+              }
+            })
+          }
+          options={COMPANION_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))}
+          className="w-44 capitalize"
+        />
+        {isFamiliar && (
+          <SelectField
+            label="Archetype"
+            value={comp.archetype ?? ""}
+            onChange={(v) =>
+              ed.update((c) => {
+                if (c.companion) c.companion.archetype = v || undefined;
+              })
+            }
+            options={[
+              { value: "", label: "Standard familiar" },
+              ...FAMILIAR_ARCHETYPES.map((a) => ({ value: a.name, label: a.name })),
+            ]}
+            className="w-48"
+          />
+        )}
+        {isFamiliar && (
+          <label className="flex h-11 items-center gap-1.5 text-sm text-foreground sm:h-10">
+            <input
+              type="checkbox"
+              checked={comp.syncEnabled === true}
+              onChange={(e) =>
+                ed.update((c) => {
+                  if (c.companion) c.companion.syncEnabled = e.target.checked;
+                })
+              }
+              className="size-4 accent-[var(--pf-gold)]"
+            />
+            Link stats to master
+          </label>
+        )}
+      </div>
+
+      {comp.master && (
+        <div className="rounded-lg border border-border bg-surface-raised p-3">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Master
+            </span>
+            <span className="text-sm font-medium text-foreground">{comp.master.name ?? "—"}</span>
+            <StatChip label="level" value={comp.master.level} />
+            <StatChip label="bab" value={formatModifier(comp.master.bab)} />
+            <StatChip label="hp" value={comp.master.hpMax} />
+            <StatChip
+              label="saves"
+              value={`${formatModifier(comp.master.saves.fortitude)}/${formatModifier(comp.master.saves.reflex)}/${formatModifier(comp.master.saves.will)}`}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Cached {comp.master.syncedAt ? new Date(comp.master.syncedAt).toLocaleString() : "—"} — refreshes
+            when the master saves or this sheet loads.
+          </p>
+        </div>
+      )}
+
+      {summary && summary.grantedAbilities.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Granted abilities (master level {comp.master?.level ?? 0}
+            {comp.archetype ? ` · ${comp.archetype}` : ""})
+          </span>
+          {summary.grantedAbilities.map((a, i) => (
+            <div key={i} className="rounded-md border border-border px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{a.name}</span>
+                <StatChip label="L" value={a.level} />
+                {a.fromArchetype && <StatChip value="archetype" tone="gold" />}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">{a.note}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Settings → "Privacy & sharing" panel: per-section §15 visibility levels. */
 function PrivacySharingEditor({ ed }: { ed: EditorApi }) {
   return (
@@ -2519,6 +2634,11 @@ function PrivacySharingEditor({ ed }: { ed: EditorApi }) {
                 s.moduleKeys.some((k) => isModuleKeyEnabled(ed.draft, k)) ||
                 ed.draft.privacy.sections[s.key] !== undefined,
             ),
+            // Companion sheets get a row for the companion-link section (never trapped: also shown
+            // when a non-default level is already set).
+            ...(ed.draft.companion || ed.draft.privacy.sections.companion !== undefined
+              ? [{ key: "companion", label: "Companion link" }]
+              : []),
             { key: "formulaDetails", label: "Show math (formulas)" },
           ].map((s) => (
             <div key={s.key} className="flex items-center justify-between gap-3">
@@ -3925,10 +4045,30 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
   const nonlethalHit = (amount: number) =>
     ed.update((c) => (c.health.nonlethalDamage = Math.max(0, c.health.nonlethalDamage + amount)));
 
+  // A master-linked familiar's max HP is derived (half the master's) — the stored field would
+  // be a silent no-op, so show the derived value read-only instead.
+  const familiarLinked =
+    ed.draft.companion?.type === "familiar" && ed.computed.summary.companion?.synced === true;
+
   return (
     <div className="space-y-6">
+      {familiarLinked && (
+        <p className="rounded-lg border border-gold/40 bg-gold/5 p-2.5 text-xs text-foreground">
+          Max HP is <strong>half the master&apos;s</strong> ({hpMax}) while the master link is on — change
+          it under <em>Companion link</em>.
+        </p>
+      )}
       <div className="grid max-w-3xl gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <NumberField label="Max HP" value={maxHp} min={0} onChange={(v) => ed.update((c) => (c.health.maxHp = v))} />
+        {familiarLinked ? (
+          <div>
+            <span className="mb-1 block text-[11px] text-muted-foreground">Max HP (linked)</span>
+            <div className="tnum flex h-11 items-center rounded-lg border border-border bg-surface-raised px-3 text-sm font-semibold text-foreground sm:h-10">
+              {hpMax}
+            </div>
+          </div>
+        ) : (
+          <NumberField label="Max HP" value={maxHp} min={0} onChange={(v) => ed.update((c) => (c.health.maxHp = v))} />
+        )}
         <NumberField label="Current HP" value={h.currentHp} onChange={(v) => ed.update((c) => (c.health.currentHp = v))} />
         <NumberField label="Temp HP" value={h.tempHp} min={0} onChange={(v) => ed.update((c) => (c.health.tempHp = v))} />
         <NumberField label="Nonlethal" value={h.nonlethalDamage} min={0} onChange={(v) => ed.update((c) => (c.health.nonlethalDamage = v))} />
@@ -4299,6 +4439,14 @@ function SaveRow({
       // mod; misc-bucket contributions add on top, so review the base after rebuilding.
       e.base = cv.value - abilityMod;
     });
+  // A master-linked familiar uses the BETTER of its own base or the master's — show the
+  // effective base in the chip so the numbers visibly add up, and hint when the master's wins.
+  const masterBase =
+    ed.draft.companion?.type === "familiar" && ed.computed.summary.companion?.synced
+      ? (ed.draft.companion.master?.saves[k] ?? null)
+      : null;
+  const masterApplies = masterBase !== null && masterBase > entry.base;
+  const effectiveBase = masterApplies ? masterBase : entry.base;
 
   return (
     <div className="rounded-lg border border-border">
@@ -4307,7 +4455,11 @@ function SaveRow({
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           {usesTerms ? (
             <>
-              <StatChip label="base" value={formatModifier(entry.base)} />
+              <StatChip
+                label={masterApplies ? "base (master)" : "base"}
+                value={formatModifier(effectiveBase)}
+                tone={masterApplies ? "gold" : "neutral"}
+              />
               <StatChip
                 label={abilityKey.toUpperCase()}
                 value={formatModifier(abilityMod)}
@@ -4348,16 +4500,24 @@ function SaveRow({
             </div>
           )}
           <div className="flex flex-wrap items-end gap-2">
-            <NumberField
-              label="Base (class progression)"
-              value={entry.base}
-              onChange={(v) =>
-                ed.update((c) => {
-                  c.defenses.savingThrows[k].base = v;
-                })
-              }
-              className="w-40"
-            />
+            <div>
+              <NumberField
+                label="Base (class progression)"
+                value={entry.base}
+                onChange={(v) =>
+                  ed.update((c) => {
+                    c.defenses.savingThrows[k].base = v;
+                  })
+                }
+                className="w-40"
+              />
+              {masterApplies && (
+                <p className="mt-1 max-w-[16rem] text-[11px] text-muted-foreground">
+                  The master&apos;s base ({formatModifier(masterBase)}) applies while it is higher than
+                  this one (familiar link).
+                </p>
+              )}
+            </div>
             <div className="space-y-1">
               <span className="block text-[11px] text-muted-foreground">Key ability</span>
               <select
