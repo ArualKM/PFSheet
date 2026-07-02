@@ -1,5 +1,6 @@
 import {
   normalizeKey,
+  strictKey,
   probeTables,
   type Candidate,
   type ClaimProbe,
@@ -200,7 +201,11 @@ export async function resolveProbeCandidates(sb: Sb, probes: ClaimProbe[]): Prom
       const byName = exactRows.get(table);
       if (!byName) continue;
       for (const key of probe.keys) {
-        for (const hit of byName.get(normalizeKey(key)) ?? []) {
+        const hits = byName.get(normalizeKey(key)) ?? [];
+        // A folded key can match DISTINCT rows that differ only by hyphenation — when the typed
+        // punctuation matches one of them exactly, that row wins alone.
+        const strict = hits.filter((h) => strictKey(h.name) === strictKey(key));
+        for (const hit of strict.length ? strict : hits) {
           if (!out[probe.id]!.some((c) => c.table === hit.table && c.slug === hit.slug)) {
             out[probe.id]!.push(hit);
             found = true;
@@ -231,12 +236,41 @@ export async function resolveProbeCandidates(sb: Sb, probes: ClaimProbe[]): Prom
           const { data } = await sb.from(table).select(cfg.select).ilike(cfg.label, `%${esc}%`).limit(3);
           rows = (data ?? []) as Record<string, unknown>[];
         }
-        for (const row of rows.slice(0, 3)) {
-          const cand = rowToCandidate(table, cfg, row, "search");
-          // A ranked search can still surface the true row under different casing/punctuation —
-          // promote it to exact so the claim auto-links.
-          if (probe.keys.some((k) => normalizeKey(k) === normalizeKey(cand.name))) cand.match = "exact";
-          out[probe.id]!.push(cand);
+        // A ranked search can still surface the true row under different casing/punctuation —
+        // promote it to exact so the claim auto-links. Punctuation-faithful (strict) equality
+        // wins alone; hyphen-folded equality promotes only when no strict match exists, so the
+        // three real hyphen-sibling trait pairs don't degrade a correct link to an ambiguity.
+        const promoteExacts = (cands: Candidate[]): boolean => {
+          const strict = cands.filter((c) => probe.keys.some((k) => strictKey(k) === strictKey(c.name)));
+          const targets = strict.length
+            ? strict
+            : cands.filter((c) => probe.keys.some((k) => normalizeKey(k) === normalizeKey(c.name)));
+          for (const t of targets) t.match = "exact";
+          return targets.length > 0;
+        };
+        const searchCands = rows.slice(0, 3).map((row) => rowToCandidate(table, cfg, row, "search"));
+        const promoted = promoteExacts(searchCands);
+        out[probe.id]!.push(...searchCands);
+        // Punctuation-insensitive rescue: "Two Weapon Fighting" is the book's "Two-Weapon
+        // Fighting", but neither the literal exact pass nor the ranked search surfaces it (the
+        // FTS tier ranks text-mention matches above the true row). Probe the primary table with
+        // the name's words joined by wildcards — exact-modulo-separators — and promote only on
+        // normalized equality, so "Greater Two-Weapon Fighting" can't slip in as exact.
+        if (!promoted) {
+          const norm = normalizeKey(q);
+          if (norm.includes(" ")) {
+            const pattern = norm
+              .split(" ")
+              .map((w) => w.replace(/([%_\\])/g, "\\$1"))
+              .join("%");
+            const { data } = await sb.from(table).select(cfg.select).ilike(cfg.label, pattern).limit(4);
+            const rescueCands = ((data ?? []) as Record<string, unknown>[])
+              .slice(0, 4)
+              .map((row) => rowToCandidate(table, cfg, row, "search"))
+              .filter((cand) => !out[probe.id]!.some((c) => c.table === cand.table && c.slug === cand.slug));
+            promoteExacts(rescueCands);
+            out[probe.id]!.push(...rescueCands);
+          }
         }
       } catch {
         // enrichment only

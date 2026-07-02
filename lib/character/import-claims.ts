@@ -165,6 +165,20 @@ export const normalizeKey = (s: string): string =>
   s
     .toLowerCase()
     .replace(/[’‘]/g, "'")
+    // Hyphens fold to spaces: players type "Two Weapon Fighting", the book says
+    // "Two-Weapon Fighting" — same entry. (The ranked-search pass finds it; this
+    // makes the equality check promote it to an exact auto-link.)
+    .replace(/[-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Pre-fold normalization (hyphens KEPT). A few compendium pairs are genuinely DIFFERENT entries
+ * whose names differ only by hyphenation ("Thrill Seeker" vs "Thrill-Seeker" traits) — when a
+ * folded lookup matches several rows, the punctuation-faithful one wins. */
+export const strictKey = (s: string): string =>
+  s
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -259,7 +273,7 @@ export type ParsedClassSegment = {
 export type ParsedClassLine = { gestalt: boolean; segments: ParsedClassSegment[] };
 
 /** Split on a separator, but only OUTSIDE parentheses/brackets. */
-function splitTopLevel(s: string, sep: RegExp): string[] {
+export function splitTopLevel(s: string, sep: RegExp): string[] {
   const out: string[] = [];
   let depth = 0;
   let cur = "";

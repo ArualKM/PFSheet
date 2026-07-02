@@ -18,6 +18,8 @@ import {
   isDivider,
   normalizeKey,
   pickClassCandidate,
+  entryKeys,
+  splitTopLevel,
   KIND_TABLES,
   type ImportClaim,
   type ImportQuestion,
@@ -278,7 +280,16 @@ export async function applyImportResolutions(
    * the source entry from its original slot). */
 
   const addFeatFromRow = (c: ImportClaim, row: Record<string, unknown>): boolean => {
-    if (!sheet.feats.list.some((f) => f.compendiumId === S(row.slug) || normalizeKey(f.name) === normalizeKey(S(row.name)))) {
+    // Name equality only counts as a duplicate when the existing entry is unlinked (an as-written
+    // entry being superseded) or links the SAME row — a different compendiumId is a genuinely
+    // distinct entry whose name merely collides (hyphen-sibling pairs exist in the data).
+    const dup = (list: { compendiumId?: string; name: string }[]) =>
+      list.some(
+        (e) =>
+          e.compendiumId === S(row.slug) ||
+          (normalizeKey(e.name) === normalizeKey(S(row.name)) && !e.compendiumId),
+      );
+    if (!dup(sheet.feats.list)) {
       sheet.feats.list.push({
         id: `import_${c.id}`,
         name: S(row.name),
@@ -309,7 +320,12 @@ export async function applyImportResolutions(
   };
 
   const addTraitFromRow = (c: ImportClaim, table: string, row: Record<string, unknown>): boolean => {
-    if (!sheet.traits.list.some((t) => t.compendiumId === S(row.slug) || normalizeKey(t.name) === normalizeKey(S(row.name)))) {
+    const dupTrait = sheet.traits.list.some(
+      (t) =>
+        t.compendiumId === S(row.slug) ||
+        (normalizeKey(t.name) === normalizeKey(S(row.name)) && !t.compendiumId),
+    );
+    if (!dupTrait) {
       sheet.traits.list.push({
         id: `import_${c.id}`,
         name: S(row.name),
@@ -637,6 +653,94 @@ export async function applyImportResolutions(
       }
     } catch {
       warnings.push(`Couldn't re-file "${c.sourceText}" — it stayed in the spell list.`);
+    }
+  }
+
+  // ── Structured-feature echoes ───────────────────────────────────────────────
+  // The class builder just granted structured features; a leftover NAME-ONLY slot whose text is
+  // NOTHING BUT features now on the sheet ("Sneak attack (1/3/5/…/19)", "1. Trapfinding,
+  // 2. Evasion (Ex)") is a duplicate — the structured row wins (§ commit semantics: no dupes,
+  // no loss). Partial matches (any un-covered name, e.g. a 3pp archetype feature) keep the slot;
+  // an entry carrying its own data (type/benefit/notes/automation) is never an echo; a player's
+  // EXPLICIT resolution always wins (an explicit keep-as-written stays, and a LINKED claim whose
+  // apply failed keeps its "kept as written" promise). CHOICE qualifiers ("Hex (Evil Eye)",
+  // "(Cestus)") are preserved onto the matching feature so the pick stays visible on the sheet.
+  if (linkedClassClaims.length > 0) {
+    type FeatureRowRef = PathForgeCharacterV1["features"]["list"][number];
+    const grantedByName = new Map<string, FeatureRowRef>();
+    for (const f of sheet.features.list) {
+      for (const key of [normalizeKey(f.name), normalizeKey(f.name.replace(/\s*\([^)]*\)\s*$/, ""))]) {
+        if (key && !grantedByName.has(key)) grantedByName.set(key, f);
+      }
+    }
+    const exempt = new Set<string>();
+    for (const c of claims) {
+      if (!c.draftEntryId) continue;
+      if (answers.resolutions?.[c.id]?.mode === "generic" || resolved(c, answers).mode === "linked") {
+        exempt.add(c.draftEntryId);
+      }
+    }
+    // What entryKeys stripped between two successive keys: a type marker "(Ex)/(Su)/(Sp)" or a
+    // numeric progression "(1/3/5/…)" is bookkeeping; anything wordy is a player CHOICE.
+    const TYPE_STRIP = /^[([]\s*(?:ex|su|sp)\s*[)\]]$/i;
+    const NUMERIC_STRIP = /^[([][\d\s/,.+·-]*[)\]]$/;
+    const partCover = (part: string): { feature: FeatureRowRef; choice?: string } | null => {
+      const keys = entryKeys(part);
+      if (!keys.length) return null;
+      const full = grantedByName.get(normalizeKey(keys[0]!));
+      if (full) return { feature: full };
+      let cur = keys[0]!;
+      let choice = false;
+      for (let i = 1; i < keys.length; i++) {
+        const next = keys[i]!;
+        const stripped = cur.slice(next.length).trim();
+        if (!TYPE_STRIP.test(stripped) && !NUMERIC_STRIP.test(stripped)) choice = true;
+        const hit = grantedByName.get(normalizeKey(next));
+        if (hit) return { feature: hit, ...(choice ? { choice: part.trim() } : {}) };
+        cur = next;
+      }
+      return null;
+    };
+
+    const removedNames: string[] = [];
+    const keep: typeof sheet.feats.list = [];
+    for (const f of sheet.feats.list) {
+      const bare =
+        !f.compendiumId &&
+        !f.type &&
+        !f.benefit &&
+        !f.special &&
+        !f.notes &&
+        f.automation.length === 0 &&
+        !exempt.has(f.id) &&
+        !isDivider(f.name);
+      const parts = bare ? splitTopLevel(f.name, /,/) : [];
+      const covers = parts.length ? parts.map(partCover) : [];
+      if (!covers.length || covers.some((c) => !c)) {
+        keep.push(f);
+        continue;
+      }
+      for (const c of covers) {
+        if (c?.choice) {
+          const note = `Imported: ${c.choice}`;
+          if (!c.feature.description?.includes(note)) {
+            c.feature.description = [c.feature.description, note].filter(Boolean).join("\n\n");
+          }
+        }
+      }
+      removedNames.push(f.name);
+    }
+    if (removedNames.length) {
+      sheet.feats.list = keep;
+      const prior = (sheet.metadata.unmapped as Record<string, unknown> | undefined)?.covered_by_features;
+      const priorList = Array.isArray(prior) ? prior.filter((x): x is string => typeof x === "string") : [];
+      sheet.metadata.unmapped = {
+        ...(sheet.metadata.unmapped ?? {}),
+        covered_by_features: [...priorList, ...removedNames.filter((t) => !priorList.includes(t))],
+      };
+      applied.push(
+        `Removed ${removedNames.length} slot entr${removedNames.length === 1 ? "y" : "ies"} duplicating structured features`,
+      );
     }
   }
 
