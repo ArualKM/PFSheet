@@ -129,6 +129,9 @@ import { FeatPicker } from "./feat-picker";
 import { PowerPicker } from "./power-picker";
 import { PathOfWarEditor } from "./path-of-war-editor";
 import { AkashicEditor } from "./akashic-editor";
+import { OathsEditor } from "./oaths-editor";
+import { BackgroundOccupationEditor } from "./background-occupation-editor";
+import { DrawbackPicker } from "./drawback-picker";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
 import { Card, CardContent } from "@/components/ui/card";
@@ -302,6 +305,24 @@ export function CharacterEditor({
     (ed.draft.akashic?.shaped.length ?? 0) > 0
   ) {
     optionalSystemItems.push({ key: "akashic", label: "Akashic", render: () => <AkashicEditor ed={ed} /> });
+  }
+  if (
+    isModuleKeyEnabled(ed.draft, "oaths") ||
+    (ed.draft.oaths?.oaths.length ?? 0) > 0 ||
+    (ed.draft.oaths?.boons.length ?? 0) > 0
+  ) {
+    optionalSystemItems.push({ key: "oaths", label: "Oaths", render: () => <OathsEditor ed={ed} /> });
+  }
+  if (
+    isModuleKeyEnabled(ed.draft, "backgrounds_occupations") ||
+    !!ed.draft.backgroundOccupation?.background ||
+    !!ed.draft.backgroundOccupation?.occupation
+  ) {
+    optionalSystemItems.push({
+      key: "backgrounds_occupations",
+      label: "Background & Occupation",
+      render: () => <BackgroundOccupationEditor ed={ed} />,
+    });
   }
   if (isModuleKeyEnabled(ed.draft, "milestone_leveling")) {
     optionalSystemItems.push({
@@ -2592,6 +2613,7 @@ const OPTIONAL_PRIVACY_SECTIONS: Array<{ key: string; label: string; moduleKeys:
   { key: "psionics", label: "Psionics", moduleKeys: ["psionics"] },
   { key: "pathOfWar", label: "Path of War", moduleKeys: ["path_of_war"] },
   { key: "akashic", label: "Akashic", moduleKeys: ["akashic"] },
+  { key: "oaths", label: "Oaths", moduleKeys: ["oaths"] },
   { key: "milestoneLeveling", label: "Milestone Leveling", moduleKeys: ["milestone_leveling"] },
 ];
 
@@ -5393,6 +5415,7 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
   const features = ed.draft.features.list;
   const [featPickerOpen, setFeatPickerOpen] = useState(false);
   const [traitPickerOpen, setTraitPickerOpen] = useState(false);
+  const [drawbackPickerOpen, setDrawbackPickerOpen] = useState(false);
   const [optionsPickerOpen, setOptionsPickerOpen] = useState(false);
   // The id of a just-added entry, so its EntryCard mounts already-open for editing (custom add = full editor).
   const [openEntryId, setOpenEntryId] = useState<string | null>(null);
@@ -5643,6 +5666,15 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             >
               <Search className="size-4" /> Browse
             </Button>
+            {isModuleKeyEnabled(ed.draft, "flaws_drawbacks") && (
+              <Button
+                size="sm"
+                variant={drawbackPickerOpen ? "default" : "secondary"}
+                onClick={() => setDrawbackPickerOpen((o) => !o)}
+              >
+                <Search className="size-4" /> Drawbacks &amp; flaws
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -5656,6 +5688,11 @@ function FeatsEditor({ ed }: { ed: EditorApi }) {
             </Button>
           </div>
         </div>
+        {drawbackPickerOpen && (
+          <div className="mb-3">
+            <DrawbackPicker ed={ed} onClose={() => setDrawbackPickerOpen(false)} />
+          </div>
+        )}
         {traitPickerOpen && (
           <div className="mb-3">
             <EntryPicker

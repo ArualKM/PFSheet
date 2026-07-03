@@ -44,6 +44,7 @@ export type ClaimKind =
   | "psionic_power"
   | "pow_maneuver"
   | "akashic_veil"
+  | "oath"
   | "mythic_ability"
   | "racial_trait";
 
@@ -56,11 +57,16 @@ export const KIND_TABLES: Record<ClaimKind, string[]> = {
   trait: ["trait_compendium", "feat_compendium", "drawback_compendium"],
   feature: ["class_feature_compendium", "feat_compendium"],
   spell: ["spell_compendium", "feat_compendium", "class_feature_compendium"],
-  drawback: ["drawback_compendium", "trait_compendium"],
+  // Paizo drawbacks (Umbral Unmasking, Sentimental) live in the PFcore drawback_compendium and
+  // must keep winning same-name ties; the 3pp Drawbacks & Flaws table (Noncombatant, Feeble,
+  // Nonathletic — flaw|major_drawback) is second so DRAWBACKS & FLAWS sections probe it too.
+  drawback: ["drawback_compendium", "threepp_drawback_compendium", "trait_compendium"],
   sphere_talent: ["sphere_talents", "feat_compendium", "class_feature_compendium"],
   psionic_power: ["psionic_power_compendium", "spell_compendium", "feat_compendium"],
   pow_maneuver: ["pow_maneuver_compendium", "feat_compendium", "class_feature_compendium"],
   akashic_veil: ["akashic_veil_compendium", "feat_compendium", "class_feature_compendium"],
+  // Oath slots grant real feats in the fixtures ("Oath 2) Extra Hex") — feat_compendium third.
+  oath: ["oath_compendium", "oath_boon_compendium", "feat_compendium"],
   mythic_ability: ["mythic_path_ability_compendium", "feat_compendium"],
   racial_trait: ["alternate_racial_trait_compendium", "trait_compendium", "feat_compendium"],
 };
@@ -75,10 +81,13 @@ export const TABLE_KIND: Record<string, ClaimKind> = {
   class_feature_compendium: "feature",
   spell_compendium: "spell",
   drawback_compendium: "drawback",
+  threepp_drawback_compendium: "drawback",
   sphere_talents: "sphere_talent",
   psionic_power_compendium: "psionic_power",
   pow_maneuver_compendium: "pow_maneuver",
   akashic_veil_compendium: "akashic_veil",
+  oath_compendium: "oath",
+  oath_boon_compendium: "oath",
   mythic_path_ability_compendium: "mythic_ability",
   alternate_racial_trait_compendium: "racial_trait",
 };
@@ -141,7 +150,7 @@ export type ImportClaim = {
 
 export type ImportQuestion = {
   id: string;
-  kind: "gestalt" | "mythic" | "unchained" | "psionics" | "path_of_war" | "akashic";
+  kind: "gestalt" | "mythic" | "unchained" | "psionics" | "path_of_war" | "akashic" | "oaths";
   text: string;
   /** For unchained questions: which base class. */
   className?: string;
@@ -265,6 +274,25 @@ export function classifyHeader(raw: string): ClaimKind | null {
   // "essence receptacle(s)" counts; bare \bchakra\b is OUT too (real-world yoga notes) — only
   // "chakra bind(s)".
   if (/\bveils?\b|\bveilweav\w*\b|\bchakra binds?\b|\bakashic\b|\bessence receptacles?\b/.test(t)) return "akashic_veil";
+  // "OATH FEATS" / "OATH BONUS FEATS" sections are FEAT sections (the Bonus Feats oath boon
+  // grants real feats) — they must win BEFORE the oath rule (mirrors the psionic-/martial-/
+  // akashic-feats carve-outs above).
+  if (/\boaths?\b.*\bfeats?\b/.test(t)) return "feat";
+  // CORE (1pp) Paladin/Antipaladin oath vocabulary collides with the 3pp oath word — carve it out
+  // BEFORE the oath rule (mirrors the "Combat Maneuvers → null" / "*FEATS → feat" guards above) so
+  // only the 3pp bookkeeping shapes ("OATHS", "OATH BOONS", "OATH POINTS") reach the oath rule.
+  // "Oath Spells" / "Antipaladin Oath Spells" is the paladin/antipaladin spell list; "Sacred Oath"
+  // and "Oath of <x>" ("Oath of Vengeance", "Oath of Vengeance Class Features") are paladin
+  // class-feature headers — steering a "Spell Resistance"/"Damage Reduction" line beneath them into
+  // oath_boon_compendium (both are real oath-boon names) would mis-file a real spell/class feature.
+  if (/\boath spells?\b/.test(t)) return "spell";
+  if (/\bsacred oaths?\b|\boath of\b/.test(t)) return "feature";
+  // Oath sections ("OATHS", "OATH BOONS", "OATH POINTS") — 3pp oaths. \boaths?\b never matches
+  // mid-word ("OATHBOW" the magic weapon, the "Oathbound Paladin" archetype), and a NUMBERED
+  // label must stay silent: "Oath 2" is the fixtures' slot bookkeeping for feats granted VIA an
+  // oath ("Oath 2) Extra Hex", "Oath 10: Implausible Deniability") — flipping a running context
+  // to oath there would steer real feats into the oath tables.
+  if (/\boaths?\b(?!\s*\d)/.test(t)) return "oath";
   if (/\bclass features?\b|\bki powers?\b|\bclass abilit/.test(t)) return "feature";
   if (/\bfeats?\b/.test(t)) return "feat";
   if (/\btraits?\b/.test(t)) return "trait";
@@ -479,6 +507,13 @@ const AKASHIC_CLASS_NAMES = new Set([
 const AKASHIC_NOTES_RE =
   /\bveils?\s+(?:known|shaped)\b|\bveilweav\w*\b|\bchakra binds?\b|\bessence receptacles?\b|\bakashic\b|^[#=*\s]*veils?\s*:?\s*[#=*\s]*$/im;
 
+/** Oath bookkeeping in the preserved notes dump ("(4 Oath Points)", "Oath Boons", "Oath Points:
+ * 9", or a bare "OATHS" section header on its own line). Deliberately TIGHT like
+ * AKASHIC_NOTES_RE: mid-prose "oath" ("swore an oath of vengeance") and the OATHBOW magic weapon
+ * must not fire — only the points/boons bookkeeping and the header shape do. There is no class
+ * marker: oaths are class-agnostic pacts, so the notes shapes are the whole signal. */
+const OATH_NOTES_RE = /\boath points?\b|\boath boons?\b|^[#=*\s]*oaths?\s*:?\s*[#=*\s]*$/im;
+
 export type ParsedClassSegment = {
   raw: string;
   /** The base class name ("Rogue"), UC prefixes normalized away. */
@@ -638,6 +673,15 @@ export function mineNotesEntries(notesDump: string, cap = 80): MinedReport {
     if (labelValue) {
       context = classifyHeader(labelValue[1]!) ?? context;
       continue;
+    }
+    // OATHS sections list entries WITHOUT bullets, the "(N Oath Points)" cost closing the NAME
+    // half ("Forbidden Knowledge [Death Wish {Greater}] (4 Oath Points)   - bound to seek …").
+    // Under an oath context that cost marker IS the entry signal — keep the name half
+    // (qualifiers kept; entryKeys strips them progressively); the cost + description stay
+    // behind in the preserved notes. Without it the dash-description lines judge as prose.
+    if (context === "oath") {
+      const m = text.match(/^(.{3,60}?)\s*[([](?:\d+|see\s+text)\s*oath\s*points?[)\]]/i);
+      if (m?.[1]) text = m[1].trim();
     }
     // A bulleted "Name: description" / "Name - description" entry ("• Reactionary: +2
     // initiative", "• Umbral Unmasking - she casts a monstrous shadow") — the name half is the
@@ -826,6 +870,25 @@ export function collectProbes(character: PathForgeCharacterV1): ProbeReport {
         id: pid("q-akashic"),
         kind: "akashic",
         text: "Akashic content was detected — enable the module and link veils?",
+        defaultAnswer: true,
+      });
+    }
+  }
+
+  // ── Oaths detection (the akashic detector's mirror, minus the class marker) ─
+  // Oaths are class-agnostic pacts, so there's no class-line signal: the markers are an
+  // adapter-flagged oaths module entry or oath bookkeeping in the notes dump ("(4 Oath
+  // Points)", an "OATHS" section header). The question only ENABLES the module — header context
+  // steering into oath_compendium works regardless of the answer. Already enabled → nothing to
+  // ask (refileLinked files oaths into character.oaths as-is).
+  if (!character.rules.modules.some((m) => m.key === "oaths" && m.enabled)) {
+    const flagged = character.rules.modules.some((m) => m.key === "oaths");
+    const notesHit = OATH_NOTES_RE.test(character.notes.player ?? "");
+    if (flagged || notesHit) {
+      questions.push({
+        id: pid("q-oaths"),
+        kind: "oaths",
+        text: "Oaths were detected — enable the Oaths module and link them?",
         defaultAnswer: true,
       });
     }

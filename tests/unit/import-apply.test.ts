@@ -625,6 +625,191 @@ describe("applyImportResolutions — re-filing across slots", () => {
     expect(sheet.spellcasting.knownSpells).toHaveLength(0); // moved, not duplicated or dropped
   });
 
+  // Track A's `character.oaths` block shape (oathsBlockSchema), pinned for these tests exactly
+  // like import-apply.ts pins it — the dynamic safeParse below validates against the REAL schema
+  // automatically once Track A lands it.
+  type OathsBlockShape = {
+    oaths: { id: string; name: string; compendiumId?: string; points: number; oathText?: string; defiancePenalty?: string; atonement?: string; notes?: string }[];
+    boons: { id: string; name: string; compendiumId?: string; cost: number; boonType?: string; description?: string; notes?: string }[];
+    bonusPoints: number;
+    notes?: string;
+  };
+  const oathsOf = (sheet: PathForgeCharacterV1) => (sheet as PathForgeCharacterV1 & { oaths?: OathsBlockShape }).oaths;
+  const oathClaim = (id: string, table: string, slug: string, name: string, over: Partial<ImportClaim> = {}): ImportClaim => ({
+    id,
+    kind: "oath",
+    sourceKind: "trait",
+    sourceText: name,
+    sourceLabel: "Text area 1",
+    matchKey: name,
+    candidates: [{ table, slug, name: name.replace(/\s*\[[^\]]*\]\s*$/, ""), match: "exact" }],
+    confidence: "high",
+    resolution: { mode: "linked", table, slug },
+    mined: true,
+    ...over,
+  });
+  const OATH_TABLES = {
+    oath_compendium: [
+      {
+        slug: "forbidden-knowledge",
+        name: "Forbidden Knowledge",
+        oath_points: "see text", // the REAL prod cost for this row — non-numeric parses to 1 + notes
+        oath: "The secrets you carry weigh heavy on you.<br><br>You are constantly affected by a severance.",
+        defiance_penalty: "Erase it from your mind.",
+        atonement: "Rediscover what was lost.",
+      },
+      {
+        slug: "oath-against-artifice",
+        name: "Oath against Artifice",
+        oath_points: "2",
+        oath: "Refuse technology, firearms, constructs.",
+      },
+    ],
+    oath_boon_compendium: [
+      {
+        slug: "immortality",
+        name: "Immortality",
+        oath_point_cost: "2",
+        type: "Ex",
+        description: "You no longer age.<br>You cannot die of old age.",
+      },
+      {
+        // The ONLY genuinely 0-cost row in prod oath_boon_compendium — a free downside boon.
+        slug: "on-pain-of-death",
+        name: "On Pain of Death",
+        oath_point_cost: "0",
+        description: "Breaking your oath becomes fatal.",
+      },
+    ],
+  };
+
+  it("oaths YES → module enabled + oaths/boons re-file into character.oaths with parsed costs", async () => {
+    const sheet = createDefaultCharacter();
+    const q: ImportQuestion = { id: "q-oath", kind: "oaths", text: "enable Oaths?", defaultAnswer: true };
+    const sb = fakeSb(OATH_TABLES);
+    const claims = [
+      oathClaim("c-o1", "oath_compendium", "forbidden-knowledge", "Forbidden Knowledge [Death Wish {Greater}]"),
+      oathClaim("c-o2", "oath_compendium", "oath-against-artifice", "Oath against Artifice"),
+      oathClaim("c-b1", "oath_boon_compendium", "immortality", "Immortality (Ex)"),
+    ];
+    const report = await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-oath": true } });
+    expect(sheet.rules.modules.some((m) => m.key === "oaths" && m.enabled)).toBe(true);
+    const blk = oathsOf(sheet)!;
+    expect(blk).toBeTruthy();
+    const fk = blk.oaths.find((o) => o.name === "Forbidden Knowledge")!;
+    // "see text" is not a trustworthy integer — points default 1 and the raw cost is preserved.
+    expect(fk).toMatchObject({
+      compendiumId: "3pp:forbidden-knowledge",
+      points: 1,
+      notes: "Oath point cost: see text",
+      defiancePenalty: "Erase it from your mind.",
+      atonement: "Rediscover what was lost.",
+    });
+    // "<br>" rich text → the same plain-text shape the psionics/pow/akashic paths cache.
+    expect(fk.oathText).toBe("The secrets you carry weigh heavy on you.\n\nYou are constantly affected by a severance.");
+    expect(JSON.stringify(fk)).not.toContain("<br>");
+    const artifice = blk.oaths.find((o) => o.name === "Oath against Artifice")!;
+    expect(artifice).toMatchObject({ compendiumId: "3pp:oath-against-artifice", points: 2 });
+    expect(artifice.notes).toBeUndefined();
+    const boon = blk.boons.find((b) => b.name === "Immortality")!;
+    expect(boon).toMatchObject({ compendiumId: "3pp:immortality", cost: 2, boonType: "Ex" });
+    expect(boon.description).toBe("You no longer age.\nYou cannot die of old age.");
+    expect(report.applied.some((a) => a.includes("Oaths module enabled"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Oath: Forbidden Knowledge (found in Text area 1)"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Oath boon: Immortality (found in Text area 1)"))).toBe(true);
+    // The constructed block satisfies the Track-A schema once it exists (skipped until it lands).
+    const schemaMod = (await import("@pathforge/schema")) as Record<string, unknown>;
+    const oathsSchema = schemaMod.oathsBlockSchema as { safeParse: (v: unknown) => { success: boolean } } | undefined;
+    if (oathsSchema) expect(oathsSchema.safeParse(blk).success).toBe(true);
+    // Re-applying the same claims dedups by compendiumId — no duplicate oaths/boons.
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-oath": true } });
+    expect(oathsOf(sheet)!.oaths).toHaveLength(2);
+    expect(oathsOf(sheet)!.boons).toHaveLength(1);
+  });
+
+  it("a genuinely 0-cost boon ('On Pain of Death') imports as cost 0 with NO note (matches the editor)", async () => {
+    // Regression: parseOathCost used to reject a bare "0" and coerce it to 1 + a nonsense note,
+    // diverging from the schema's parseOathPoints (which the editor uses). "0" must yield cost 0.
+    const sheet = createDefaultCharacter();
+    const q: ImportQuestion = { id: "q-oath", kind: "oaths", text: "enable Oaths?", defaultAnswer: true };
+    const sb = fakeSb(OATH_TABLES);
+    const claims = [oathClaim("c-b0", "oath_boon_compendium", "on-pain-of-death", "On Pain of Death")];
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-oath": true } });
+    const boon = oathsOf(sheet)!.boons.find((b) => b.name === "On Pain of Death")!;
+    expect(boon).toMatchObject({ compendiumId: "3pp:on-pain-of-death", cost: 0 });
+    expect(boon.notes).toBeUndefined();
+  });
+
+  it("oaths NO → module stays off and the oath falls back to a features entry (never dropped)", async () => {
+    const sheet = createDefaultCharacter();
+    const q: ImportQuestion = { id: "q-oath", kind: "oaths", text: "enable Oaths?", defaultAnswer: true };
+    const sb = fakeSb(OATH_TABLES);
+    const claims = [
+      oathClaim("c-o1", "oath_compendium", "forbidden-knowledge", "Forbidden Knowledge"),
+      oathClaim("c-b1", "oath_boon_compendium", "immortality", "Immortality (Ex)"),
+    ];
+    await applyImportResolutions(sb, sheet, claims, [q], { questions: { "q-oath": false } });
+    expect(sheet.rules.modules.some((m) => m.key === "oaths" && m.enabled)).toBe(false);
+    expect(oathsOf(sheet)?.oaths.length ?? 0).toBe(0);
+    const oathFeature = sheet.features.list.find((f) => f.name === "Forbidden Knowledge");
+    expect(oathFeature).toMatchObject({ category: "special_ability", compendiumId: "3pp:forbidden-knowledge" });
+    expect(oathFeature!.description).toContain("The secrets you carry weigh heavy on you.");
+    const boonFeature = sheet.features.list.find((f) => f.name === "Immortality");
+    expect(boonFeature).toMatchObject({ category: "special_ability", compendiumId: "3pp:immortality" });
+  });
+
+  it("3pp Drawbacks & Flaws rows file into traits.list with category-derived type tags", async () => {
+    const sheet = createDefaultCharacter();
+    const dbClaim = (id: string, slug: string, name: string): ImportClaim => ({
+      id,
+      kind: "drawback",
+      sourceKind: "trait",
+      sourceText: name,
+      sourceLabel: "Flaws field",
+      matchKey: name,
+      candidates: [{ table: "threepp_drawback_compendium", slug, name: name.replace(/\s*\([^)]*\)\s*$/, ""), match: "exact" }],
+      confidence: "high",
+      resolution: { mode: "linked", table: "threepp_drawback_compendium", slug },
+      mined: true,
+    });
+    const sb = fakeSb({
+      threepp_drawback_compendium: [
+        {
+          slug: "noncombatant-flaw",
+          name: "Noncombatant",
+          category: "flaw",
+          effect: "You take a -2 penalty on all melee attack rolls.",
+          bonus_granted: "",
+        },
+        {
+          slug: "nonathletic-major-drawback",
+          name: "Nonathletic",
+          category: "major_drawback",
+          effect: "-2 on Strength-based checks; cannot take 10.<br>-1 CMD.",
+          bonus_granted: "An additional trait.",
+        },
+      ],
+    });
+    const report = await applyImportResolutions(
+      sb,
+      sheet,
+      [dbClaim("c-f", "noncombatant-flaw", "Noncombatant (flaw)"), dbClaim("c-d", "nonathletic-major-drawback", "Nonathletic (major drawback)")],
+      [],
+      {},
+    );
+    // No module question was needed — 3pp flaws land in traits.list either way (the
+    // flaws_drawbacks module gates engine/editor depth, not the link).
+    const flaw = sheet.traits.list.find((t) => t.name === "Noncombatant")!;
+    expect(flaw).toMatchObject({ type: "flaw", compendiumId: "3pp:noncombatant-flaw" });
+    expect(flaw.description).toContain("You take a -2 penalty on all melee attack rolls.");
+    const major = sheet.traits.list.find((t) => t.name === "Nonathletic")!;
+    expect(major).toMatchObject({ type: "drawback", compendiumId: "3pp:nonathletic-major-drawback" });
+    expect(major.description).toContain("Bonus granted: An additional trait.");
+    expect(major.description).not.toContain("<br>");
+    expect(report.applied.some((a) => a.includes("Flaw: Noncombatant (found in Flaws field)"))).toBe(true);
+    expect(report.applied.some((a) => a.includes("Drawback: Nonathletic (found in Flaws field)"))).toBe(true);
+  });
+
   it("normalizes '<br>' compendium text, refuses variant PP costs, and reads the junction level", async () => {
     const sheet = createDefaultCharacter();
     sheet.rules.modules.push({ key: "psionics", enabled: true, settings: {} });

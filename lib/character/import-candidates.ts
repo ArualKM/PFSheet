@@ -137,6 +137,45 @@ const TABLES: Record<string, TableCfg> = {
     // stay AMBIGUOUS for the player's selector.
     group: (r) => S(r.slot) || undefined,
   },
+  oath_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_oath_compendium",
+    select: "slug,name,oath_points,source",
+    // oath_points is text ("1"–"10" or "see text") — shown as-is when non-numeric.
+    meta: (r) => {
+      const pts = S(r.oath_points).trim();
+      const cost = pts ? (/^\d+$/.test(pts) ? `${pts} oath point${pts === "1" ? "" : "s"}` : `oath points: ${pts}`) : "";
+      return ["Oath", cost, S(r.source)].filter(Boolean).join(" · ");
+    },
+  },
+  oath_boon_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_oath_boon_compendium",
+    select: "slug,name,oath_point_cost,type,source",
+    meta: (r) =>
+      ["Oath boon", S(r.type), S(r.oath_point_cost).trim() ? `${S(r.oath_point_cost).trim()} pts` : "", S(r.source)]
+        .filter(Boolean)
+        .join(" · "),
+    // Boon types (Ex/Su) aren't sheet-linked entities the way classes/paths/races are — no
+    // demotion guard applies (mirrors pow disciplines); the group only informs same-name ties,
+    // which stay AMBIGUOUS for the player's selector.
+    group: (r) => S(r.type) || undefined,
+  },
+  threepp_drawback_compendium: {
+    label: "name",
+    key: "slug",
+    rpc: "search_threepp_drawback_compendium",
+    select: "slug,name,category,source",
+    meta: (r) =>
+      [S(r.category) === "major_drawback" ? "Major drawback" : S(r.category) === "flaw" ? "Flaw" : S(r.category), S(r.source)]
+        .filter(Boolean)
+        .join(" · "),
+    // Categories (flaw / major_drawback) aren't sheet-linked entities — no demotion guard
+    // applies; the group only informs same-name ties for the selector.
+    group: (r) => S(r.category) || undefined,
+  },
   mythic_path_ability_compendium: {
     label: "name",
     key: "slug",

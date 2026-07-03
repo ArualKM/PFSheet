@@ -214,12 +214,75 @@ describe("classifyHeader — sheet organization as matching signal", () => {
     expect(classifyHeader("ESSENCE RECEPTACLES")).toBe("akashic_veil");
   });
 
+  it("Oath headers steer to oath — below the drawback/mythic/psionic/sphere/pow/akashic rules", () => {
+    expect(classifyHeader("OATHS")).toBe("oath");
+    expect(classifyHeader("################# OATHS #################")).toBe("oath");
+    expect(classifyHeader("OATH BOONS")).toBe("oath");
+    expect(classifyHeader("Oath Boons:")).toBe("oath");
+    expect(classifyHeader("Oath Points:")).toBe("oath");
+    expect(classifyHeader("OATHS (9 points)")).toBe("oath"); // parenthetical asides stripped
+    // The higher rules still outrank oath (matching the psionic/pow/akashic precedence chain).
+    expect(classifyHeader("MYTHIC OATHS")).toBe("mythic_ability");
+    expect(classifyHeader("OATH DRAWBACKS")).toBe("drawback");
+  });
+
+  it("'OATH FEATS' classifies as feat (carve-out); OATHBOW / Oathbound / numbered labels stay silent", () => {
+    // The Bonus Feats oath boon grants REAL feats — an "OATH FEATS" section lists feats.
+    expect(classifyHeader("OATH FEATS")).toBe("feat");
+    expect(classifyHeader("Oath Bonus Feats:")).toBe("feat");
+    // \boaths?\b never matches mid-word: the OATHBOW magic weapon, the Oathbound Paladin.
+    expect(classifyHeader("OATHBOW")).toBeNull();
+    expect(classifyHeader("Oathbound Paladin")).toBeNull();
+    // A NUMBERED oath label is slot bookkeeping for feats granted VIA an oath ("Oath 2) Extra
+    // Hex", "Oath 10: Implausible Deniability") — it must never flip a section to oath context.
+    expect(classifyHeader("Oath 2")).toBeNull();
+    expect(classifyHeader("Oath 10")).toBeNull();
+    // …while the real section vocabulary keeps classifying.
+    expect(classifyHeader("OATHS")).toBe("oath");
+  });
+
+  it("CORE paladin/antipaladin oath vocabulary is carved out ABOVE the oath rule", () => {
+    // "Oath Spells" is the paladin/antipaladin spell list — steer it to spell, not oath.
+    expect(classifyHeader("Oath Spells")).toBe("spell");
+    expect(classifyHeader("Antipaladin Oath Spells")).toBe("spell");
+    expect(classifyHeader("##### Oath Spells #####")).toBe("spell");
+    // "Sacred Oath" / "Oath of <x>" are paladin class-feature headers, NOT 3pp oath sections.
+    expect(classifyHeader("Sacred Oath")).toBe("feature");
+    expect(classifyHeader("Oath of Vengeance")).toBe("feature");
+    expect(classifyHeader("Oath of Vengeance Class Features")).toBe("feature");
+    // …while the 3pp bookkeeping shapes STILL classify as oath (the Vehti/Anise fixtures rely on it).
+    expect(classifyHeader("OATHS")).toBe("oath");
+    expect(classifyHeader("################# OATHS #################")).toBe("oath");
+    expect(classifyHeader("OATH BOONS")).toBe("oath");
+    expect(classifyHeader("OATH POINTS")).toBe("oath");
+  });
+
+  it("a 'Spell Resistance' line under a 'Sacred Oath' header does NOT carry oath context", () => {
+    // Prod oath_boon_compendium has rows literally named "Spell Resistance" / "Damage Reduction";
+    // both are ALSO a real spell / class feature. Under a false "oath" context the line would
+    // probe oath_boon_compendium first and auto-link there, mis-filing the real spell/feature.
+    const mined = mineNotesEntries(
+      ["## Sacred Oath", "- Spell Resistance", "- Damage Reduction"].join("\n"),
+    );
+    const sr = mined.entries.find((e) => e.text === "Spell Resistance");
+    expect(sr).toBeTruthy();
+    expect(sr!.context).not.toBe("oath"); // the header is a paladin class feature, not a 3pp oath
+    // A real "OATHS" bookkeeping header still establishes oath context (fixtures rely on it).
+    const oathMined = mineNotesEntries(["## OATHS", "Oath of Candor (1 Oath Point)"].join("\n"));
+    expect(oathMined.entries.some((e) => e.context === "oath")).toBe(true);
+  });
+
   it("context re-orders a probe's tables", () => {
     expect(probeTables({ kind: "spell", context: "sphere_talent" })[0]).toBe("sphere_talents");
     expect(probeTables({ kind: "trait", context: "mythic_ability" })[0]).toBe("mythic_path_ability_compendium");
     expect(probeTables({ kind: "spell", context: "psionic_power" })[0]).toBe("psionic_power_compendium");
     expect(probeTables({ kind: "feat", context: "pow_maneuver" })[0]).toBe("pow_maneuver_compendium");
     expect(probeTables({ kind: "feat", context: "akashic_veil" })[0]).toBe("akashic_veil_compendium");
+    expect(probeTables({ kind: "trait", context: "oath" }).slice(0, 2)).toEqual(["oath_compendium", "oath_boon_compendium"]);
+    expect(probeTables({ kind: "trait", context: "drawback" }).slice(0, 2)).toEqual([
+      "drawback_compendium",
+      "threepp_drawback_compendium",
+    ]);
     expect(probeTables({ kind: "feat" })[0]).toBe("feat_compendium");
   });
 });
@@ -385,6 +448,13 @@ describe("collectProbes on the real Anise fixture", () => {
     // requirement: the detector stays silent, mirroring path_of_war).
     expect(kinds).not.toContain("akashic");
     expect(report.probes.some((p) => p.context === "akashic_veil")).toBe(false);
+    // The oaths detector DOES fire — Anise's own __txt_text1/__txt_text2 carry the same
+    // "################# OATHS #################" / "OATH BOONS" sections Vehti has (Forbidden
+    // Knowledge, Oath of Candor, Oath of Loyalty [Betoros] — the owner's campaign uses the 3pp
+    // oath system on BOTH grounding fixtures). The fixture is the ground truth: a sheet with a
+    // literal OATHS section should be asked about the Oaths module.
+    expect(kinds).toContain("oaths");
+    expect(report.probes.some((p) => p.context === "oath")).toBe(true);
     expect(report.questions.find((q) => q.kind === "unchained")?.defaultAnswer).toBe(true); // UC prefix
   });
 });
@@ -610,6 +680,47 @@ describe("Akashic detector — the Path of War detector's exact mirror", () => {
     const c = createDefaultCharacter();
     c.rules.modules.push({ key: "akashic", enabled: false, settings: {} });
     expect(collectProbes(c).questions.some((x) => x.kind === "akashic")).toBe(true);
+  });
+});
+
+describe("Oaths detector — the akashic detector's mirror, minus the class marker", () => {
+  const mk = (notes: string) => {
+    const c = createDefaultCharacter();
+    c.notes.player = `# Imported from Myth-Weavers\n\n## Notes field\n${notes}`;
+    return collectProbes(c).questions.some((x) => x.kind === "oaths");
+  };
+
+  it("asks on oath bookkeeping in the notes dump", () => {
+    expect(mk("Forbidden Knowledge (4 Oath Points)")).toBe(true);
+    expect(mk("Oath Points: 9")).toBe(true);
+    expect(mk("Oath Boons: Immortality, Bonus Feats")).toBe(true);
+    // A bare "OATHS" section header on its own line is the strongest marker.
+    expect(mk("OATHS:\nOath of Candor (1 Oath Point)")).toBe(true);
+    expect(mk("################# OATHS #################\nOath of Candor (1 Oath Point)")).toBe(true);
+  });
+
+  it("stays quiet on mid-prose oaths, the OATHBOW, and numbered slot labels", () => {
+    // Oaths are class-agnostic — there is deliberately NO class marker, so the notes shapes
+    // must stay TIGHT: sworn-oath prose, the magic weapon, and "Oath N)" feat-slot bookkeeping
+    // (feats granted VIA an oath) never enable the module.
+    expect(mk("She swore an oath of vengeance before the court.")).toBe(false);
+    expect(mk("Loyal to her oath of silence and her order.")).toBe(false);
+    expect(mk("Weapons: +2 Oathbow, cold iron dagger")).toBe(false);
+    expect(mk("Oath 10: Implausible Deniability")).toBe(false);
+    expect(mk("Oathbound Paladin (archetype)")).toBe(false);
+  });
+
+  it("stays quiet when the module is already enabled", () => {
+    const on = createDefaultCharacter();
+    on.notes.player = "# Imported from Myth-Weavers\n\n## Notes field\nOATHS:\nOath of Candor (1 Oath Point)";
+    on.rules.modules.push({ key: "oaths", enabled: true, settings: {} });
+    expect(collectProbes(on).questions.some((x) => x.kind === "oaths")).toBe(false);
+  });
+
+  it("asks when the module entry is present but disabled (adapter-flagged)", () => {
+    const c = createDefaultCharacter();
+    c.rules.modules.push({ key: "oaths", enabled: false, settings: {} });
+    expect(collectProbes(c).questions.some((x) => x.kind === "oaths")).toBe(true);
   });
 });
 

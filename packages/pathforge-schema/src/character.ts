@@ -23,6 +23,8 @@ import { psionicsBlockSchema } from "./psionics";
 import { spheresBlockSchema } from "./spheres";
 import { pathOfWarBlockSchema } from "./path-of-war";
 import { akashicBlockSchema } from "./akashic";
+import { oathsBlockSchema } from "./oaths";
+import { backgroundOccupationBlockSchema } from "./background-occupation";
 import { milestoneLevelingBlockSchema } from "./milestone-leveling";
 import { companionBlockSchema } from "./companion";
 import {
@@ -73,6 +75,8 @@ export const pathForgeCharacterV1Schema = z.object({
   spheres: spheresBlockSchema.optional(),
   pathOfWar: pathOfWarBlockSchema.optional(),
   akashic: akashicBlockSchema.optional(),
+  oaths: oathsBlockSchema.optional(),
+  backgroundOccupation: backgroundOccupationBlockSchema.optional(),
   milestoneLeveling: milestoneLevelingBlockSchema.optional(),
   /** Present on companion characters (familiar / animal companion / …): compendium linkage,
    * familiar archetype, and the cached master stats the engine's master-link rules read. */

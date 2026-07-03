@@ -62,6 +62,7 @@ const DEFAULT_SECTION_PRIVACY: Record<string, PrivacyLevel> = {
   psionics: "public",
   pathOfWar: "public",
   akashic: "public",
+  oaths: "public",
   milestoneLeveling: "public",
   companion: "public",
   formulaDetails: "public",
@@ -99,6 +100,7 @@ const SECTION_LABELS: Record<string, string> = {
   psionics: "Psionics",
   pathOfWar: "Path of War",
   akashic: "Akashic",
+  oaths: "Oaths",
   milestoneLeveling: "Milestone Leveling",
   companion: "Companion link",
   backstory: "Backstory & profile",
@@ -432,6 +434,26 @@ export type CharacterViewModel = {
   pathOfWar: PathOfWarView | null;
   /** Akashic veilweaving roll-up (null unless the module is enabled). */
   akashic: AkashicView | null;
+  /** Oath-point budget roll-up (null unless the module is enabled). Budget numbers + oath/boon
+   * names are viewer-safe within the section gate; the long rules text (oathText / defiancePenalty /
+   * atonement / description) and notes stay owner-only — the psionics/PoW/akashic tiering. */
+  oaths: {
+    pointsEarned: number;
+    pointsSpent: number;
+    available: number;
+    oathCount: number;
+    boonCount: number;
+    warnings: string[];
+    oaths: Array<{
+      name: string;
+      points: number;
+      oathText?: string;
+      defiancePenalty?: string;
+      atonement?: string;
+      notes?: string;
+    }>;
+    boons: Array<{ name: string; cost: number; boonType?: string; description?: string; notes?: string }>;
+  } | null;
   /** XP advancement (owner view only; null when milestone leveling replaces XP or nothing's set). */
   advancement: {
     currentXp?: number;
@@ -491,6 +513,9 @@ export type CharacterViewModel = {
     hair?: string;
     eyes?: string;
     distinguishingFeatures?: string;
+    /** 3pp background & occupation — names viewer-safe under the backstory gate; detail owner-only. */
+    background?: { name: string; description?: string };
+    occupation?: { name: string; benefit?: string; grantedFeat?: string; description?: string };
   } | null;
   inventory: {
     items: Array<{
@@ -663,6 +688,7 @@ export function buildCharacterViewModel(
 
   const ap = character.profile.appearance;
   const pe = character.profile.personality;
+  const bo = character.backgroundOccupation;
   const profile = gate("backstory", {
     backstory: character.profile.backstory,
     appearance: ap.description,
@@ -681,6 +707,30 @@ export function buildCharacterViewModel(
     hair: ap.hair,
     eyes: ap.eyes,
     distinguishingFeatures: ap.distinguishingFeatures,
+    // 3pp background & occupation ride the same backstory gate (no separate privacy section):
+    // names are viewer-safe within it, the long compendium text stays owner-only.
+    ...(bo?.background?.name
+      ? {
+          background: {
+            name: bo.background.name,
+            ...(isOwnerView && bo.background.description ? { description: bo.background.description } : {}),
+          },
+        }
+      : {}),
+    ...(bo?.occupation?.name
+      ? {
+          occupation: {
+            name: bo.occupation.name,
+            ...(isOwnerView
+              ? {
+                  benefit: bo.occupation.benefit,
+                  grantedFeat: bo.occupation.grantedFeat,
+                  description: bo.occupation.description,
+                }
+              : {}),
+          },
+        }
+      : {}),
   });
 
   const inventorySource = [
@@ -1055,6 +1105,33 @@ export function buildCharacterViewModel(
             effect: isOwnerView ? v.effect : undefined,
             bindEffect: isOwnerView ? v.bindEffect : undefined,
             notes: isOwnerView ? v.notes : undefined,
+          })),
+        })
+      : null,
+    oaths: computed.summary.oaths
+      ? gate("oaths", {
+          pointsEarned: computed.summary.oaths.pointsEarned,
+          pointsSpent: computed.summary.oaths.pointsSpent,
+          available: computed.summary.oaths.available,
+          oathCount: computed.summary.oaths.oathCount,
+          boonCount: computed.summary.oaths.boonCount,
+          warnings: computed.summary.oaths.warnings,
+          // Names + point values are viewer-safe within the gate (like a spell's cached meta);
+          // the long 3pp rules text + notes stay owner-only (the psionics/PoW/akashic tiering).
+          oaths: (character.oaths?.oaths ?? []).map((o) => ({
+            name: o.name,
+            points: o.points,
+            oathText: isOwnerView ? o.oathText : undefined,
+            defiancePenalty: isOwnerView ? o.defiancePenalty : undefined,
+            atonement: isOwnerView ? o.atonement : undefined,
+            notes: isOwnerView ? o.notes : undefined,
+          })),
+          boons: (character.oaths?.boons ?? []).map((b) => ({
+            name: b.name,
+            cost: b.cost,
+            boonType: b.boonType,
+            description: isOwnerView ? b.description : undefined,
+            notes: isOwnerView ? b.notes : undefined,
           })),
         })
       : null,

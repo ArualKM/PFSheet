@@ -162,6 +162,26 @@ export const OPTIONAL_RULE_MODULES: OptionalRuleModule[] = [
     description: "Veils, essence investment, and akashic binds/chakras.",
   },
   {
+    key: "oaths",
+    name: "Oaths",
+    group: "thirdparty",
+    publisher: "Drop Dead Studios",
+    description: "Sworn oaths that earn Oath points, spent on oath boons (a Spheres of Power optional rule).",
+  },
+  {
+    key: "flaws_drawbacks",
+    name: "Drawbacks & Flaws",
+    group: "thirdparty",
+    description:
+      "Character flaws (3.5 SRD variant) and third-party major drawbacks taken in exchange for an extra feat or trait, tracked with your traits.",
+  },
+  {
+    key: "backgrounds_occupations",
+    name: "Backgrounds & Occupations",
+    group: "thirdparty",
+    description: "A general background plus an occupation granting class-skill picks and sometimes a bonus feat.",
+  },
+  {
     key: "elephant",
     name: "Elephant in the Room (feat tax)",
     group: "thirdparty",
@@ -205,6 +225,9 @@ const IMPLEMENTED_MODULE_KEYS = new Set<string>([
   "spheres_of_guile",
   "path_of_war",
   "akashic",
+  "oaths",
+  "flaws_drawbacks",
+  "backgrounds_occupations",
 ]);
 
 /** Whether a module is offered as a toggle but its system isn't built yet ("Coming soon"). */

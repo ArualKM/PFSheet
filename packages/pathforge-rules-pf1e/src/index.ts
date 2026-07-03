@@ -61,6 +61,10 @@ export type { PathOfWarSummary, PathOfWarInitiatorSummary, PathOfWarResolver } f
 export { computeAkashic, akashicCapacityCap, akashicEssencePool } from "./akashic";
 export type { AkashicSummary, AkashicClassSummary, AkashicShapedSummary, AkashicResolver } from "./akashic";
 
+// Oaths (3pp Phase 6) — the Oath-point budget
+export { computeOaths } from "./oaths";
+export type { OathsSummary } from "./oaths";
+
 // Buff Center helpers
 export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
 export type { StackingConflict, BuffDeltaRow } from "./buffs";

@@ -37,6 +37,7 @@ import { getSizeModifiers } from "./sizes";
 import { conditionEffects } from "./conditions";
 import { computePathOfWar, highestInitiatorLevel, type PathOfWarSummary } from "./path-of-war";
 import { computeAkashic, akashicEssencePool, type AkashicSummary } from "./akashic";
+import { computeOaths, type OathsSummary } from "./oaths";
 
 /* -------------------------------------------------------------------------- */
 /* Ability modifiers                                                          */
@@ -909,6 +910,8 @@ export type ComputedCharacter = {
     pathOfWar?: PathOfWarSummary;
     /** Akashic veilweaving roll-up (absent unless the module is enabled). */
     akashic?: AkashicSummary;
+    /** Oath-point budget (absent unless the module is enabled). */
+    oaths?: OathsSummary;
     /** Milestone-leveling tracker (absent unless the module is enabled). Replaces XP. The level is the
      * character's class level; the milestone total tells you when the next level is earned. */
     milestoneLeveling?: {
@@ -1412,6 +1415,9 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // its DC evals.
   const akashic = computeAkashic(character, abilities, resolver);
 
+  // Oath-point budget (earned vs spent on boons) — pure sheet arithmetic, warn-only.
+  const oaths = computeOaths(character);
+
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
     const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
@@ -1547,6 +1553,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       spheres,
       pathOfWar,
       akashic,
+      oaths,
       milestoneLeveling,
       companion,
     },

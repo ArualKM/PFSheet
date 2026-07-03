@@ -18,6 +18,7 @@ import {
   Flag,
   Target,
   Meditation,
+  Handshake,
   GameIcon,
   itemIconName,
 } from "@/components/ui/game-icons";
@@ -451,6 +452,8 @@ export function CharacterDashboard({
 
           {vm.profile &&
             (vm.profile.backstory ||
+              vm.profile.background ||
+              vm.profile.occupation ||
               vm.profile.appearance ||
               vm.profile.personality ||
               vm.profile.ideals ||
@@ -465,9 +468,21 @@ export function CharacterDashboard({
               vm.profile.family) && (
             <SectionCard title="Background" icon={ScrollText}>
               <div className="space-y-2 text-sm text-muted-foreground">
+                {(vm.profile.background || vm.profile.occupation) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {vm.profile.background && (
+                      <Badge variant="outline">Background: {vm.profile.background.name}</Badge>
+                    )}
+                    {vm.profile.occupation && (
+                      <Badge variant="outline">Occupation: {vm.profile.occupation.name}</Badge>
+                    )}
+                  </div>
+                )}
                 {vm.profile.backstory && <p className="whitespace-pre-line">{vm.profile.backstory}</p>}
                 {(
                   [
+                    ["Background", vm.profile.background?.description],
+                    ["Occupation", vm.profile.occupation?.description],
                     ["Appearance", vm.profile.appearance],
                     ["Personality", vm.profile.personality],
                     ["Ideals & flaws", vm.profile.ideals],
@@ -766,6 +781,87 @@ export function CharacterDashboard({
                   )}
                 </div>
                 {/* The veils list itself renders as its own main-column card (shaped + known). */}
+              </div>
+            </SectionCard>
+          )}
+          {vm.oaths && (
+            <SectionCard title="Oaths" icon={Handshake}>
+              <div className="space-y-1.5 text-sm">
+                <div className="text-muted-foreground">
+                  Oath points{" "}
+                  <span
+                    className={cn(
+                      "tnum font-semibold",
+                      vm.oaths.available < 0 ? "text-warning" : "text-rune",
+                    )}
+                  >
+                    {vm.oaths.available}
+                  </span>{" "}
+                  free ·{" "}
+                  <span className="tnum text-foreground">
+                    {vm.oaths.pointsSpent}/{vm.oaths.pointsEarned}
+                  </span>{" "}
+                  spent
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                  <span>
+                    {vm.oaths.oathCount} oath{vm.oaths.oathCount === 1 ? "" : "s"}
+                  </span>
+                  <span>
+                    {vm.oaths.boonCount} boon{vm.oaths.boonCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                {(vm.oaths.oaths.length > 0 || vm.oaths.boons.length > 0) && (
+                  <div className="space-y-1.5 pt-0.5">
+                    {vm.oaths.oaths.map((o, i) => (
+                      <EntryDetailRow
+                        key={`oath-${i}`}
+                        name={o.name || "Unnamed oath"}
+                        badges={
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            +{o.points} pt
+                          </Badge>
+                        }
+                        details={
+                          o.oathText || o.defiancePenalty || o.atonement || o.notes ? (
+                            <>
+                              <DetailPara label="Oath" value={o.oathText} />
+                              <DetailPara label="Defiance" value={o.defiancePenalty} />
+                              <DetailPara label="Atonement" value={o.atonement} />
+                              <DetailPara label="Notes" value={o.notes} tone="gold" />
+                            </>
+                          ) : undefined
+                        }
+                      />
+                    ))}
+                    {vm.oaths.boons.map((b, i) => (
+                      <EntryDetailRow
+                        key={`boon-${i}`}
+                        name={b.name || "Unnamed boon"}
+                        badges={
+                          <>
+                            <Badge variant="outline" className="shrink-0 text-[10px]">
+                              −{b.cost} pt
+                            </Badge>
+                            {b.boonType && (
+                              <Badge variant="gold" className="shrink-0 text-[10px]">
+                                {b.boonType}
+                              </Badge>
+                            )}
+                          </>
+                        }
+                        details={
+                          b.description || b.notes ? (
+                            <>
+                              <DetailPara value={b.description} />
+                              <DetailPara label="Notes" value={b.notes} tone="gold" />
+                            </>
+                          ) : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </SectionCard>
           )}

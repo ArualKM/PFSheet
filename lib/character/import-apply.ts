@@ -2,6 +2,7 @@ import {
   isGestalt,
   gestaltLevel,
   parseVeilSlots,
+  parseOathPoints,
   recomputeClassDerived,
   MYTHIC_PATHS,
   type PathForgeCharacterV1,
@@ -60,6 +61,40 @@ export type ClaimAnswers = {
 export type ApplyReport = {
   applied: string[];
   warnings: string[];
+};
+
+/* Track A's `character.oaths` block (packages/pathforge-schema `oathsBlockSchema`) — the shape
+ * is PINNED here so the import apply ships independently of the schema landing order (3pp
+ * Phase 6 runs as parallel tracks). Once the schema exports the block, the intersection cast
+ * below stays type-compatible; a shape drift fails typecheck loudly instead of corrupting
+ * sheet_data. */
+type ImportOathEntry = {
+  id: string;
+  name: string;
+  compendiumId?: string;
+  /** Oath-point value (int ≥ 1); a non-numeric cost ("see text") parses to 1 + raw into notes. */
+  points: number;
+  oathText?: string;
+  defiancePenalty?: string;
+  atonement?: string;
+  notes?: string;
+  custom?: boolean;
+};
+type ImportOathBoon = {
+  id: string;
+  name: string;
+  compendiumId?: string;
+  cost: number;
+  boonType?: string;
+  description?: string;
+  notes?: string;
+  custom?: boolean;
+};
+type ImportOathsBlock = {
+  oaths: ImportOathEntry[];
+  boons: ImportOathBoon[];
+  bonusPoints: number;
+  notes?: string;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,6 +178,17 @@ export async function applyImportResolutions(
       if (existing) existing.enabled = true;
       else sheet.rules.modules.push({ key: "akashic", enabled: true, settings: {} });
       applied.push("Akashic module enabled");
+    }
+  }
+  // Oaths: YES enables the module (linked oaths/boons then re-file into character.oaths);
+  // NO changes nothing — linked oaths fall back to plain features (akashic-mirror, never drop).
+  const oathsQ = questions.find((q) => q.kind === "oaths");
+  if (oathsQ && answerOf(oathsQ)) {
+    const existing = sheet.rules.modules.find((m) => m.key === "oaths");
+    if (!existing?.enabled) {
+      if (existing) existing.enabled = true;
+      else sheet.rules.modules.push({ key: "oaths", enabled: true, settings: {} });
+      applied.push("Oaths module enabled");
     }
   }
 
@@ -574,6 +620,109 @@ export async function applyImportResolutions(
     }
   };
 
+  /** The sheet with Track A's optional `character.oaths` block (shape pinned above). */
+  const oathsHost = sheet as PathForgeCharacterV1 & { oaths?: ImportOathsBlock };
+  /** `oath_points` / `oath_point_cost` are text ("0"–"10" or "see text"). Delegate to the schema's
+   * canonical parseOathPoints so the import add-path and the editor's boon picker agree on real
+   * compendium data — a bare non-negative integer (incl. "0", e.g. the genuinely free "On Pain of
+   * Death" boon) is trusted as-is; anything else ("see text") defaults to 1 with the raw cell noted. */
+  const parseOathCost = (raw: string): { value: number; note?: string } => {
+    const { points, raw: cell } = parseOathPoints(raw);
+    return { value: points, ...(cell ? { note: `Oath point cost: ${cell}` } : {}) };
+  };
+
+  /** Oaths module ON (adapter-flagged or the question answered YES above) → a real
+   * character.oaths entry with the row's cached rules text; OFF → the oath stays visible as a
+   * plain feature, mirroring addAkashicVeil (never silently drop a linked row). Cached text
+   * goes through brToNewlines so both add-paths persist plain text — the compendium's
+   * rich-text cells carry literal "<br>" separators. */
+  const addOath = (c: ImportClaim, row: Record<string, unknown>): void => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.rules.modules.some((m) => m.key === "oaths" && m.enabled)) {
+      if (!oathsHost.oaths) oathsHost.oaths = { oaths: [], boons: [], bonusPoints: 0 };
+      const blk = oathsHost.oaths;
+      if (!blk.oaths.some((o) => o.compendiumId === cid || (normalizeKey(o.name) === normalizeKey(name) && !o.compendiumId))) {
+        const cost = parseOathCost(S(row.oath_points));
+        blk.oaths.push({
+          id: `import_${c.id}`,
+          compendiumId: cid,
+          name,
+          points: cost.value,
+          oathText: brToNewlines(S(row.oath)),
+          defiancePenalty: brToNewlines(S(row.defiance_penalty)),
+          atonement: brToNewlines(S(row.atonement)),
+          ...(cost.note ? { notes: cost.note } : {}),
+        });
+      }
+    } else if (!sheet.features.list.some((f) => f.compendiumId === cid || (normalizeKey(f.name) === normalizeKey(name) && !f.compendiumId))) {
+      sheet.features.list.push({
+        id: `import_${c.id}`,
+        name,
+        category: "special_ability",
+        compendiumId: cid,
+        description: brToNewlines(S(row.oath)),
+        automation: [],
+      });
+    }
+  };
+
+  /** An oath BOON (the reward side of the point budget) — module ON → character.oaths.boons;
+   * OFF → a plain feature, exactly like addOath. */
+  const addOathBoon = (c: ImportClaim, row: Record<string, unknown>): void => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.rules.modules.some((m) => m.key === "oaths" && m.enabled)) {
+      if (!oathsHost.oaths) oathsHost.oaths = { oaths: [], boons: [], bonusPoints: 0 };
+      const blk = oathsHost.oaths;
+      if (!blk.boons.some((b) => b.compendiumId === cid || (normalizeKey(b.name) === normalizeKey(name) && !b.compendiumId))) {
+        const cost = parseOathCost(S(row.oath_point_cost));
+        blk.boons.push({
+          id: `import_${c.id}`,
+          compendiumId: cid,
+          name,
+          cost: cost.value,
+          boonType: S(row.type) || undefined,
+          description: brToNewlines(S(row.description)),
+          ...(cost.note ? { notes: cost.note } : {}),
+        });
+      }
+    } else if (!sheet.features.list.some((f) => f.compendiumId === cid || (normalizeKey(f.name) === normalizeKey(name) && !f.compendiumId))) {
+      sheet.features.list.push({
+        id: `import_${c.id}`,
+        name,
+        category: "special_ability",
+        compendiumId: cid,
+        description: brToNewlines(S(row.description)),
+        automation: [],
+      });
+    }
+  };
+
+  /** A 3pp Drawbacks & Flaws row files into traits.list either way — the same bucket the 1pp
+   * drawback path uses, so DRAWBACKS & FLAWS sections link fine whether or not the
+   * flaws_drawbacks module is on (no module question; the module gates engine/editor depth,
+   * not the link). The type tag comes from the row's category ("flaw" → "flaw",
+   * "major_drawback" → "drawback") — accurate documentation on the entry, and enabling the
+   * module later needs no re-import because the compendiumId is already linked. */
+  const addThreeppDrawback = (c: ImportClaim, row: Record<string, unknown>): void => {
+    const name = S(row.name);
+    const cid = `3pp:${S(row.slug)}`;
+    if (sheet.traits.list.some((t) => t.compendiumId === cid || (normalizeKey(t.name) === normalizeKey(name) && !t.compendiumId))) {
+      return;
+    }
+    const effect = brToNewlines(S(row.effect));
+    const bonus = brToNewlines(S(row.bonus_granted));
+    sheet.traits.list.push({
+      id: `import_${c.id}`,
+      name,
+      type: S(row.category) === "flaw" ? "flaw" : "drawback",
+      compendiumId: cid,
+      description: [effect, bonus ? `Bonus granted: ${bonus}` : undefined].filter(Boolean).join("\n\n") || undefined,
+      automation: [],
+    });
+  };
+
   const MYTHIC_PATH_SET = new Set<string>(MYTHIC_PATHS);
   const addMythicAbility = (c: ImportClaim, row: Record<string, unknown>): void => {
     const name = S(row.name);
@@ -699,6 +848,42 @@ export async function applyImportResolutions(
       if (!row) return false;
       addAkashicVeil(c, row);
       applied.push(`Veil: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
+      return true;
+    }
+    if (link.table === "oath_compendium") {
+      const { data: row } = await sb
+        .from("oath_compendium")
+        .select("slug,name,oath_points,oath,defiance_penalty,atonement")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      addOath(c, row);
+      applied.push(`Oath: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
+      return true;
+    }
+    if (link.table === "oath_boon_compendium") {
+      const { data: row } = await sb
+        .from("oath_boon_compendium")
+        .select("slug,name,oath_point_cost,type,description")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      addOathBoon(c, row);
+      applied.push(`Oath boon: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`);
+      return true;
+    }
+    if (link.table === "threepp_drawback_compendium") {
+      const { data: row } = await sb
+        .from("threepp_drawback_compendium")
+        .select("slug,name,category,effect,bonus_granted")
+        .eq("slug", link.slug)
+        .maybeSingle();
+      if (!row) return false;
+      addThreeppDrawback(c, row);
+      appendImportNote(sheet.traits.list.find((t) => t.compendiumId === `3pp:${S(row.slug)}`), c, S(row.name));
+      applied.push(
+        `${S(row.category) === "flaw" ? "Flaw" : "Drawback"}: ${S(row.name)}${c.mined ? ` (found in ${c.sourceLabel})` : ""}`,
+      );
       return true;
     }
     if (link.table === "mythic_path_ability_compendium") {

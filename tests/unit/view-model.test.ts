@@ -122,7 +122,16 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
   // Every optional-rules module that surfaces its own card must respect §15 like core sections —
   // otherwise enabling Mythic/Psionics/etc. would leak on a public share or the API (both built here).
   const OPTIONAL_SYSTEMS: Array<{
-    key: "heroPoints" | "honor" | "stamina" | "mythic" | "psionics" | "pathOfWar" | "akashic" | "milestoneLeveling";
+    key:
+      | "heroPoints"
+      | "honor"
+      | "stamina"
+      | "mythic"
+      | "psionics"
+      | "pathOfWar"
+      | "akashic"
+      | "oaths"
+      | "milestoneLeveling";
     label: string;
     setup: (c: ReturnType<typeof createDefaultCharacter>) => void;
   }> = [
@@ -198,6 +207,18 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
           shaped: [],
           otherReceptacles: [],
           temporaryEssence: 0,
+        };
+      },
+    },
+    {
+      key: "oaths",
+      label: "Oaths",
+      setup: (c) => {
+        c.rules.modules.push({ key: "oaths", enabled: true, settings: {} });
+        c.oaths = {
+          oaths: [{ id: "o1", name: "Oath against Harm", points: 4, oathText: "Never take a life." }],
+          boons: [{ id: "b1", name: "Accelerated Recovery", cost: 3, boonType: "Su" }],
+          bonusPoints: 0,
         };
       },
     },
@@ -381,6 +402,89 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     expect(ownV.effect).toBe("You summon a weapon of solidified akasha…");
     expect(ownV.bindEffect).toBe("The weapon fights on its own…");
     expect(ownV.notes).toBe("prefer the glaive form");
+  });
+
+  // Same tiering for Oaths: the budget numbers + oath/boon names (and point values) are viewer-safe
+  // within the gate; the long 3pp rules text (oath/defiance/atonement/description) + notes are owner-only.
+  it("keeps oath rules text owner-only while exposing the budget and names", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "oaths", enabled: true, settings: {} });
+      c.oaths = {
+        oaths: [
+          {
+            id: "o1",
+            name: "Oath against Harm",
+            points: 4,
+            oathText: "You have sworn never to take the life of a living creature.",
+            defiancePenalty: "You feel the pain of those you hurt.",
+            atonement: "Recompense the wronged.",
+            notes: "check with the GM about undead",
+          },
+        ],
+        boons: [
+          {
+            id: "b1",
+            name: "Accelerated Recovery",
+            cost: 3,
+            boonType: "Su",
+            description: "You gain fast healing equal to half your character level.",
+            notes: "stacks with the ring",
+          },
+        ],
+        bonusPoints: 1,
+      };
+    };
+    const anon = build("anonymous", mutate).oaths!;
+    expect(anon.pointsEarned).toBe(5);
+    expect(anon.pointsSpent).toBe(3);
+    expect(anon.available).toBe(2);
+    const anonOath = anon.oaths[0]!;
+    expect(anonOath.name).toBe("Oath against Harm");
+    expect(anonOath.points).toBe(4);
+    expect(anonOath.oathText).toBeUndefined();
+    expect(anonOath.defiancePenalty).toBeUndefined();
+    expect(anonOath.atonement).toBeUndefined();
+    expect(anonOath.notes).toBeUndefined();
+    const anonBoon = anon.boons[0]!;
+    expect(anonBoon.name).toBe("Accelerated Recovery");
+    expect(anonBoon.cost).toBe(3);
+    expect(anonBoon.boonType).toBe("Su");
+    expect(anonBoon.description).toBeUndefined();
+    expect(anonBoon.notes).toBeUndefined();
+    const own = build("owner", mutate).oaths!;
+    expect(own.oaths[0]!.oathText).toBe("You have sworn never to take the life of a living creature.");
+    expect(own.oaths[0]!.notes).toBe("check with the GM about undead");
+    expect(own.boons[0]!.description).toBe("You gain fast healing equal to half your character level.");
+  });
+
+  // Backgrounds & occupations ride the backstory gate (no separate privacy section): names are
+  // viewer-safe within it, the compendium detail is owner-only, and hiding backstory hides both.
+  it("gates background & occupation under backstory with owner-only detail", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.rules.modules.push({ key: "backgrounds_occupations", enabled: true, settings: {} });
+      c.backgroundOccupation = {
+        background: { name: "Rural", description: "From the countryside." },
+        occupation: {
+          name: "Arcane Student",
+          benefit: "Skills: Choose 2 of the following skills as class skills.",
+          grantedFeat: "Bonus Feat: Choose either Spell Focus or Spell Mastery.",
+          description: "Studies magic.",
+        },
+      };
+    };
+    const anon = build("anonymous", mutate).profile!;
+    expect(anon.background).toEqual({ name: "Rural" });
+    expect(anon.occupation).toEqual({ name: "Arcane Student" });
+    const own = build("owner", mutate).profile!;
+    expect(own.background).toEqual({ name: "Rural", description: "From the countryside." });
+    expect(own.occupation?.benefit).toBe("Skills: Choose 2 of the following skills as class skills.");
+    expect(own.occupation?.grantedFeat).toBe("Bonus Feat: Choose either Spell Focus or Spell Mastery.");
+    expect(own.occupation?.description).toBe("Studies magic.");
+    const hidden = build("anonymous", (c) => {
+      mutate(c);
+      c.privacy.sections.backstory = "private";
+    });
+    expect(hidden.profile).toBeNull();
   });
 
   // Invariants for the systems deliberately NOT section-gated, so a future change can't silently

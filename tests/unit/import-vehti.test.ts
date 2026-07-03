@@ -9,6 +9,7 @@ import {
   entryKeys,
   splitEntryText,
   mineNotesEntries,
+  probeTables,
   type ProbeCandidates,
   type ClaimProbe,
 } from "@/lib/character/import-claims";
@@ -146,6 +147,86 @@ describe("collectProbes on the Vehti fixture", () => {
     const report = collectProbes(c);
     expect(report.questions.some((q) => q.kind === "akashic")).toBe(false);
     expect(report.probes.some((p) => p.context === "akashic_veil")).toBe(false);
+  });
+});
+
+describe("OATHS / OATH BOONS text areas become linkable (3pp Phase 6)", () => {
+  it("mines the un-bulleted oath label lines with oath context — names trimmed at the point cost", async () => {
+    const c = await vehti();
+    const mined = mineNotesEntries(c.notes.player ?? "");
+    const byText = new Map(mined.entries.map((m) => [m.text, m]));
+    // The OATHS section lists one oath per line, NO bullets, "(N Oath Points)" closing the name
+    // half before a dash description — the cost marker is the entry signal.
+    expect(byText.get("Forbidden Knowledge [Death Wish {Greater}]")?.context).toBe("oath");
+    expect(byText.get("Oath against Artifice")?.context).toBe("oath");
+    expect(byText.get("Oath of Candor")?.context).toBe("oath");
+    expect(byText.get("Oath of Abstinence")?.context).toBe("oath");
+    expect(byText.get("Oath of Loyalty [The Drowned Memory]")?.context).toBe("oath");
+    // The OATH BOONS section's numbered lines mine under the same context, costs trimmed.
+    expect(byText.get("Bonus Feats")?.context).toBe("oath");
+    expect(byText.get("Immortality (Ex)")?.context).toBe("oath");
+    expect(byText.get("Accelerated Recovery")?.context).toBe("oath");
+    // "Total Points: 9" stays ledger bookkeeping, never an entry.
+    expect(mined.entries.some((m) => /total points/i.test(m.text))).toBe(false);
+  });
+
+  it("oath probes steer to the oath tables and the oaths module question fires", async () => {
+    const c = await vehti();
+    const report = collectProbes(c);
+    const fk = report.probes.find((p) => p.sourceText.startsWith("Forbidden Knowledge"))!;
+    expect(fk).toBeTruthy();
+    expect(fk.context).toBe("oath");
+    expect(probeTables(fk).slice(0, 2)).toEqual(["oath_compendium", "oath_boon_compendium"]);
+    expect(fk.keys).toContain("Forbidden Knowledge");
+    expect(report.questions.some((q) => q.kind === "oaths")).toBe(true);
+  });
+
+  it("feats granted VIA oath slots stay FEAT probes — 'Oath 2)' is slot bookkeeping, not context", async () => {
+    const c = await vehti();
+    const report = collectProbes(c);
+    const extraHex = report.probes.find((p) => p.kind === "feat" && p.sourceText.includes("Extra Hex"))!;
+    expect(extraHex).toBeTruthy();
+    expect(extraHex.context).toBeUndefined();
+    expect(extraHex.keys).toContain("Extra Hex");
+  });
+
+  it("'Forbidden Knowledge' auto-links to the OATH row — context breaks the real trait-name collision", async () => {
+    // trait_compendium really does carry a Paizo trait named Forbidden Knowledge — without the
+    // OATHS header context this exact cross-table tie would be ambiguous (mined + crossTable).
+    const c = await vehti();
+    const report = collectProbes(c);
+    const fk = report.probes.find((p) => p.sourceText.startsWith("Forbidden Knowledge"))!;
+    const hits: ProbeCandidates = {
+      [fk.id]: [
+        { table: "oath_compendium", slug: "forbidden-knowledge", name: "Forbidden Knowledge", match: "exact" },
+        { table: "trait_compendium", slug: "forbidden-knowledge-trait", name: "Forbidden Knowledge", match: "exact" },
+      ],
+    };
+    const { claims } = assembleClaims(report, hits);
+    const claim = claims.find((cl) => cl.id === fk.id)!;
+    expect(claim.confidence).toBe("high");
+    expect(claim.kind).toBe("oath");
+    expect(claim.resolution).toMatchObject({ mode: "linked", table: "oath_compendium", slug: "forbidden-knowledge" });
+  });
+
+  it("DRAWBACKS & FLAWS claims probe the 3pp Drawbacks & Flaws table (after the Paizo table)", async () => {
+    const c = await vehti();
+    const report = collectProbes(c);
+    // Paizo drawbacks (they live in drawback_compendium, which stays FIRST for the tie-break)…
+    const umbral = report.probes.find((p) => p.sourceText === "Umbral Unmasking")!;
+    const sentimental = report.probes.find((p) => p.sourceText.startsWith("Sentimental"))!;
+    // …and the FLAWS / MAJOR DRAWBACKS group, which lives ONLY in threepp_drawback_compendium.
+    const flaw = report.probes.find((p) => p.sourceText === "Noncombatant (flaw)")!;
+    const major = report.probes.find((p) => p.sourceText === "Nonathletic (major drawback)")!;
+    for (const p of [umbral, sentimental, flaw, major]) {
+      expect(p).toBeTruthy();
+      expect(p.context).toBe("drawback");
+      expect(probeTables(p).slice(0, 3)).toEqual([
+        "drawback_compendium",
+        "threepp_drawback_compendium",
+        "trait_compendium",
+      ]);
+    }
   });
 });
 
