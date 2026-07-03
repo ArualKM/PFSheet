@@ -44,6 +44,8 @@ const THIRD_PARTY: Entry[] = [
   { href: "/threepp-feats", label: "3pp Feats", desc: "Psionic · Path of War · akashic · spheres feats", Icon: Target },
   { href: "/threepp-classes", label: "3pp Classes", desc: "Base & prestige classes from 3pp systems", Icon: Helmet },
   { href: "/threepp-archetypes", label: "3pp Archetypes", desc: "Third-party archetypes by base class", Icon: Shield },
+  { href: "/threepp-class-options", label: "3pp Class Options", desc: "Third-party discoveries · rage powers · hexes", Icon: Target },
+  { href: "/threepp-traits", label: "3pp Traits", desc: "Practitioner & other third-party traits", Icon: ScrollText },
   { href: "/oaths", label: "Oaths", desc: "Sacred oaths & oath points", Icon: Flag },
   { href: "/oath-boons", label: "Oath Boons", desc: "Boons bought with oath points", Icon: Coins },
   { href: "/threepp-options", label: "Drawbacks & Flaws", desc: "Major drawbacks & character flaws", Icon: EyeOff },

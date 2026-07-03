@@ -22,7 +22,7 @@ import type { CharacterEditorApi } from "./use-character-editor";
 
 type RaceRow = { slug: string; name: string; category: string | null };
 type TraitRow = { ability_modifiers: string | null; size: string | null; speed: string | null; standard_traits: string | null };
-type AltTrait = { slug: string; trait_name: string; replaces: string | null; description: string | null };
+type AltTrait = { slug: string; trait_name: string; replaces: string | null; description: string | null; system?: string | null };
 
 const ABBR: Record<string, string> = { str: "Str", dex: "Dex", con: "Con", int: "Int", wis: "Wis", cha: "Cha" };
 
@@ -88,23 +88,52 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     setTrait(null);
     setAlts([]);
     setQ("");
-    const [traitRes, altRes] = await Promise.all([
+    // 3pp union (Phase 7): with a 3pp module enabled, threepp_racial_trait_compendium alt-traits keyed to this
+    // CORE race name (all spheres today, e.g. Elf → 11) merge into the same alt-trait list, fail-soft. Gated
+    // BEFORE querying — with no enabled module the union never fires.
+    const systems = threeppKey ? threeppKey.split(",") : [];
+    // race_compendium.name (row.name) is PLURAL ("Elves", "Dwarves", "Half-Elves"), but
+    // threepp_racial_trait_compendium.race keys to the SINGULAR form ("Elf", "Dwarf", "Half-Elf") —
+    // irregular ("ves"→"f"), so match both the plural and its singularization.
+    const raceCandidates = Array.from(new Set([row.name, row.name.replace(/ves$/i, "f").replace(/s$/i, "")]));
+    const [traitRes, altRes, tppAltRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("race_trait_compendium").select("ability_modifiers,size,speed,standard_traits").eq("race", row.name).maybeSingle(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("alternate_racial_trait_compendium").select("slug,trait_name,replaces,description").eq("race", row.name).order("trait_name").limit(100),
+      systems.length > 0
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any)
+            .from("threepp_racial_trait_compendium")
+            .select("slug,name,replaces,description,system")
+            .in("race", raceCandidates)
+            .in("system", systems)
+            .order("name")
+            .limit(100)
+        : Promise.resolve(null),
     ]);
     if (traitRes.error) {
       setError(traitRes.error.message);
       return;
     }
     setTrait((traitRes.data ?? null) as TraitRow | null);
-    setAlts((altRes.data ?? []) as AltTrait[]);
+    const coreAlts = (altRes.data ?? []) as AltTrait[];
+    // The 3pp union fails soft; only enabled systems surface. 3pp rows carry `name` (→ trait_name), a `3pp:`
+    // slug (compendiumId namespace), and their system (drives the source badge).
+    const tppAlts =
+      tppAltRes && !tppAltRes.error
+        ? ((tppAltRes.data ?? []) as { slug: string; name: string; replaces: string | null; description: string | null; system: string | null }[])
+            .filter((a) => !!a.system && systems.includes(a.system))
+            .map((a) => ({ slug: `3pp:${a.slug}`, trait_name: a.name, replaces: a.replaces, description: a.description, system: a.system }))
+        : [];
+    setAlts([...coreAlts, ...tppAlts]);
   };
 
   /** 3pp selection is fully synchronous — the row already carries mods/size/speed/traits, so it maps straight
    * onto the TraitRow the detail + apply path consume ("30 feet (land); 20 feet (climb)" → land 30). The
-   * `3pp:`-prefixed slug keeps `identity.raceApplied` revert + compendiumId clear of core slugs. */
+   * `3pp:`-prefixed slug keeps `identity.raceApplied` revert + compendiumId clear of core slugs. The 3pp race
+   * table (akashic) has no alt-trait rows, so `alts` stays empty here; the 3pp alt-traits (all spheres, keyed
+   * to CORE race names like "Elf") surface in the core-race `select()` path when a 3pp module is enabled. */
   const selectTpp = (row: ThreeppRaceRow) => {
     setSelected({ slug: `3pp:${row.slug}`, name: row.name ?? row.slug, category: null });
     setReport(null);
@@ -244,7 +273,10 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
                       return (
                         <li key={a.slug} className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5">
                           <div className="min-w-0">
-                            <span className="block truncate text-sm font-medium text-foreground">{a.trait_name}</span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate text-sm font-medium text-foreground">{a.trait_name}</span>
+                              {a.system && <ThreeppSystemBadge system={a.system} />}
+                            </span>
                             {a.replaces && <span className="truncate text-[11px] text-muted-foreground">replaces {a.replaces}</span>}
                           </div>
                           <Button size="sm" variant={isAdded ? "ghost" : "secondary"} disabled={isAdded} onClick={() => addAlt(a)} aria-label={`Add ${a.trait_name}`} className="shrink-0">

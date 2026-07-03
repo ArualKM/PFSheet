@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Check, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { enabledThreeppSystems } from "@/lib/character/threepp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PickerShell, PickerSearch, PickerList, PickerRow } from "./picker-shell";
+import { PickerShell, PickerSearch, PickerList, PickerRow, PickerDivider, ThreeppSystemBadge } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
 
 type OptionRow = {
@@ -14,6 +15,15 @@ type OptionRow = {
   option_type: string | null;
   name: string;
   subtype: string | null;
+  description: string | null;
+};
+
+type ThreeppOptionRow = {
+  slug: string;
+  base_class: string;
+  system: string | null;
+  option_type: string | null;
+  name: string;
   description: string | null;
 };
 
@@ -35,7 +45,11 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
   const [types, setTypes] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<OptionRow[]>([]);
+  const [tppRows, setTppRows] = useState<ThreeppOptionRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 3pp gating (docs/3PP_MASTER_PLAN.md D1) — string-keyed so the effect re-fires only on a module toggle.
+  const threeppKey = useMemo(() => enabledThreeppSystems(ed.draft).join(","), [ed.draft]);
 
   // Distinct option types for the selected class (drives the type filter).
   useEffect(() => {
@@ -55,9 +69,12 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
   }, [cls, supabase]);
 
   // Options for the class (+ type + name search). Capped at 100 (the type filter + search narrow it).
+  // 3pp union (Phase 7): with a 3pp module enabled, threepp_class_option_compendium rows for the same
+  // base class + enabled systems list under a "Third-party" divider (gated BEFORE querying).
   useEffect(() => {
     if (!cls) return;
     let cancelled = false;
+    const systems = threeppKey ? threeppKey.split(",") : [];
     const timer = setTimeout(async () => {
       setLoading(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,16 +86,32 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
         .limit(100);
       if (optionType) query = query.eq("option_type", optionType);
       if (q.trim()) query = query.ilike("name", `%${esc(q.trim())}%`);
-      const { data } = await query;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let tppQuery: any = null;
+      if (systems.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tppQuery = (supabase as any)
+          .from("threepp_class_option_compendium")
+          .select("slug,base_class,system,option_type,name,description")
+          .eq("base_class", cls)
+          .in("system", systems)
+          .order("name")
+          .limit(100);
+        if (q.trim()) tppQuery = tppQuery.ilike("name", `%${esc(q.trim())}%`);
+      }
+      const [core, tp] = await Promise.all([query, tppQuery ?? Promise.resolve(null)]);
       if (cancelled) return;
-      setRows((data ?? []) as OptionRow[]);
+      setRows((core.data ?? []) as OptionRow[]);
+      // The 3pp union fails soft; only enabled systems surface.
+      const tpRows = tp && !tp.error ? ((tp.data ?? []) as ThreeppOptionRow[]) : [];
+      setTppRows(tpRows.filter((r) => !!r.system && systems.includes(r.system)));
       setLoading(false);
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [cls, optionType, q, supabase]);
+  }, [cls, optionType, q, supabase, threeppKey]);
 
   const added = useMemo(
     () => new Set(ed.draft.features.list.map((f) => f.compendiumId).filter(Boolean) as string[]),
@@ -93,6 +126,20 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
         name: r.name,
         category: "class_feature",
         compendiumId: r.slug,
+        description: [r.option_type, (r.description ?? "").replace(/<br>/g, " ")].filter(Boolean).join(": ") || undefined,
+        automation: [],
+      });
+    });
+
+  const addThreeppOption = (r: ThreeppOptionRow) =>
+    ed.update((c) => {
+      const cid = `3pp:${r.slug}`;
+      if (c.features.list.some((f) => f.compendiumId === cid)) return;
+      c.features.list.push({
+        id: `opt_3pp_${r.slug}`,
+        name: r.name,
+        category: "class_feature",
+        compendiumId: cid,
         description: [r.option_type, (r.description ?? "").replace(/<br>/g, " ")].filter(Boolean).join(": ") || undefined,
         automation: [],
       });
@@ -135,7 +182,7 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
           <div className="mt-2">
             <PickerSearch value={q} onChange={setQ} loading={loading} label="Search class options" placeholder="Search options by name…" />
           </div>
-          <PickerList isEmpty={rows.length === 0 && !loading} emptyText="No options found." className="sm:max-h-80">
+          <PickerList isEmpty={rows.length === 0 && tppRows.length === 0 && !loading} emptyText="No options found." className="sm:max-h-80">
             {rows.map((r) => {
               const isAdded = added.has(r.slug);
               return (
@@ -172,6 +219,50 @@ export function ClassOptionsPicker({ ed, onClose }: { ed: CharacterEditorApi; on
                 </PickerRow>
               );
             })}
+            {tppRows.length > 0 && (
+              <>
+                <PickerDivider label="Third-party" />
+                {tppRows.map((r) => {
+                  const cid = `3pp:${r.slug}`;
+                  const isAdded = added.has(cid);
+                  return (
+                    <PickerRow key={cid}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
+                            <ThreeppSystemBadge system={r.system} />
+                          </span>
+                          {r.option_type && (
+                            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <Badge variant="rune">{r.option_type}</Badge>
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={isAdded ? "ghost" : "secondary"}
+                          disabled={isAdded}
+                          onClick={() => addThreeppOption(r)}
+                          aria-label={`Add ${r.name}`}
+                          className="shrink-0"
+                        >
+                          {isAdded ? (
+                            <>
+                              <Check className="size-4" /> Added
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="size-4" /> Add
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </PickerRow>
+                  );
+                })}
+              </>
+            )}
           </PickerList>
         </>
       )}
