@@ -196,6 +196,16 @@ export function CharacterDashboard({
 
           {(rankedSkills.length > 0 || editable) && (
             <SectionCard title="Skills" icon={ScrollText}>
+              {vm.backgroundSkills && (
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Background skills:{" "}
+                  <span className="tnum font-semibold text-foreground">{vm.backgroundSkills.spent}</span>/
+                  {vm.backgroundSkills.budget} ranks
+                  {vm.backgroundSkills.spent > vm.backgroundSkills.budget && (
+                    <span className="ml-1 text-danger">(over budget)</span>
+                  )}
+                </p>
+              )}
               {rankedSkills.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No skill ranks yet.</p>
               ) : (

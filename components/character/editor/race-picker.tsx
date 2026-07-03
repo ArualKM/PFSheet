@@ -37,9 +37,19 @@ const ABBR: Record<string, string> = { str: "Str", dex: "Dex", con: "Con", int: 
  * / speed / traits, so selection is synchronous (no trait-row fetch) and apply reuses the same applyRace path
  * — `parseAbilityMods` handles the dataset's full ability names ("+2 Dexterity, -2 Intelligence").
  */
-export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+const RACE_ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
+
+export function RacePicker({
+  ed,
+  onClose,
+  initialQuery,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  initialQuery?: string;
+}) {
   const supabase = useMemo(() => createClient(), []);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery ?? "");
   const [rows, setRows] = useState<RaceRow[]>([]);
   const [tppRows, setTppRows] = useState<ThreeppRaceRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -160,6 +170,10 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
     const speed = parseInt(trait.speed ?? "", 10);
     let res: RaceApplyResult | undefined;
     ed.update((c) => {
+      // Capture the previously-applied race mods BEFORE applyRace overwrites raceApplied — needed
+      // to mirror the NET racial change into Point Buy below.
+      const prior = (c.identity.raceApplied?.abilityMods ?? {}) as Record<string, number>;
+      const pb = c.abilities.pointBuy;
       res = applyRace(c, {
         race: { name: selected.name, compendiumId: selected.slug },
         abilityMods: mods,
@@ -167,6 +181,17 @@ export function RacePicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
         speed: Number.isFinite(speed) ? speed : undefined,
         standardTraits: trait.standard_traits ?? undefined,
       });
+      // Point Buy recomposes each score as allocation + pointBuy.racial on every Apply, which
+      // would erase applyRace's score delta (the reported "race doesn't stick under point buy"
+      // bug). Mirror the NET racial change (new − prior) into pointBuy.racial — by delta, so a
+      // manually-entered "racial/other" value in that field is preserved — so the next recompose
+      // reproduces exactly the score applyRace just set. No-op when Point Buy is off.
+      if (pb?.enabled) {
+        for (const key of RACE_ABILITY_KEYS) {
+          const delta = (mods[key] ?? 0) - (prior[key] ?? 0);
+          if (delta !== 0) pb.racial[key] = (pb.racial[key] ?? 0) + delta;
+        }
+      }
     });
     setReport(res ?? null);
   };

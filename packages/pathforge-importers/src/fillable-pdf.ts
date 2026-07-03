@@ -143,8 +143,11 @@ function normalizePdf(fields: Record<string, string | boolean>, filename?: strin
     else if (ABILITY_NAMES[n] || ABILITY_NAMES[n.replace(/(score)$/, "")]) {
       const key = (ABILITY_NAMES[n] ?? ABILITY_NAMES[n.replace(/(score)$/, "")]) as keyof typeof character.abilities.primary;
       const score = toInt(value);
-      if (score !== undefined) character.abilities.primary[key].score = score;
-      else mapped = false;
+      if (score !== undefined) {
+        character.abilities.primary[key].score = score;
+        // Keep baseScore consistent with the imported score (not the factory default of 10).
+        character.abilities.primary[key].baseScore = score;
+      } else mapped = false;
     }
     // Vital totals
     else if (/^(hp|totalhp|hpmax|maxhp|hitpoints)$/.test(n)) {

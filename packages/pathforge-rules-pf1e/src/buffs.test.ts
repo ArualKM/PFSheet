@@ -105,6 +105,23 @@ describe("affected-values preview", () => {
     expect(rows.find((r) => r.label === "Speed")?.after).toBe(60);
     expect(rows.find((r) => r.label === "AC")?.delta).toBe(1);
   });
+
+  it("surfaces Attack and Max HP deltas (a pure attack/hp buff must not read 'No net change')", () => {
+    // Haste gives +1 attack — must appear as Melee/Ranged atk deltas.
+    const rows = activeBuffDelta(charWith([active("tpl_haste")]), "tpl_haste");
+    expect(rows.find((r) => r.label === "Melee atk")?.delta).toBe(1);
+    expect(rows.find((r) => r.label === "Ranged atk")?.delta).toBe(1);
+
+    // A Max HP buff (Toughness-style) surfaces as a Max HP delta rather than an empty preview.
+    const hpBuff: ActiveBuff = {
+      id: "hpb",
+      name: "Vigor",
+      enabled: true,
+      effects: [{ id: "fx", target: "hp", operation: "add", value: 5, bonusType: "untyped" }],
+    };
+    const hpRows = activeBuffDelta(charWith([hpBuff]), "hpb");
+    expect(hpRows.find((r) => r.label === "Max HP")?.delta).toBe(5);
+  });
 });
 
 describe("review hardening", () => {

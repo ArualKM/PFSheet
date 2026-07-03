@@ -31,6 +31,30 @@ describe("races (Phase 7)", () => {
     expect(c.features.list.some((f) => f.category === "racial_trait" && /Dwarves racial traits/.test(f.name))).toBe(true);
   });
 
+  it("pre-seeding raceApplied with matching mods makes applyRace net-zero on scores (import: scores already include race)", () => {
+    const c = createDefaultCharacter();
+    const con0 = c.abilities.primary.con.score;
+    const cha0 = c.abilities.primary.cha.score;
+    const mods = { con: 2, wis: 2, cha: -2 };
+    // An imported sheet's ability scores are EFFECTIVE totals (race already baked in). Seeding
+    // raceApplied with the same mods makes applyRace's revert subtract exactly what its apply
+    // re-adds — net zero — while still recording the linked race + size/speed/traits.
+    c.identity.raceApplied = { name: "Dwarves", compendiumId: "dwarves", abilityMods: mods };
+    applyRace(c, {
+      race: { name: "Dwarves", compendiumId: "dwarves" },
+      abilityMods: mods,
+      size: "Medium",
+      speed: 20,
+      standardTraits: "Dwarf traits",
+    });
+    expect(c.abilities.primary.con.score).toBe(con0); // NOT con0 + 2 (would be a double-count)
+    expect(c.abilities.primary.cha.score).toBe(cha0);
+    expect(c.identity.race).toBe("Dwarves");
+    expect(c.identity.raceApplied?.abilityMods).toEqual(mods);
+    expect(c.identity.size).toBe("Medium");
+    expect(c.features.list.some((f) => f.category === "racial_trait")).toBe(true);
+  });
+
   it("re-applying a different race reverts the prior race's mods + traits (no stacking)", () => {
     const c = createDefaultCharacter();
     const con0 = c.abilities.primary.con.score;

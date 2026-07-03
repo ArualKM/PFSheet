@@ -342,6 +342,8 @@ export type CharacterViewModel = {
   honor: { score: number; tier: string; dishonored: boolean } | null;
   /** Stamina pool (null unless the module is enabled). */
   stamina: { current: number; max: number } | null;
+  /** Background-skill rank budget vs spent (null unless the variant is enabled; gated with skills). */
+  backgroundSkills: { budget: number; spent: number } | null;
   /** Mythic roll-up (null unless the variant is enabled). */
   mythic: {
     tier: number;
@@ -928,6 +930,9 @@ export function buildCharacterViewModel(
         })
       : null,
     stamina: computed.summary.stamina ? gate("stamina", computed.summary.stamina) : null,
+    // Background-skill budget rides the skills gate (it's a skills counter, not sensitive) — no new
+    // privacy section, matching the "don't sprawl privacy sections" convention.
+    backgroundSkills: computed.summary.backgroundSkills ? gate("skills", computed.summary.backgroundSkills) : null,
     mythic: computed.summary.mythic
       ? gate("mythic", {
           tier: computed.summary.mythic.tier,

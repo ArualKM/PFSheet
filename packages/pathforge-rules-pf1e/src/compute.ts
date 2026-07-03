@@ -812,6 +812,10 @@ export type ComputedCharacter = {
     fortitude: number;
     reflex: number;
     will: number;
+    /** Resolved save "misc" bucket total per save (save.X + save.all: misc entries, conditions,
+     * buffs, ABP, …). Lets the editor rebuild a flat imported save without double-counting the
+     * bucket — evaluated even when the stored save formula is a flat constant that never reads it. */
+    saveMisc: { fortitude: number; reflex: number; will: number };
     initiative: number;
     /** Effective land speed: parsed base + stacked speed modifiers (buffs). */
     speed: { base: number; bonus: number; total: number };
@@ -1511,6 +1515,11 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       fortitude: savesComputed.fortitude.value,
       reflex: savesComputed.reflex.value,
       will: savesComputed.will.value,
+      saveMisc: {
+        fortitude: resolver.resolve("saves.fortitude.misc").value,
+        reflex: resolver.resolve("saves.reflex.misc").value,
+        will: resolver.resolve("saves.will.misc").value,
+      },
       initiative: initiative.value,
       speed: { base: speedBase, bonus: speedBonus, total: speedBase + speedBonus },
       hp: {

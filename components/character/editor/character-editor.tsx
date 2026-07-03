@@ -102,6 +102,7 @@ import {
   MILESTONE_MAX_JOB_LEVEL,
   milestoneJobReward,
   type PrivacyLevel,
+  DEFAULT_FORMULAS,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures, unapplyArchetype } from "@pathforge/rules-pf1e";
 import type { ComputedValue, CompendiumFeatureRow } from "@pathforge/rules-pf1e";
@@ -885,37 +886,46 @@ function HeroPointsEditor({ ed }: { ed: EditorApi }) {
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Hero points don&apos;t renew on rest — spend them for a +8 bonus, a reroll, an extra action, or to
-        cheat death. Max {max}.
+        cheat death.
       </p>
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => adjust(-1, "special", "Spent a hero point")}>
-          − Spend
-        </Button>
-        <span className="tnum text-2xl font-semibold text-gold">
-          {current}
-          <span className="text-base text-muted-foreground">/{max}</span>
-        </span>
-        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => adjust(1, "award", "Awarded a hero point")}>
-          + Award
-        </Button>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+        <span className="text-sm font-medium text-foreground">Hero points</span>
+        <StatChip label="current" value={current} tone="gold" />
+        <StatChip label="max" value={max} />
+        {hp?.heroesFortune && <StatChip value={"Hero's Fortune"} tone="rune" />}
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => adjust(-1, "special", "Spent a hero point")}>
+            − Spend
+          </Button>
+          <Button size="sm" variant="outline" disabled={current >= max} onClick={() => adjust(1, "award", "Awarded a hero point")}>
+            + Award
+          </Button>
+        </div>
       </div>
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="flex h-11 items-center gap-1.5 text-sm text-foreground sm:h-9">
-          <input
-            type="checkbox"
-            checked={!!hp?.heroesFortune}
-            onChange={(e) => ensure((h) => (h.heroesFortune = e.target.checked || undefined))}
+      <details className="group">
+        <summary className="tap-target flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+          Adjust maximum
+        </summary>
+        <div className="mt-2 flex flex-wrap items-end gap-4">
+          <label className="flex h-11 items-center gap-1.5 text-sm text-foreground sm:h-9">
+            <input
+              type="checkbox"
+              checked={!!hp?.heroesFortune}
+              onChange={(e) => ensure((h) => (h.heroesFortune = e.target.checked || undefined))}
+              className="size-4 accent-[var(--pf-gold)]"
+            />
+            Hero&apos;s Fortune feat (+1 max)
+          </label>
+          <NumberField
+            label="Other bonus to max"
+            value={hp?.bonusMax ?? 0}
+            min={0}
+            onChange={(v) => ensure((h) => (h.bonusMax = v))}
+            className="w-32"
           />
-          Hero&apos;s Fortune feat (+1 max)
-        </label>
-        <NumberField
-          label="Other bonus to max"
-          value={hp?.bonusMax ?? 0}
-          min={0}
-          onChange={(v) => ensure((h) => (h.bonusMax = v))}
-          className="w-32"
-        />
-      </div>
+        </div>
+      </details>
       {hp?.log && hp.log.length > 0 && (
         <div>
           <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent</h4>
@@ -956,19 +966,13 @@ function HonorEditor({ ed }: { ed: EditorApi }) {
         Honor runs 0–100, starting at your Charisma score + level ({baseline}). At 0 you are dishonored:
         −2 on Will saves and Charisma-based skills.
       </p>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+        <span className="text-sm font-medium text-foreground">Honor</span>
+        <StatChip label="score" value={computed?.score ?? baseline} tone={computed?.dishonored ? "poor" : "gold"} />
+        <StatChip label="tier" value={computed?.tier ?? "—"} />
+        {computed?.dishonored && <StatChip value="dishonored" tone="poor" />}
+      </div>
       <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1">
-          <span className="block text-sm font-medium text-foreground">Score</span>
-          <span
-            className={cn(
-              "text-2xl font-semibold",
-              computed?.dishonored ? "text-danger" : "text-gold",
-            )}
-          >
-            {computed?.score ?? baseline}
-            <span className="ml-2 text-sm text-muted-foreground">{computed?.tier ?? "—"}</span>
-          </span>
-        </div>
         <SelectField
           label="Honor code"
           value={honor?.code ?? "general"}
@@ -976,12 +980,18 @@ function HonorEditor({ ed }: { ed: EditorApi }) {
           options={HONOR_CODES.map((c) => ({ value: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
           className="w-40"
         />
-        <NumberField
-          label="Baseline override"
-          value={honor?.baselineOverride ?? baseline}
-          onChange={(v) => ensure((h) => (h.baselineOverride = v === baseline ? undefined : v))}
-          className="w-32"
-        />
+        <details className="group">
+          <summary className="tap-target flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+            <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+            Baseline override
+          </summary>
+          <NumberField
+            label="Baseline override"
+            value={honor?.baselineOverride ?? baseline}
+            onChange={(v) => ensure((h) => (h.baselineOverride = v === baseline ? undefined : v))}
+            className="mt-2 w-32"
+          />
+        </details>
       </div>
 
       <div>
@@ -1047,28 +1057,35 @@ function StaminaEditor({ ed }: { ed: EditorApi }) {
         Stamina pool = base attack bonus + Con modifier + bonus ({max}). Spend it to power combat tricks
         tied to your combat feats; it refreshes fully on a rest and partially after a full attack.
       </p>
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spend(-1)}>
-          − Spend
-        </Button>
-        <span className="tnum text-2xl font-semibold text-rune">
-          {current}
-          <span className="text-base text-muted-foreground">/{max}</span>
-        </span>
-        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spend(1)}>
-          + Regain
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.current = max))}>
-          Rest
-        </Button>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+        <span className="text-sm font-medium text-foreground">Stamina</span>
+        <StatChip label="current" value={current} tone="rune" />
+        <StatChip label="max" value={max} />
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spend(-1)}>
+            − Spend
+          </Button>
+          <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spend(1)}>
+            + Regain
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => ensure((s) => (s.current = max))}>
+            Rest
+          </Button>
+        </div>
       </div>
-      <NumberField
-        label="Bonus to max"
-        value={stamina?.bonusMax ?? 0}
-        min={0}
-        onChange={(v) => ensure((s) => (s.bonusMax = v))}
-        className="w-32"
-      />
+      <details className="group">
+        <summary className="tap-target flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+          Adjust maximum
+        </summary>
+        <NumberField
+          label="Bonus to max"
+          value={stamina?.bonusMax ?? 0}
+          min={0}
+          onChange={(v) => ensure((s) => (s.bonusMax = v))}
+          className="mt-2 w-32"
+        />
+      </details>
       <div>
         <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Combat tricks</h4>
         {tricks.length === 0 ? (
@@ -1166,21 +1183,22 @@ function MythicEditor({ ed }: { ed: EditorApi }) {
           <span className="font-semibold text-foreground">+{Math.floor(tier / 2)}</span> effective level
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
         <span className="text-sm font-medium text-foreground">Mythic power</span>
-        <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendPower(-1)}>
-          − Spend
-        </Button>
-        <span className="tnum text-xl font-semibold text-gold">
-          {current}
-          <span className="text-sm text-muted-foreground">/{max}</span>
-        </span>
-        <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendPower(1)}>
-          +
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => ensure((m) => (m.mythicPowerCurrent = maxMythicPower(m.tier)))}>
-          Rest
-        </Button>
+        <StatChip label="current" value={current} tone="gold" />
+        <StatChip label="max" value={max} />
+        <StatChip label="surge" value={mythicSurgeDie(tier) || "—"} tone="rune" />
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button size="sm" variant="outline" disabled={current <= 0} onClick={() => spendPower(-1)}>
+            − Spend
+          </Button>
+          <Button size="sm" variant="outline" disabled={current >= max} onClick={() => spendPower(1)}>
+            +
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => ensure((m) => (m.mythicPowerCurrent = maxMythicPower(m.tier)))}>
+            Rest
+          </Button>
+        </div>
       </div>
       <div className="space-y-2 border-t border-border/40 pt-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
@@ -3642,6 +3660,12 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
   const [showClassCompendium, setShowClassCompendium] = useState(false);
   const [showRaces, setShowRaces] = useState(false);
   const hasPresetClass = id.classes.some((c) => resolveClassPreset(c));
+  // A race name is set (e.g. typed into the field or imported) but its ability modifiers were never
+  // applied via the compendium (raceApplied absent or naming a different race) — so nothing reached
+  // the ability scores. Prompt the user to apply it. RaceDetails also lets them enter mods by hand.
+  const raceNeedsApply =
+    !!id.race?.trim() &&
+    (!id.raceApplied || (id.raceApplied.name ?? "").trim().toLowerCase() !== id.race.trim().toLowerCase());
 
   // Size is a controlled <select> over the 9 canonical sizes (matched case-insensitively, so
   // the engine's getSizeModifiers always resolves) — a typo'd legacy value is kept as an option.
@@ -3672,9 +3696,20 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
         <Button size="sm" variant={showRaces ? "default" : "secondary"} onClick={() => setShowRaces((v) => !v)}>
           <Search className="size-4" /> Browse races
         </Button>
+        {raceNeedsApply && !showRaces && (
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 p-2.5">
+            <p className="min-w-0 flex-1 text-xs text-foreground">
+              Ability modifiers for <strong>{id.race}</strong> aren&apos;t applied yet — typing a race name here
+              is display-only. Apply its ability modifiers, size &amp; speed from the compendium.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => setShowRaces(true)}>
+              Apply race traits
+            </Button>
+          </div>
+        )}
         {showRaces && (
           <div className="mt-2">
-            <RacePicker ed={ed} onClose={() => setShowRaces(false)} />
+            <RacePicker ed={ed} onClose={() => setShowRaces(false)} initialQuery={id.race ?? undefined} />
           </div>
         )}
         <div className="mt-2">
@@ -4627,6 +4662,9 @@ function SaveRow({
   const abilityKey = ((entry.abilityKey ?? "").trim().toLowerCase() || defaultAbility) as string;
   const overridden = abilityKey !== defaultAbility;
   const abilityMod = ed.computed.abilities[abilityKey]?.modifier ?? 0;
+  // The resolved save "misc" bucket (misc entries, conditions, buffs, ABP). A flat formula never
+  // reads it, so subtract it when rebuilding so the bucket isn't double-counted onto the total.
+  const miscBucket = ed.computed.summary.saveMisc?.[k] ?? 0;
   const modCount = entry.misc.length + entry.conditionalModifiers.length;
   // An imported sheet may carry a FLAT save formula (e.g. "12") — base/ability/modifier edits
   // can't reach it, so the controls would silently no-op. Detect it and offer a rebuild.
@@ -4642,9 +4680,10 @@ function SaveRow({
     ed.update((c) => {
       const e = c.defenses.savingThrows[k];
       e.formula = `@{saves.${k}.base} + @{abilities.${defaultAbility}.mod} + @{saves.${k}.misc}`;
-      // Preserve the current total: seed base from the flat value minus the (effective) ability
-      // mod; misc-bucket contributions add on top, so review the base after rebuilding.
-      e.base = cv.value - abilityMod;
+      // Preserve the current total exactly: base = flat total − ability mod − the misc bucket (which
+      // the rebuilt formula re-adds via @{saves.k.misc}). Subtracting the bucket prevents an active
+      // save contribution (a resistance item, ABP, a buff) from being double-counted on rebuild.
+      e.base = cv.value - abilityMod - miscBucket;
     });
   // A master-linked familiar uses the BETTER of its own base or the master's — show the
   // effective base in the chip so the numbers visibly add up, and hint when the master's wins.
@@ -4674,7 +4713,17 @@ function SaveRow({
               />
             </>
           ) : (
-            <StatChip label="fixed" value={formatModifier(cv.value)} tone="gold" />
+            <>
+              <StatChip label="fixed" value={formatModifier(cv.value)} tone="gold" />
+              <button
+                type="button"
+                onClick={rebuildFormula}
+                aria-label={`Rebuild ${label} save formula so base and modifiers apply`}
+                className="tap-target rounded-md border border-gold/40 px-2 py-0.5 text-[11px] font-medium text-gold hover:bg-gold/10"
+              >
+                Rebuild
+              </button>
+            </>
           )}
           {modCount > 0 && <StatChip label="mods" value={modCount} />}
         </div>
@@ -4757,7 +4806,17 @@ function SaveRow({
             entries={entry.misc}
             onChange={(next) =>
               ed.update((c) => {
-                c.defenses.savingThrows[k].misc = next;
+                const e = c.defenses.savingThrows[k];
+                // A flat imported save ignores @{saves.X.misc}, so a modifier added here would
+                // silently no-op. Rebuild to the dynamic formula first (preserving the current
+                // total as Base) so the modifier actually applies.
+                if (!usesTerms) {
+                  e.formula = `@{saves.${k}.base} + @{abilities.${defaultAbility}.mod} + @{saves.${k}.misc}`;
+                  // Subtract the misc bucket resolved BEFORE this edit; `next` (with the just-added
+                  // entry) then adds only the new delta on top of the preserved flat total.
+                  e.base = cv.value - abilityMod - miscBucket;
+                }
+                e.misc = next;
               })
             }
             title="Modifiers"
@@ -4803,38 +4862,86 @@ const AC_COMPONENT_IDS = new Set(AC_COMPONENTS.map((c) => `ac_${c.key}`));
 function ACEditor({ ed }: { ed: EditorApi }) {
   const [showMath, setShowMath] = useState(false);
   const mods = ed.draft.defenses.armorClass.conditionalModifiers;
-  const getVal = (key: string): number => {
-    const m = mods.find((x) => x.id === `ac_${key}`);
+  // A component box is driven by its canonical `ac_<key>` row. For the 5 TYPED components we also
+  // adopt a single imported/hand modifier of the matching bonus type: importers push AC components
+  // with generated ids (mw-mod-N / fvtt-mod-N), so without this they'd read 0 in the labeled boxes
+  // and surface only under "Additional modifiers" (the reported "AC ignores the manual entry area").
+  // The untyped "misc" box is NOT adopted into — multiple untyped mods there are legitimate.
+  const adoptedEntry = (comp: (typeof AC_COMPONENTS)[number]): ModifierEntry | undefined => {
+    const own = mods.find((x) => x.id === `ac_${comp.key}`);
+    if (own) return own;
+    if (comp.bonusType === "untyped") return undefined;
+    // Only adopt a mod the ENGINE actually counts into @{ac.<type>}: modifierEntryToMod drops a mod
+    // with a `condition` (conditional AC never feeds the base total) or `enabled === false`. Adopting
+    // such a row into a box would show a value the AC total never applies (and re-keying it couldn't
+    // clear the condition) — leave it in the Additional-modifiers list where its state is visible.
+    const sameType = mods.filter(
+      (m) =>
+        !AC_COMPONENT_IDS.has(m.id) &&
+        (m.bonusType ?? "untyped") === comp.bonusType &&
+        typeof m.value === "number" &&
+        !m.condition &&
+        m.enabled !== false,
+    );
+    return sameType.length === 1 ? sameType[0] : undefined;
+  };
+  const adoptedIds = new Set(
+    AC_COMPONENTS.map((comp) => adoptedEntry(comp))
+      .filter((e): e is ModifierEntry => !!e && !AC_COMPONENT_IDS.has(e.id))
+      .map((e) => e.id),
+  );
+  const getVal = (comp: (typeof AC_COMPONENTS)[number]): number => {
+    const m = adoptedEntry(comp);
     if (!m) return 0;
     return typeof m.value === "number" ? m.value : Number(m.value) || 0;
   };
   const setVal = (comp: (typeof AC_COMPONENTS)[number], v: number) =>
     ed.update((c) => {
       const arr = c.defenses.armorClass.conditionalModifiers;
-      const idx = arr.findIndex((x) => x.id === `ac_${comp.key}`);
+      const canId = `ac_${comp.key}`;
+      const adopted = adoptedEntry(comp);
+      const adoptId = adopted && !AC_COMPONENT_IDS.has(adopted.id) ? adopted.id : undefined;
+      const idx = arr.findIndex((x) => x.id === canId || (adoptId != null && x.id === adoptId));
       if (v === 0) {
         if (idx >= 0) arr.splice(idx, 1);
       } else if (idx >= 0) {
         const t = arr[idx];
-        if (t) t.value = v;
+        if (t) {
+          t.value = v;
+          t.id = canId; // stabilize an adopted imported row onto the canonical id
+          t.bonusType = comp.bonusType;
+          if (!t.label) t.label = comp.label;
+          t.enabled = true;
+        }
       } else {
-        arr.push({
-          id: `ac_${comp.key}`,
-          label: comp.label,
-          value: v,
-          bonusType: comp.bonusType,
-          enabled: true,
-        });
+        arr.push({ id: canId, label: comp.label, value: v, bonusType: comp.bonusType, enabled: true });
       }
     });
 
   // Named / formula-valued modifiers beyond the 6 component boxes (rings, buffs entered by hand,
-  // scaling class features). Kept in the same conditionalModifiers array under distinct ids.
-  const extraMods = mods.filter((m) => !AC_COMPONENT_IDS.has(m.id));
+  // scaling class features). Kept in the same conditionalModifiers array under distinct ids —
+  // minus any imported row adopted into a labeled box above.
+  const extraMods = mods.filter((m) => !AC_COMPONENT_IDS.has(m.id) && !adoptedIds.has(m.id));
   const setExtraMods = (next: ModifierEntry[]) =>
     ed.update((c) => {
       const arr = c.defenses.armorClass.conditionalModifiers;
-      c.defenses.armorClass.conditionalModifiers = [...arr.filter((m) => AC_COMPONENT_IDS.has(m.id)), ...next];
+      c.defenses.armorClass.conditionalModifiers = [
+        ...arr.filter((m) => AC_COMPONENT_IDS.has(m.id) || adoptedIds.has(m.id)),
+        ...next,
+      ];
+    });
+
+  // Imported / hand-edited flat AC total: if the total formula references none of the AC component
+  // terms (a bare number, or an active override), the boxes + equipped armor silently no-op. Mirror
+  // the Saves editor's "fixed total → rebuild" remedy so there's an in-UI recovery path.
+  const acOverride = ed.draft.formulas.overrides["defenses.armorClass.total"];
+  const acFlat =
+    !ed.computed.armorClass.total.terms.some((t) => t.ref === "ac.armor" || t.ref === "ac.misc") ||
+    (!!acOverride && acOverride.enabled !== false);
+  const rebuildAcFormula = () =>
+    ed.update((c) => {
+      c.defenses.armorClass.formulas = { ...DEFAULT_FORMULAS.ac };
+      if (c.formulas.overrides["defenses.armorClass.total"]) delete c.formulas.overrides["defenses.armorClass.total"];
     });
 
   // Equipped armor/shields feed AC + the Max Dex cap automatically — surface what the engine sees.
@@ -4856,12 +4963,24 @@ function ACEditor({ ed }: { ed: EditorApi }) {
         Enter your AC component bonuses. Dexterity, size, equipped armor, and base attack bonus are
         applied automatically; touch and flat-footed are derived.
       </p>
+      {acFlat && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 p-2.5">
+          <p className="min-w-0 flex-1 text-xs text-foreground">
+            This character&apos;s AC is a <strong>fixed total</strong> (or overridden) — the component boxes,
+            equipped armor, and modifiers below won&apos;t change it until the formula is rebuilt. Review the
+            numbers after rebuilding.
+          </p>
+          <Button size="sm" variant="outline" onClick={rebuildAcFormula}>
+            Rebuild AC formula
+          </Button>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         {AC_COMPONENTS.map((comp) => (
           <NumberField
             key={comp.key}
             label={comp.label}
-            value={getVal(comp.key)}
+            value={getVal(comp)}
             onChange={(v) => setVal(comp, v)}
           />
         ))}

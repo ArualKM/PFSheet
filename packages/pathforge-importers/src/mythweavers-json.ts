@@ -173,6 +173,10 @@ function normalizeMw(mw: Mw): NormalizedCharacterDraft {
     skip(`${mwKey}Mod`);
     if (score !== undefined) {
       character.abilities.primary[key].score = score;
+      // Keep baseScore consistent with the effective score (a self-consistent "flat" state)
+      // instead of leaving the factory default of 10 — otherwise base != effective misleads any
+      // base-vs-effective tooling. computeAbilities reads base = baseScore ?? score.
+      character.abilities.primary[key].baseScore = score;
       setAnyAbility = true;
     }
   }
@@ -421,24 +425,40 @@ function normalizeMw(mw: Mw): NormalizedCharacterDraft {
     typeKey: string,
     specialKey: string,
     category: EquipmentItem["category"],
+    keys: { worn: string; dex: string; check: string },
   ) => {
     const nm = take(nameKey);
     const type = take(typeKey);
     const special = take(specialKey);
+    // Mechanical stats that previously had NO importer home: worn → equipped, ArmorDex → Max Dex
+    // cap, ArmorCheck → armor check penalty. The AC *bonus* itself keeps flowing through the
+    // ACArmor/ACShield conditional modifiers (the authoritative total, which may bake in
+    // enhancement), so we deliberately do NOT set item.armorBonus here — that avoids a same-type
+    // duplicate/undercount. Wiring equipped + maxDex + ACP makes the Dex cap and ACP-to-skills work.
+    const worn = take(keys.worn);
+    const dex = toInt(take(keys.dex));
+    const check = toInt(take(keys.check));
     const notes = [isRealValue(type) ? type : "", isRealValue(special) ? special : ""].filter(Boolean).join(" · ");
     if (isRealValue(nm)) {
       const item = equip(nm, category);
       if (notes) item.notes = notes;
+      if (worn === "1" || worn.toLowerCase() === "true" || worn.toLowerCase() === "yes") item.equipped = true;
+      // Only a POSITIVE Max Dex is a real cap. A "0" here (common for shields — which don't cap Dex —
+      // and MW's "no cap" encoding) must NOT set maxDexBonus, or the engine's maxDexPenalty() would
+      // cap Dex-to-AC at 0 and silently erase a Dex-based character's AC. MW's "no cap" sentinels
+      // (50/99) are harmless (> any Dex mod) but we skip 0 to avoid that regression.
+      if (dex !== undefined && dex > 0) item.maxDexBonus = dex;
+      if (check !== undefined && check !== 0) item.armorCheckPenalty = check;
       character.inventory.armorAndShields.push(item);
     } else {
       if (isRealValue(special)) unmapped[specialKey] = special;
       if (isRealValue(type)) unmapped[typeKey] = type;
     }
   };
-  pushArmorPiece("ArmorName", "ArmorType", "ArmorSpecial", "armor");
-  skip("ArmorBonus", "ArmorWorn", "ArmorDex", "ArmorCheck", "ArmorSpeed", "ArmorSpell", "ArmorWeight", "Armor");
-  pushArmorPiece("ShieldName", "ShieldType", "ShieldSpecial", "shield");
-  skip("ShieldBonus", "ShieldWorn", "ShieldDex", "ShieldCheck", "ShieldSpeed", "ShieldSpell", "ShieldWeight");
+  pushArmorPiece("ArmorName", "ArmorType", "ArmorSpecial", "armor", { worn: "ArmorWorn", dex: "ArmorDex", check: "ArmorCheck" });
+  skip("ArmorBonus", "ArmorSpeed", "ArmorSpell", "ArmorWeight", "Armor");
+  pushArmorPiece("ShieldName", "ShieldType", "ShieldSpecial", "shield", { worn: "ShieldWorn", dex: "ShieldDex", check: "ShieldCheck" });
+  skip("ShieldBonus", "ShieldSpeed", "ShieldSpell", "ShieldWeight");
   skip("Weapon3", "Weapon4");
 
   // ── Languages ──────────────────────────────────────────────────────────────

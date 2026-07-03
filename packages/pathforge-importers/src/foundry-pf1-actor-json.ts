@@ -209,6 +209,9 @@ function normalizeFoundry(actor: Json): NormalizedCharacterDraft {
   for (const k of ABILS) {
     const v = num(abilities[k]?.value, 10);
     character.abilities.primary[k].score = v;
+    // Keep baseScore consistent with score rather than the factory default of 10 (Foundry gives
+    // base values; computeAbilities reads base = baseScore ?? score).
+    character.abilities.primary[k].baseScore = v;
   }
   const conMod = abilityMod(num(abilities.con?.value, 10));
   warn("abilities_base", "Ability scores were imported as BASE values; equipment/effect bonuses weren't applied. Add them or re-enter effective scores.");

@@ -216,9 +216,20 @@ export async function applyImportResolutions(
           .eq("race", row.name)
           .maybeSingle();
         const speed = trait?.speed ? parseInt(String(trait.speed), 10) : undefined;
+        const abilityMods = parseAbilityMods(trait?.ability_modifiers);
+        // Imported ability scores are EFFECTIVE totals — the racial modifier is already baked in.
+        // applyRace would `score += v` and double-count, so pre-seed identity.raceApplied with the
+        // SAME mods: applyRace's revert step then subtracts exactly what its apply step re-adds
+        // (net zero on the scores) while still recording the linked race + size/speed/traits and
+        // leaving raceApplied correct for a later race switch via the picker.
+        sheet.identity.raceApplied = {
+          name: S(row.name),
+          compendiumId: S(row.slug),
+          abilityMods,
+        };
         applyRace(sheet, {
           race: { name: S(row.name), compendiumId: S(row.slug) },
-          abilityMods: parseAbilityMods(trait?.ability_modifiers),
+          abilityMods,
           size: trait?.size ? S(trait.size).toLowerCase() : undefined,
           speed: Number.isFinite(speed) ? speed : undefined,
           standardTraits: trait?.standard_traits ?? undefined,

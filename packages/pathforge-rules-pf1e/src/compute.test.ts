@@ -35,6 +35,31 @@ describe("computeCharacter — default character", () => {
   });
 });
 
+describe("summary.saveMisc + flat-save rebuild invariant", () => {
+  it("resolves the save misc bucket even under a flat formula, so a rebuild preserves the total", () => {
+    const c = createDefaultCharacter();
+    c.abilities.primary.con.score = 12; // Con mod +1
+    c.defenses.savingThrows.fortitude.misc = [
+      { id: "res", label: "Cloak", value: 2, bonusType: "resistance", enabled: true },
+    ];
+    // A flat imported total ignores @{saves.fortitude.misc} entirely.
+    c.defenses.savingThrows.fortitude.formula = "5";
+    const computed = computeCharacter(c);
+    expect(computed.saves.fortitude.value).toBe(5); // flat formula wins
+    expect(computed.summary.saveMisc.fortitude).toBe(2); // bucket still resolved
+
+    // The editor's rebuild seeds base = flatTotal − abilityMod − miscBucket, then restores the
+    // default formula (which re-adds ability + misc). The total must stay 5, NOT double-count to 7.
+    const abilityMod = computed.abilities.con!.modifier;
+    const rebuiltBase = computed.saves.fortitude.value - abilityMod - computed.summary.saveMisc.fortitude;
+    const c2 = createDefaultCharacter();
+    c2.abilities.primary.con.score = 12;
+    c2.defenses.savingThrows.fortitude.misc = c.defenses.savingThrows.fortitude.misc;
+    c2.defenses.savingThrows.fortitude.base = rebuiltBase; // default formula already references base+con.mod+misc
+    expect(computeCharacter(c2).saves.fortitude.value).toBe(5);
+  });
+});
+
 describe("computeCharacter — ability + save math", () => {
   it("flows ability modifiers into AC and saves", () => {
     const c = createDefaultCharacter();

@@ -129,6 +129,14 @@ function summaryValues(
     "stat:will": { label: "Will", value: summary.will },
     "stat:initiative": { label: "Initiative", value: summary.initiative },
     "stat:speed": { label: "Speed", value: summary.speed.total },
+    // Attack lines + Max HP: the most common buffs (Bless, Heroism, Prayer, Haste, Divine Favor)
+    // target attack, and Toughness-style effects target hp. These route through the attack.*/hp
+    // buckets and ARE applied by the engine, so they must appear in the delta preview or an
+    // attack/HP buff misleadingly reads "No net change". diffSummaries only reports changed keys.
+    "stat:melee": { label: "Melee atk", value: computed.attackBonuses.melee.value },
+    "stat:ranged": { label: "Ranged atk", value: computed.attackBonuses.ranged.value },
+    "stat:cmb": { label: "CMB", value: computed.attackBonuses.cmb.value },
+    "stat:hp": { label: "Max HP", value: summary.hp.max },
   };
   for (const [k, v] of Object.entries(summary.abilityMods)) {
     out[`ability:${k}`] = { label: `${k.toUpperCase()} mod`, value: v };
