@@ -6,6 +6,8 @@ import { computeCharacter } from "@pathforge/rules-pf1e";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+import { ClassicSheet } from "@/components/character/classic-sheet";
+import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +101,11 @@ export default async function PublicSharePage({
         </span>
       </header>
 
-      <CharacterDashboard vm={vm} />
+      <SheetViewSwitch
+        characterId={data.id}
+        modern={<CharacterDashboard vm={vm} />}
+        classic={<ClassicSheet vm={vm} />}
+      />
 
       <footer className="mt-10 border-t border-border/60 pt-6 text-center">
         <p className="text-sm text-muted-foreground">

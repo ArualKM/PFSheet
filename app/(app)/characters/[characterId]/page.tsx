@@ -10,6 +10,8 @@ import { env } from "@/lib/env";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { loadCampaignFeedback } from "@/lib/character/campaign-feedback";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+import { ClassicSheet } from "@/components/character/classic-sheet";
+import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { CampaignFeedback } from "@/components/character/campaign-feedback";
 import { CompanionsCard } from "@/components/character/companions-card";
 import { ShareControls } from "@/components/character/share-controls";
@@ -74,30 +76,33 @@ export default async function CharacterOverviewPage({
     ? ((await supabase.from("characters").select("id, name, companion_type").eq("parent_character_id", characterId).order("created_at")).data ?? [])
     : [];
 
+  const actions = (
+    <>
+      <ShareControls
+        characterId={data.id}
+        initialVisibility={data.visibility as Visibility}
+        initialSlug={data.public_slug}
+        appUrl={env.appUrl}
+      />
+      <Button asChild variant="ghost" size="sm">
+        <Link href={`/characters/${characterId}/history`}>History</Link>
+      </Button>
+      <Button asChild variant="ghost" size="sm">
+        <Link href={`/characters/${characterId}/exports`}>Export</Link>
+      </Button>
+      <Button asChild size="sm">
+        <Link href={`/characters/${characterId}/edit`}>Edit</Link>
+      </Button>
+    </>
+  );
+
   return (
     <div className="mx-auto max-w-5xl">
       {backLink}
-      <CharacterDashboard
-        vm={vm}
-        actions={
-          <>
-            <ShareControls
-              characterId={data.id}
-              initialVisibility={data.visibility as Visibility}
-              initialSlug={data.public_slug}
-              appUrl={env.appUrl}
-            />
-            <Button asChild variant="ghost" size="sm">
-              <Link href={`/characters/${characterId}/history`}>History</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href={`/characters/${characterId}/exports`}>Export</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href={`/characters/${characterId}/edit`}>Edit</Link>
-            </Button>
-          </>
-        }
+      <SheetViewSwitch
+        characterId={data.id}
+        modern={<CharacterDashboard vm={vm} actions={actions} />}
+        classic={<ClassicSheet vm={vm} actions={actions} />}
       />
       <CampaignFeedback items={feedback} characterId={characterId} />
       {isOwner && <CompanionsCard parentId={characterId} companions={companions} />}
