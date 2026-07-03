@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { SpellView } from "@/lib/character/view-model";
+import { groupSpellsByLevel, spellLevelLabel } from "@/lib/character/spell-groups";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
 import { SpellRow } from "./spell-row";
 
 type SpellEntry = SpellView & { used?: number; prepared?: number };
@@ -14,13 +16,16 @@ const SORTS: { value: SortMode; label: string }[] = [
   { value: "name", label: "A–Z" },
 ];
 
-const CAP = 12;
-
 /**
- * Read-view spell list with search, sort (level / school+level / name), and collapse-by-default
- * so a 40-known-spell sorcerer doesn't produce an endless page. Client-side over already-gated,
- * already-authorized data (no new fetch). The prepared used/total counter is rendered internally
- * (a function prop can't cross the server→client boundary — see CharacterDashboard).
+ * Read-view spell list with search, sort (level / school / name), and per-level collapsible
+ * grouping so a 40-known-spell sorcerer doesn't produce an endless page. Spells are always
+ * grouped by level (the natural spell grouping); the sort only reorders spells within a level.
+ * Every group defaults open when the whole list is short (≤ COLLAPSE_WHEN_OVER) and collapses
+ * to a scannable index of level headers when long. An active search auto-expands any group that
+ * contains a match (the groups are keyed on the query so the open state re-derives on change).
+ * Client-side over already-gated, already-authorized data (no new fetch). The prepared used/total
+ * counter is rendered internally (a function prop can't cross the server→client boundary — see
+ * CharacterDashboard).
  */
 export function SpellListViewer({
   title,
@@ -33,27 +38,32 @@ export function SpellListViewer({
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortMode>("level");
-  const [showAll, setShowAll] = useState(false);
+  const q = query.trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = q
+    return q
       ? spells.filter(
           (s) => s.name.toLowerCase().includes(q) || (s.school ?? "").toLowerCase().includes(q),
         )
       : spells.slice();
-    list.sort((a, b) => {
+  }, [spells, q]);
+
+  const groups = useMemo(() => {
+    const byLevel = groupSpellsByLevel(filtered);
+    const bySort = (a: SpellEntry, b: SpellEntry) => {
       if (sort === "name") return a.name.localeCompare(b.name);
       if (sort === "school") {
         const sc = (a.school ?? "").localeCompare(b.school ?? "");
-        return sc !== 0 ? sc : a.level - b.level || a.name.localeCompare(b.name);
+        return sc !== 0 ? sc : a.name.localeCompare(b.name);
       }
-      return a.level - b.level || a.name.localeCompare(b.name);
-    });
-    return list;
-  }, [spells, query, sort]);
+      return a.name.localeCompare(b.name);
+    };
+    return byLevel.map((g) => ({ level: g.level, spells: [...g.spells].sort(bySort) }));
+  }, [filtered, sort]);
 
-  const shown = showAll ? filtered : filtered.slice(0, CAP);
+  // Short lists stay fully open; long ones collapse every group to a compact level index. An
+  // active search overrides that so matching groups expand (the groups remount on `q` change).
+  const openByDefault = filtered.length <= COLLAPSE_WHEN_OVER;
 
   return (
     <div>
@@ -87,34 +97,32 @@ export function SpellListViewer({
         </div>
       </div>
 
-      <div className="space-y-1">
-        {shown.map((sp, i) => (
-          <SpellRow
-            key={`${sp.name}-${sp.level}-${i}`}
-            spell={sp}
-            mythicAugments={mythicAugments}
-            right={
-              sp.prepared != null ? (
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {sp.used ?? 0}/{sp.prepared}
-                </span>
-              ) : undefined
-            }
-          />
+      <div className="space-y-1.5">
+        {groups.map((g) => (
+          <CollapsibleGroup
+            key={`${g.level}-${q}`}
+            title={spellLevelLabel(g.level)}
+            count={g.spells.length}
+            defaultOpen={openByDefault || q !== ""}
+          >
+            {g.spells.map((sp, i) => (
+              <SpellRow
+                key={`${sp.name}-${sp.level}-${i}`}
+                spell={sp}
+                mythicAugments={mythicAugments}
+                right={
+                  sp.prepared != null ? (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {sp.used ?? 0}/{sp.prepared}
+                    </span>
+                  ) : undefined
+                }
+              />
+            ))}
+          </CollapsibleGroup>
         ))}
         {filtered.length === 0 && <p className="text-xs text-muted-foreground">No spells match.</p>}
       </div>
-
-      {filtered.length > CAP && (
-        <button
-          type="button"
-          onClick={() => setShowAll((v) => !v)}
-          aria-expanded={showAll}
-          className="mt-1.5 rounded text-xs font-medium text-rune underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {showAll ? "Show less" : `Show all ${filtered.length}`}
-        </button>
-      )}
     </div>
   );
 }

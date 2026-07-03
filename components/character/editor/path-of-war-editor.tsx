@@ -15,7 +15,9 @@ import {
   readPowProgressionMaxes,
   powRecoveryDefault,
   setActiveStance,
+  groupManeuversByDiscipline,
 } from "@/lib/character/path-of-war-presets";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "../collapsible-group";
 import type { CharacterEditorApi } from "./use-character-editor";
 import { NumberField, TextField, TextAreaField, SelectField } from "./fields";
 import { AutomationEffectsEditor, skillTargetOptions } from "./automation-effects-editor";
@@ -131,6 +133,11 @@ export function PathOfWarEditor({ ed }: { ed: CharacterEditorApi }) {
 
   const expendedCount = pow?.maneuvers.filter((m) => m.expended).length ?? 0;
   const readiedCount = pow?.maneuvers.filter((m) => m.readied).length ?? 0;
+
+  // Group the flat maneuvers list by discipline for the collapsible sections, keeping a map back to
+  // each row's ORIGINAL index so the index-based mutations (setM / splice) stay correct.
+  const maneuverGroups = groupManeuversByDiscipline(pow?.maneuvers ?? []);
+  const indexById = new Map((pow?.maneuvers ?? []).map((m, i) => [m.id, i]));
 
   const addFromCompendium = (slug: string) => {
     const row = powClasses.find((r) => r.slug === slug);
@@ -523,15 +530,38 @@ export function PathOfWarEditor({ ed }: { ed: CharacterEditorApi }) {
         )}
 
         <div className="space-y-2">
-          {pow?.maneuvers.map((m, i) => {
-            const setM = (mut: (t: PowManeuver) => void) =>
-              ensure((p) => {
-                const t = p.maneuvers[i];
-                if (t) mut(t);
-              });
-            const dc = summary?.maneuverDcs[m.id];
-            const isStance = m.entryKind === "stance";
-            return (
+          {maneuverGroups.map((g) => (
+            <CollapsibleGroup
+              key={g.discipline}
+              title={g.discipline}
+              count={g.maneuvers.length}
+              defaultOpen={(pow?.maneuvers.length ?? 0) <= COLLAPSE_WHEN_OVER}
+              forceOpen={openManeuverId != null && g.maneuvers.some((m) => m.id === openManeuverId)}
+            >
+              {g.maneuvers.map((m) => renderManeuver(m, indexById.get(m.id)!))}
+            </CollapsibleGroup>
+          ))}
+        </div>
+      </section>
+
+      <TextAreaField
+        label="Path of War notes"
+        value={pow?.notes ?? ""}
+        onChange={(v) => ensure((p) => (p.notes = v || undefined))}
+        rows={2}
+      />
+    </div>
+  );
+
+  function renderManeuver(m: PowManeuver, i: number) {
+    const setM = (mut: (t: PowManeuver) => void) =>
+      ensure((p) => {
+        const t = p.maneuvers[i];
+        if (t) mut(t);
+      });
+    const dc = summary?.maneuverDcs[m.id];
+    const isStance = m.entryKind === "stance";
+    return (
               <EntryCard
                 key={m.id}
                 name={m.name}
@@ -750,17 +780,6 @@ export function PathOfWarEditor({ ed }: { ed: CharacterEditorApi }) {
                   </p>
                 )}
               </EntryCard>
-            );
-          })}
-        </div>
-      </section>
-
-      <TextAreaField
-        label="Path of War notes"
-        value={pow?.notes ?? ""}
-        onChange={(v) => ensure((p) => (p.notes = v || undefined))}
-        rows={2}
-      />
-    </div>
-  );
+    );
+  }
 }

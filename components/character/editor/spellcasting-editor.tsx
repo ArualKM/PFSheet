@@ -11,6 +11,8 @@ import { SpellPicker } from "./spell-picker";
 import { EntryCard } from "./entry-card";
 import { StatChip } from "./picker-shell";
 import type { CharacterEditorApi } from "./use-character-editor";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "../collapsible-group";
+import { spellLevelLabel } from "@/lib/character/spell-groups";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,23 @@ const SPELL_LEVELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * Group editor spell entries by level (ascending), keeping each item's original index so the
+ * index-based mutation handlers (setSpell / splice) keep pointing at the right array slot.
+ */
+function groupByLevel<T extends { level: number }>(
+  items: T[],
+): Array<{ level: number; items: Array<{ item: T; index: number }> }> {
+  const by = new Map<number, Array<{ item: T; index: number }>>();
+  items.forEach((item, index) => {
+    const lvl = Number.isFinite(item.level) ? item.level : 0;
+    const list = by.get(lvl);
+    if (list) list.push({ item, index });
+    else by.set(lvl, [{ item, index }]);
+  });
+  return [...by.entries()].sort(([a], [b]) => a - b).map(([level, list]) => ({ level, items: list }));
 }
 
 export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
@@ -304,65 +323,77 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
           </div>
         )}
         {sc.knownSpells.length === 0 && <p className="text-sm text-muted-foreground">No spells listed yet.</p>}
-        <div className="space-y-2">
-          {sc.knownSpells.map((sp, i) => {
-            const setSpell = (mut: (s: (typeof sc.knownSpells)[number]) => void) =>
-              ed.update((c) => {
-                const s = c.spellcasting.knownSpells[i];
-                if (s) mut(s);
-              });
-            return (
-              <EntryCard
-                key={sp.id}
-                nameLabel="Spell"
-                name={sp.name}
-                onNameChange={(v) => setSpell((s) => (s.name = v))}
-                onRemove={() => ed.update((c) => c.spellcasting.knownSpells.splice(i, 1))}
-                removeLabel={`Remove ${sp.name}`}
-                defaultOpen={sp.id === openId}
-                chips={
-                  <>
-                    <StatChip label="Lv" value={sp.level} />
-                    {sp.school && <StatChip value={sp.school} />}
-                    {sp.descriptor && <StatChip tone="rune" value={sp.descriptor} />}
-                    {sp.range && <StatChip value={sp.range} />}
-                  </>
-                }
-              >
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <NumberField label="Level" value={sp.level} min={0} max={9} onChange={(v) => setSpell((s) => (s.level = Math.max(0, Math.min(9, v))))} />
-                  <TextField label="School" value={sp.school ?? ""} onChange={(v) => setSpell((s) => (s.school = v || undefined))} />
-                  <TextField label="Subschool" value={sp.subschool ?? ""} onChange={(v) => setSpell((s) => (s.subschool = v || undefined))} />
-                  <TextField label="Descriptor" value={sp.descriptor ?? ""} onChange={(v) => setSpell((s) => (s.descriptor = v || undefined))} />
-                  <TextField label="Casting time" value={sp.castingTime ?? ""} onChange={(v) => setSpell((s) => (s.castingTime = v || undefined))} />
-                  <TextField label="Components" value={sp.components ?? ""} onChange={(v) => setSpell((s) => (s.components = v || undefined))} />
-                  <TextField label="Range" value={sp.range ?? ""} onChange={(v) => setSpell((s) => (s.range = v || undefined))} />
-                  <TextField label="Duration" value={sp.duration ?? ""} onChange={(v) => setSpell((s) => (s.duration = v || undefined))} />
-                  <TextField label="Saving throw" value={sp.savingThrow ?? ""} onChange={(v) => setSpell((s) => (s.savingThrow = v || undefined))} />
-                  <TextField label="Spell resistance" value={sp.spellResistance ?? ""} onChange={(v) => setSpell((s) => (s.spellResistance = v || undefined))} />
-                  <TextField label="Area" value={sp.area ?? ""} onChange={(v) => setSpell((s) => (s.area = v || undefined))} />
-                  <TextField label="Effect" value={sp.effect ?? ""} onChange={(v) => setSpell((s) => (s.effect = v || undefined))} />
-                  <TextField label="Targets" value={sp.targets ?? ""} onChange={(v) => setSpell((s) => (s.targets = v || undefined))} />
-                </div>
-                <label className="flex items-center gap-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={!!sp.atWill}
-                    onChange={(e) => setSpell((s) => (s.atWill = e.target.checked || undefined))}
-                    className="size-4 rounded border-border accent-rune"
-                  />
-                  <span className="font-medium">At will</span>
-                </label>
-                <TextAreaField label="Description" value={sp.description ?? ""} rows={3} onChange={(v) => setSpell((s) => (s.description = v || undefined))} />
-                <TextField label="Notes" value={sp.notes ?? ""} onChange={(v) => setSpell((s) => (s.notes = v || undefined))} />
-                {preparedCaster && (
-                  <Button size="sm" variant="secondary" onClick={() => prepareFromKnown(sp)}>
-                    <BookOpen className="size-4" /> Prepare
-                  </Button>
-                )}
-              </EntryCard>
-            );
-          })}
+        <div className="space-y-1.5">
+          {groupByLevel(sc.knownSpells).map((g) => (
+            <CollapsibleGroup
+              key={g.level}
+              title={spellLevelLabel(g.level)}
+              count={g.items.length}
+              defaultOpen={sc.knownSpells.length <= COLLAPSE_WHEN_OVER}
+              forceOpen={openId != null && g.items.some((x) => x.item.id === openId)}
+            >
+              <div className="space-y-2">
+                {g.items.map(({ item: sp, index: i }) => {
+                  const setSpell = (mut: (s: (typeof sc.knownSpells)[number]) => void) =>
+                    ed.update((c) => {
+                      const s = c.spellcasting.knownSpells[i];
+                      if (s) mut(s);
+                    });
+                  return (
+                    <EntryCard
+                      key={sp.id}
+                      nameLabel="Spell"
+                      name={sp.name}
+                      onNameChange={(v) => setSpell((s) => (s.name = v))}
+                      onRemove={() => ed.update((c) => c.spellcasting.knownSpells.splice(i, 1))}
+                      removeLabel={`Remove ${sp.name}`}
+                      defaultOpen={sp.id === openId}
+                      chips={
+                        <>
+                          <StatChip label="Lv" value={sp.level} />
+                          {sp.school && <StatChip value={sp.school} />}
+                          {sp.descriptor && <StatChip tone="rune" value={sp.descriptor} />}
+                          {sp.range && <StatChip value={sp.range} />}
+                        </>
+                      }
+                    >
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <NumberField label="Level" value={sp.level} min={0} max={9} onChange={(v) => setSpell((s) => (s.level = Math.max(0, Math.min(9, v))))} />
+                        <TextField label="School" value={sp.school ?? ""} onChange={(v) => setSpell((s) => (s.school = v || undefined))} />
+                        <TextField label="Subschool" value={sp.subschool ?? ""} onChange={(v) => setSpell((s) => (s.subschool = v || undefined))} />
+                        <TextField label="Descriptor" value={sp.descriptor ?? ""} onChange={(v) => setSpell((s) => (s.descriptor = v || undefined))} />
+                        <TextField label="Casting time" value={sp.castingTime ?? ""} onChange={(v) => setSpell((s) => (s.castingTime = v || undefined))} />
+                        <TextField label="Components" value={sp.components ?? ""} onChange={(v) => setSpell((s) => (s.components = v || undefined))} />
+                        <TextField label="Range" value={sp.range ?? ""} onChange={(v) => setSpell((s) => (s.range = v || undefined))} />
+                        <TextField label="Duration" value={sp.duration ?? ""} onChange={(v) => setSpell((s) => (s.duration = v || undefined))} />
+                        <TextField label="Saving throw" value={sp.savingThrow ?? ""} onChange={(v) => setSpell((s) => (s.savingThrow = v || undefined))} />
+                        <TextField label="Spell resistance" value={sp.spellResistance ?? ""} onChange={(v) => setSpell((s) => (s.spellResistance = v || undefined))} />
+                        <TextField label="Area" value={sp.area ?? ""} onChange={(v) => setSpell((s) => (s.area = v || undefined))} />
+                        <TextField label="Effect" value={sp.effect ?? ""} onChange={(v) => setSpell((s) => (s.effect = v || undefined))} />
+                        <TextField label="Targets" value={sp.targets ?? ""} onChange={(v) => setSpell((s) => (s.targets = v || undefined))} />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={!!sp.atWill}
+                          onChange={(e) => setSpell((s) => (s.atWill = e.target.checked || undefined))}
+                          className="size-4 rounded border-border accent-rune"
+                        />
+                        <span className="font-medium">At will</span>
+                      </label>
+                      <TextAreaField label="Description" value={sp.description ?? ""} rows={3} onChange={(v) => setSpell((s) => (s.description = v || undefined))} />
+                      <TextField label="Notes" value={sp.notes ?? ""} onChange={(v) => setSpell((s) => (s.notes = v || undefined))} />
+                      {preparedCaster && (
+                        <Button size="sm" variant="secondary" onClick={() => prepareFromKnown(sp)}>
+                          <BookOpen className="size-4" /> Prepare
+                        </Button>
+                      )}
+                    </EntryCard>
+                  );
+                })}
+              </div>
+            </CollapsibleGroup>
+          ))}
         </div>
 
         {preparedCaster && sc.preparedSpells.length > 0 && (
@@ -371,9 +402,17 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
               Prepared today
             </h4>
             <div className="space-y-1.5">
-              {[...sc.preparedSpells]
-                .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
-                .map((sp) => (
+              {groupByLevel(sc.preparedSpells).map((g) => (
+                <CollapsibleGroup
+                  key={g.level}
+                  title={spellLevelLabel(g.level)}
+                  count={g.items.length}
+                  defaultOpen={sc.preparedSpells.length <= COLLAPSE_WHEN_OVER}
+                >
+                  {g.items
+                    .map(({ item }) => item)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((sp) => (
                   <div
                     key={sp.id}
                     className="flex flex-col gap-1.5 rounded-md border border-border/70 bg-surface-raised/30 px-2 py-1.5 text-sm"
@@ -463,6 +502,8 @@ export function SpellcastingEditor({ ed }: { ed: CharacterEditorApi }) {
                     )}
                   </div>
                 ))}
+                </CollapsibleGroup>
+              ))}
             </div>
           </div>
         )}

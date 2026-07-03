@@ -86,6 +86,7 @@ import {
   type MythicBlock,
   type PsionicsBlock,
   type SpheresBlock,
+  type SphereTalentRef,
   type SphereSystem,
   type SphereGrantTarget,
   SPHERE_CASTER_TYPES,
@@ -141,6 +142,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatModifier } from "@/lib/utils";
 import { COMMON_LANGUAGES, languageBudget } from "@/lib/character/languages";
+import { groupPowersByLevel } from "@/lib/character/psionic-powers";
+import { groupTalentsByCategory } from "@/lib/character/sphere-talents";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "../collapsible-group";
 import { effectiveLevel } from "@/lib/character/view-model";
 
 const AC_COMPONENTS = [
@@ -2134,9 +2138,8 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                 defaultOpen={regularTalentsOf.length <= SPHERE_SUBSECTION_COLLAPSE_AT}
                 onAdd={() => openPicker("talents", d.sys)}
               >
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {regularTalentsOf.length === 0 && <span className="text-xs text-muted-foreground">None yet.</span>}
-                  {regularTalentsOf.map(({ t: tal, i }) => (
+                {(() => {
+                  const chip = ({ t: tal, i }: { t: SphereTalentRef; i: number }) => (
                     <SphereChip
                       key={tal.id}
                       label={tal.talentName || "(unnamed)"}
@@ -2154,14 +2157,52 @@ function SpheresEditor({ ed }: { ed: EditorApi }) {
                       }
                       onRemove={() => ensure((s) => { clearTargetsTo(s, tal.id); s.talents.splice(i, 1); })}
                     />
-                  ))}
-                  <AddByName
-                    placeholder="+ talent"
-                    onAdd={(name) =>
-                      ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: name, system: d.sys }))
-                    }
-                  />
-                </div>
+                  );
+                  const tiers = groupTalentsByCategory(
+                    regularTalentsOf.map((p) => ({ name: p.t.talentName || "", category: p.t.category, pair: p })),
+                  );
+                  const addByName = (
+                    <AddByName
+                      placeholder="+ talent"
+                      onAdd={(name) =>
+                        ensure((s) => s.talents.push({ id: newId("tal"), sphereName: "", talentName: name, system: d.sys }))
+                      }
+                    />
+                  );
+                  if (regularTalentsOf.length === 0) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">None yet.</span>
+                        {addByName}
+                      </div>
+                    );
+                  }
+                  // Only show tier subheaders when the talents span more than one tier; otherwise flat.
+                  if (tiers.length <= 1) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {regularTalentsOf.map(chip)}
+                        {addByName}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {tiers.map((grp) => (
+                        <div key={grp.tier}>
+                          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {grp.tier}
+                            <span className="rounded-full bg-surface-raised px-1.5 text-[10px] font-medium text-muted-foreground">
+                              {grp.talents.length}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">{grp.talents.map((g) => chip(g.pair))}</div>
+                        </div>
+                      ))}
+                      <div className="flex flex-wrap items-center gap-1.5">{addByName}</div>
+                    </div>
+                  );
+                })()}
               </SphereSubsection>
             </div>
           </section>
@@ -2200,6 +2241,95 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
     setPasteMsg(`Added ${powers.length} power${powers.length === 1 ? "" : "s"}.${warnings.length ? ` (${warnings.length} note${warnings.length === 1 ? "" : "s"})` : ""}`);
   };
   const spendPP = (delta: number) => ensure((p) => (p.powerPointsCurrent = Math.max(0, Math.min(max, current + delta))));
+
+  // Group powers-known by level for the collapsible sections, keeping a map back to each row's
+  // ORIGINAL index so the index-based mutations (setPower / splice) stay correct.
+  const powersKnown = ps?.powersKnown ?? [];
+  const powerGroups = groupPowersByLevel(powersKnown);
+  const powerIndexById = new Map(powersKnown.map((pw, i) => [pw.id, i]));
+  const powersOpenByDefault = powersKnown.length <= COLLAPSE_WHEN_OVER;
+
+  const renderPower = (pw: NonNullable<PsionicsBlock["powersKnown"]>[number], i: number) => {
+    const setPower = (mut: (t: NonNullable<PsionicsBlock["powersKnown"]>[number]) => void) =>
+      ensure((p) => {
+        const t = p.powersKnown[i];
+        if (t) mut(t);
+      });
+    return (
+      <EntryCard
+        key={pw.id}
+        name={pw.name}
+        nameLabel="Power"
+        onNameChange={(v) => setPower((t) => (t.name = v))}
+        onRemove={() => ensure((p) => p.powersKnown.splice(i, 1))}
+        removeLabel={`Remove ${pw.name}`}
+        defaultOpen={pw.id === openPowerId}
+        chips={
+          <>
+            <StatChip label="lvl" value={pw.level} tone="rune" />
+            {pw.ppCost != null && <StatChip label="pp" value={pw.ppCost} tone="gold" />}
+            {pw.discipline && <StatChip value={pw.discipline} />}
+          </>
+        }
+      >
+        <div className="flex flex-wrap items-end gap-2">
+          <NumberField
+            label="Level"
+            value={pw.level}
+            min={0}
+            max={9}
+            onChange={(v) => setPower((t) => (t.level = Math.max(0, Math.min(9, v))))}
+            className="w-16"
+          />
+          <NumberField
+            label="PP cost"
+            value={pw.ppCost ?? 0}
+            min={0}
+            onChange={(v) => setPower((t) => (t.ppCost = v || undefined))}
+            className="w-20"
+          />
+          <TextField
+            label="Discipline"
+            value={pw.discipline ?? ""}
+            onChange={(v) => setPower((t) => (t.discipline = v || undefined))}
+            className="min-w-[10rem] flex-1"
+          />
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <TextField
+            label="Display"
+            value={pw.display ?? ""}
+            onChange={(v) => setPower((t) => (t.display = v || undefined))}
+            className="min-w-[8rem] flex-1"
+          />
+          <TextField
+            label="Range"
+            value={pw.range ?? ""}
+            onChange={(v) => setPower((t) => (t.range = v || undefined))}
+            className="min-w-[8rem] flex-1"
+          />
+          <TextField
+            label="Duration"
+            value={pw.duration ?? ""}
+            onChange={(v) => setPower((t) => (t.duration = v || undefined))}
+            className="min-w-[8rem] flex-1"
+          />
+        </div>
+        <TextAreaField
+          label="Description"
+          value={pw.description ?? ""}
+          onChange={(v) => setPower((t) => (t.description = v || undefined))}
+          rows={3}
+        />
+        <TextAreaField
+          label="Augment"
+          value={pw.augment ?? ""}
+          onChange={(v) => setPower((t) => (t.augment = v || undefined))}
+          rows={2}
+        />
+      </EntryCard>
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -2335,87 +2465,17 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
           </div>
         )}
         <div className="space-y-2">
-          {ps?.powersKnown.map((pw, i) => {
-            const setPower = (mut: (t: NonNullable<PsionicsBlock["powersKnown"]>[number]) => void) =>
-              ensure((p) => {
-                const t = p.powersKnown[i];
-                if (t) mut(t);
-              });
-            return (
-              <EntryCard
-                key={pw.id}
-                name={pw.name}
-                nameLabel="Power"
-                onNameChange={(v) => setPower((t) => (t.name = v))}
-                onRemove={() => ensure((p) => p.powersKnown.splice(i, 1))}
-                removeLabel={`Remove ${pw.name}`}
-                defaultOpen={pw.id === openPowerId}
-                chips={
-                  <>
-                    <StatChip label="lvl" value={pw.level} tone="rune" />
-                    {pw.ppCost != null && <StatChip label="pp" value={pw.ppCost} tone="gold" />}
-                    {pw.discipline && <StatChip value={pw.discipline} />}
-                  </>
-                }
-              >
-                <div className="flex flex-wrap items-end gap-2">
-                  <NumberField
-                    label="Level"
-                    value={pw.level}
-                    min={0}
-                    max={9}
-                    onChange={(v) => setPower((t) => (t.level = Math.max(0, Math.min(9, v))))}
-                    className="w-16"
-                  />
-                  <NumberField
-                    label="PP cost"
-                    value={pw.ppCost ?? 0}
-                    min={0}
-                    onChange={(v) => setPower((t) => (t.ppCost = v || undefined))}
-                    className="w-20"
-                  />
-                  <TextField
-                    label="Discipline"
-                    value={pw.discipline ?? ""}
-                    onChange={(v) => setPower((t) => (t.discipline = v || undefined))}
-                    className="min-w-[10rem] flex-1"
-                  />
-                </div>
-                <div className="flex flex-wrap items-end gap-2">
-                  <TextField
-                    label="Display"
-                    value={pw.display ?? ""}
-                    onChange={(v) => setPower((t) => (t.display = v || undefined))}
-                    className="min-w-[8rem] flex-1"
-                  />
-                  <TextField
-                    label="Range"
-                    value={pw.range ?? ""}
-                    onChange={(v) => setPower((t) => (t.range = v || undefined))}
-                    className="min-w-[8rem] flex-1"
-                  />
-                  <TextField
-                    label="Duration"
-                    value={pw.duration ?? ""}
-                    onChange={(v) => setPower((t) => (t.duration = v || undefined))}
-                    className="min-w-[8rem] flex-1"
-                  />
-                </div>
-                <TextAreaField
-                  label="Description"
-                  value={pw.description ?? ""}
-                  onChange={(v) => setPower((t) => (t.description = v || undefined))}
-                  rows={3}
-                />
-                <TextAreaField
-                  label="Augment"
-                  value={pw.augment ?? ""}
-                  onChange={(v) => setPower((t) => (t.augment = v || undefined))}
-                  rows={2}
-                />
-              </EntryCard>
-            );
-          })}
+          {powerGroups.map((g) => (
+            <CollapsibleGroup
+              key={g.level}
+              title={g.level === 0 ? "Talents" : `Level ${g.level}`}
+              count={g.powers.length}
+              defaultOpen={powersOpenByDefault}
+              forceOpen={openPowerId != null && g.powers.some((p) => p.id === openPowerId)}
+            >
+              {g.powers.map((pw) => renderPower(pw, powerIndexById.get(pw.id)!))}
+            </CollapsibleGroup>
+          ))}
         </div>
         <div className="mt-3 rounded-lg border border-border/60 p-2">
           <p className="mb-1 text-xs font-medium text-foreground">Paste powers to import</p>

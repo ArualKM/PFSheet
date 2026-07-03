@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { groupManeuversByDiscipline } from "@/lib/character/path-of-war-presets";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
 
 type ManeuverView = NonNullable<CharacterViewModel["pathOfWar"]>["maneuvers"][number];
 
@@ -27,35 +28,12 @@ export function ManeuverList({ maneuvers }: { maneuvers: ManeuverView[] }) {
 }
 
 function DisciplineGroup({ discipline, maneuvers }: { discipline: string; maneuvers: ManeuverView[] }) {
-  const [open, setOpen] = useState(maneuvers.length <= 6);
-  const panelId = useId();
   return (
-    <div className="min-w-0 rounded-md border border-border/60">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className="flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold"
-      >
-        <ChevronDown
-          className={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")}
-        />
-        <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {discipline}
-        </span>
-        <span className="rounded-full bg-surface-raised px-1.5 text-[10px] font-medium text-muted-foreground">
-          {maneuvers.length}
-        </span>
-      </button>
-      {open && (
-        <div id={panelId} className="space-y-1 border-t border-border/50 p-2">
-          {maneuvers.map((m, i) => (
-            <ManeuverRow key={`${m.name}-${i}`} maneuver={m} />
-          ))}
-        </div>
-      )}
-    </div>
+    <CollapsibleGroup title={discipline} count={maneuvers.length} defaultOpen={maneuvers.length <= COLLAPSE_WHEN_OVER}>
+      {maneuvers.map((m, i) => (
+        <ManeuverRow key={`${m.name}-${i}`} maneuver={m} />
+      ))}
+    </CollapsibleGroup>
   );
 }
 

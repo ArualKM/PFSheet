@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { groupPowersByLevel } from "@/lib/character/psionic-powers";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
 
 type PowerView = NonNullable<CharacterViewModel["psionics"]>["powers"][number];
 
@@ -17,19 +18,20 @@ type PowerView = NonNullable<CharacterViewModel["psionics"]>["powers"][number];
  */
 export function PsionicPowerList({ powers }: { powers: PowerView[] }) {
   const groups = groupPowersByLevel(powers);
+  const defaultOpen = powers.length <= COLLAPSE_WHEN_OVER;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {groups.map((g) => (
-        <div key={g.level} className="min-w-0">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Level {g.level} <span className="text-foreground">({g.powers.length})</span>
-          </p>
-          <div className="space-y-1">
-            {g.powers.map((p, i) => (
-              <PowerRow key={`${p.name}-${i}`} power={p} />
-            ))}
-          </div>
-        </div>
+        <CollapsibleGroup
+          key={g.level}
+          title={g.level === 0 ? "Talents" : `Level ${g.level}`}
+          count={g.powers.length}
+          defaultOpen={defaultOpen}
+        >
+          {g.powers.map((p, i) => (
+            <PowerRow key={`${p.name}-${i}`} power={p} />
+          ))}
+        </CollapsibleGroup>
       ))}
     </div>
   );

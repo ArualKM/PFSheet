@@ -29,6 +29,8 @@ import { PsionicPowerList } from "./psionic-power-list";
 import { ManeuverList } from "./maneuver-list";
 import { VeilList } from "./veil-list";
 import { TalentRow } from "./talent-row";
+import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
+import { groupTalentsByCategory } from "@/lib/character/sphere-talents";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1156,10 +1158,14 @@ function SpheresCard({ spheres }: { spheres: SpheresVM }) {
             )}
             <div className="mt-2 space-y-2">
               {groups.map((g) => (
-                <div key={g.name}>
-                  <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-                    {g.name}
-                    {g.sphere && g.sphere.targetedBy.length > 0 && (
+                <CollapsibleGroup
+                  key={g.name}
+                  title={g.name}
+                  count={g.talents.length}
+                  defaultOpen={g.talents.length <= COLLAPSE_WHEN_OVER}
+                  titleClassName="normal-case tracking-normal text-foreground"
+                  accessory={
+                    g.sphere && g.sphere.targetedBy.length > 0 ? (
                       <span
                         className="inline-flex items-center gap-0.5 text-danger"
                         title={`Affected by: ${g.sphere.targetedBy.join(", ")}`}
@@ -1167,31 +1173,67 @@ function SpheresCard({ spheres }: { spheres: SpheresVM }) {
                         <TriangleAlert className="size-3" aria-hidden />
                         <span className="sr-only">Affected by: {g.sphere.targetedBy.join(", ")}</span>
                       </span>
-                    )}
-                  </div>
-                  {g.talents.length > 0 && (
-                    <div className="space-y-1">
-                      {g.talents.map((t, i) => (
-                        <TalentRow key={i} name={t.name} sphere="" compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    ) : undefined
+                  }
+                >
+                  {g.talents.length > 0 ? <SphereTierTalents talents={g.talents} /> : null}
+                </CollapsibleGroup>
               ))}
               {looseTalents.length > 0 && (
-                <div>
-                  <div className="mb-1 text-xs font-medium text-foreground">Other talents</div>
-                  <div className="space-y-1">
-                    {looseTalents.map((t, i) => (
-                      <TalentRow key={i} name={t.name} sphere={t.sphere} compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
-                    ))}
-                  </div>
-                </div>
+                <CollapsibleGroup
+                  title="Other talents"
+                  count={looseTalents.length}
+                  defaultOpen={looseTalents.length <= COLLAPSE_WHEN_OVER}
+                  titleClassName="normal-case tracking-normal text-foreground"
+                >
+                  {looseTalents.map((t, i) => (
+                    <TalentRow key={i} name={t.name} sphere={t.sphere} compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
+                  ))}
+                </CollapsibleGroup>
               )}
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** A sphere's talents, sub-grouped by tier (Base → Advanced → Legendary → Other) with a lightweight
+ * muted-uppercase subheader per tier — but only when the sphere spans more than one tier; a single-tier
+ * sphere (the common all-Base case) lists its talents flat. */
+function SphereTierTalents({
+  talents,
+}: {
+  talents: SpheresVM["talentsList"];
+}) {
+  const tiers = groupTalentsByCategory(talents);
+  if (tiers.length <= 1) {
+    return (
+      <div className="space-y-1">
+        {talents.map((t, i) => (
+          <TalentRow key={i} name={t.name} sphere="" compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {tiers.map((grp) => (
+        <div key={grp.tier}>
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {grp.tier}
+            <span className="rounded-full bg-surface-raised px-1.5 text-[10px] font-medium text-muted-foreground">
+              {grp.talents.length}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {grp.talents.map((t, i) => (
+              <TalentRow key={i} name={t.name} sphere="" compendiumId={t.compendiumId} targetedBy={t.targetedBy} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
