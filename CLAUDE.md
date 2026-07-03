@@ -677,6 +677,42 @@ is class-guaranteed, not pixel-verified). See [[pathforge-editor-chip-disclosure
   (fixture-driven claims tests + fake-Supabase apply tests). Deferred: P4 archetype-depth
   matching; PoW/Akashic/Psionics detectors (warn-only until those systems ship).
 
+**The big 3pp update (S4 flagship) — COMPLETE (2026-07-02, Ultracode).** Plan: `docs/3PP_MASTER_PLAN.md`
+(phases 0–9, D1 gating). The owner's 20-TSV / 14,350-row dataset (`docs/3pp Update/csv/`, versioned;
+raw mirror gitignored) → **migrations `0027`/`0028`** (18 compendium tables + 16 search RPCs on the
+spell/sphere contract). Migrations now run through **0028**. Gating model **D1** (`lib/character/
+threepp.ts` `enabledThreeppSystems`): 3pp rows appear in editor pickers + import matching ONLY when the
+character's module is on; public `/compendium` keeps 3pp on separate Third-party browse pages; `other`/
+`rune_magic` rows are browse-only forever. Each phase shipped after an adversarial Workflow review +
+live browser verify; 731 unit tests. **Four new character SYSTEMS** un-gated in `IMPLEMENTED_MODULE_KEYS`,
+each = engine `summary.<x>` gated by `isModuleKeyEnabled` → `gate("<key>")` view-model + privacy section →
+own-file editor → dashboard card → import ClaimKind (module-off → features fallback, never drops):
+- **Psionics** (ce6832c): PP pool/ML/powers/focus; `power-picker.tsx` (junction class-list); import
+  detector w/ PSIONIC FEATS carve-out. **Path of War** (56885dc): initiators (IL = class + ⌊other/2⌋,
+  IL→max-maneuver-level table, DC = 10 + `@{maneuverLevel}` + `@{initiationMod}`), maneuvers/stances w/
+  lifecycle booleans, ACTIVE stances ingest automation like buffs, favored-weapon +2, `@{initiatorLevel}`
+  resolver path; `readPowProgressionMaxes` reads all prod header shapes (bare "Stances", Mystic "N (M)"
+  granted, prestige per-level-gain summing). **Akashic** (51f7fa6): essence INVESTED-not-spent pool,
+  capacity cap 1/2/3/4 bands + `capacityBonus`→effectiveCap, per-veil DC w/ `@{essenceInvested}` local,
+  singular/plural-tolerant bindValid, warn-only; `VeilPicker` PAGED full-table fetch (fixed a PostgREST
+  1000-row SILENT TRUNCATION latent in maneuver/power pickers too → shared `lib/character/fetch-all-rows.ts`).
+  **Oaths** (85536b0): oath-points budget (earned/spent/available, warn-only overspend); + **Drawbacks &
+  Flaws** (gated Traits Browse → `traits.list` type-tagged, no schema change) + **Backgrounds &
+  Occupations** (occupation "Bonus Feat: Choose X/Y" → one-click Add-feat).
+- **Phase 7 Spheres depth** (d09c9fe): the feat/archetype/practitioner-trait picker unions already shipped
+  in Phase 2b; added the 3pp class-options picker union + `/threepp-class-options` + `/threepp-traits`
+  browse pages + hub cards, and merged `threepp_racial_trait_compendium` Spheres alt-racial-traits into
+  the CORE-race picker (review caught the plural/singular race-name mismatch — core `race_compendium.name`
+  is "Elves", 3pp keys to "Elf"; fixed via `.in("race", [plural, singular])`).
+- **Phase 8** (3a7b730): consolidated detector coexistence sweep — audit found NO mis-routes; added
+  `import-fixtures-e2e.test.ts` locking the full `classifyHeader` precedence matrix + Vehti/Anise
+  multi-system detection fingerprints.
+- **Data notes:** `rajah`-akashic + Rajah PoW progressions lost a header tier at scrape (degrade gracefully);
+  `threepp_race_compendium` is akashic-only (Spheres alt-racial-traits key to CORE races, not 3pp races).
+  **Real-device mobile pass is the one deferred Phase 9 item** — editors are mobile-first by construction
+  (`grid-cols-1 lg:grid-cols-2`, 44px targets) but the dev browser clamps ~660px, so true <640px is
+  class-guaranteed not pixel-verified. See [[pathforge-3pp-epic]].
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
