@@ -18,7 +18,8 @@ GM-verifiable, import/export-capable Pathfinder 1e character platform.
 **Live in production** at [pfsheet.org](https://pfsheet.org) (auto-deploys from `main` via Vercel).
 Milestones **M0–M12** are complete (M12 = the **compendium-driven builder**); secondary milestones (S1–S7)
 are being built interleaved — a full **sheet-depth audit** (every core PF1e sheet feature wired
-engine→sheet) is done, and **S4 (optional rules & 3pp)** is in progress. The web app + PWA is **v1-complete**.
+engine→sheet) is done, and **S4 (optional rules & 3pp) is complete** (Psionics, Path of War, Akashic,
+Oaths + Spheres of Power/Might/Guile all live). The web app + PWA is **v1-complete**.
 
 What's shipped:
 

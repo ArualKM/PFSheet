@@ -713,6 +713,23 @@ own-file editor → dashboard card → import ClaimKind (module-off → features
   (`grid-cols-1 lg:grid-cols-2`, 44px targets) but the dev browser clamps ~660px, so true <640px is
   class-guaranteed not pixel-verified. See [[pathforge-3pp-epic]].
 
+**Collapsible list grouping (2026-07-03, `74c5fe2`).** Long spell/power/maneuver/talent lists now
+collapse into accordion sections in BOTH the read view and the editor, mobile-first. Shared primitive
+`components/character/collapsible-group.tsx` `<CollapsibleGroup>` (chevron + count-badge header, 44px
+tap target, aria-expanded/controls; `COLLAPSE_WHEN_OVER = 12`) — extracted from the PoW `DisciplineGroup`.
+Convention everywhere: a group's `defaultOpen = total <= COLLAPSE_WHEN_OVER` (short lists open, long lists
+collapse to a scannable header index). **Spells** group by level (`spell-list-viewer.tsx` read +
+`spellcasting-editor.tsx`; `lib/character/spell-groups.ts`; read view auto-expands groups with a search
+match). **Psionic powers** by level (`psionic-power-list.tsx` read + `PsionicsEditor`). **Maneuvers** by
+discipline (`maneuver-list.tsx` `DisciplineGroup` refactored onto the primitive + PoW editor). **Spheres**
+by sphere + a Base/Advanced/Legendary tier subheader per sphere (only when a sphere spans >1 tier;
+`character-dashboard.tsx` `SpheresCard` + `SpheresEditor`; `lib/character/sphere-talents.ts` from the
+cached `talent.category`). Adversarial review caught + fixed one bug (3 editors, same cause): adding into a
+>12-item list (all groups collapsed) dropped the new entry into a collapsed group and swallowed the
+auto-open signal — fixed with a `forceOpen` escape hatch on `<CollapsibleGroup>` (render-phase
+adjust-on-prop-change, the `EntryCard` idiom; preserves a manual collapse) + each editor force-opens the
+group holding the just-added id. Live-verified all surfaces. **746 unit tests**; no schema/DB changes.
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

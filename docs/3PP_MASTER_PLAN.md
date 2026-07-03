@@ -1,5 +1,11 @@
 # The Big 3pp Update — Master Plan (S4 flagship)
 
+> **STATUS: COMPLETE (2026-07-03).** All 9 phases shipped, reviewed, and pushed to `main` (commits
+> `9478de3`…`3a7b730`; docs `a0b7a3e`). Migrations `0027`/`0028`. Psionics / Path of War / Akashic /
+> Oaths + Drawbacks/Flaws + Backgrounds/Occupations are LIVE character systems; Spheres depth + a
+> consolidated import-detector sweep shipped. 731 tests at epic end. The one deferred item is a
+> real-device mobile pass. Authoritative log: CLAUDE.md "The big 3pp update (S4 flagship) — COMPLETE".
+
 _Drafted 2026-07-02 from the owner's completed data drop (`docs/3pp Update/csv/` — 17 TSVs,
 13,888 rows, parsers, README manifest, and `INSTRUCTIONS_FOR_CLAUDE_ULTRACODE.md`), the S4
 design corpus (`docs/S4_OPTIONAL_RULES_PLAN.md`, `docs/S4_SYSTEM_DESIGNS.md`), and a 5-reader
