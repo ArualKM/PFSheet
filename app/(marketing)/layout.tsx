@@ -3,8 +3,15 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
+import { AccountMenu } from "@/components/app-shell/account-menu";
+import { getUser } from "@/lib/auth/session";
 
-export default function MarketingLayout({ children }: { children: ReactNode }) {
+export default async function MarketingLayout({ children }: { children: ReactNode }) {
+  // Reflect the real session so a signed-in visitor sees "Open dashboard" instead of the
+  // logged-out "Log in / Get started" chrome (which read as being signed out even though the
+  // session was valid). Reading the session opts the marketing routes into dynamic rendering.
+  const user = await getUser();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 border-b border-border bg-background/70 backdrop-blur">
@@ -12,12 +19,23 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
           <Logo href="/" />
           <nav className="ml-auto flex items-center gap-2">
             <ThemeToggle />
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/login">Log in</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/signup">Get started</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button asChild size="sm">
+                  <Link href="/dashboard">Open dashboard</Link>
+                </Button>
+                <AccountMenu email={user.email} displayName={user.displayName} />
+              </>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/login">Log in</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/signup">Get started</Link>
+                </Button>
+              </>
+            )}
           </nav>
         </div>
       </header>

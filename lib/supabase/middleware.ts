@@ -51,5 +51,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return NextResponse.redirect(url);
   }
 
+  // A signed-in user has no reason to see the auth screens — send them into the app so that
+  // returning to /login (or clicking a stale "Log in" link) doesn't look like being logged out.
+  // Honour a same-site ?next= deep link so redirected sign-in flows still land where intended.
+  if (user && (pathname === "/login" || pathname === "/signup")) {
+    const next = request.nextUrl.searchParams.get("next");
+    const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
   return response;
 }

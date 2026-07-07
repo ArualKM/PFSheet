@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getUser } from "@/lib/auth/session";
 
 const features = [
   {
@@ -45,7 +46,8 @@ const features = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await getUser();
   return (
     <div className="mx-auto max-w-6xl px-4 md:px-6">
       {/* Hero */}
@@ -63,14 +65,24 @@ export default function LandingPage() {
           formula-aware, mobile-friendly, and GM-verifiable — not a PDF clone.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button asChild size="lg">
-            <Link href="/signup">
-              Start building <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="secondary">
-            <Link href="/login">I already have an account</Link>
-          </Button>
+          {user ? (
+            <Button asChild size="lg">
+              <Link href="/dashboard">
+                Open your dashboard <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          ) : (
+            <>
+              <Button asChild size="lg">
+                <Link href="/signup">
+                  Start building <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link href="/login">I already have an account</Link>
+              </Button>
+            </>
+          )}
         </div>
       </section>
 

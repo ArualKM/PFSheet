@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,8 +9,12 @@ export type SessionUser = {
   displayName?: string;
 };
 
-/** Returns the signed-in user, or null. Safe to call in any server context. */
-export async function getUser(): Promise<SessionUser | null> {
+/**
+ * Returns the signed-in user, or null. Safe to call in any server context.
+ * Wrapped in React `cache()` so multiple calls within a single request (e.g. the marketing
+ * layout header + the page body) share one Supabase lookup instead of round-tripping twice.
+ */
+export const getUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -20,7 +25,7 @@ export async function getUser(): Promise<SessionUser | null> {
     email: user.email,
     displayName: (user.user_metadata?.display_name as string | undefined) ?? undefined,
   };
-}
+});
 
 /** Returns the signed-in user or redirects to /login. */
 export async function requireUser(): Promise<SessionUser> {
