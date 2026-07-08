@@ -730,7 +730,7 @@ auto-open signal — fixed with a `forceOpen` escape hatch on `<CollapsibleGroup
 adjust-on-prop-change, the `EntryCard` idiom; preserves a manual collapse) + each editor force-opens the
 group holding the just-added id. Live-verified all surfaces. **746 unit tests**; no schema/DB changes.
 
-**Gestalt track-collapse fix (2026-07-07).** Owner-reported: clicking Recompute/rebuild on
+**Gestalt track-collapse fix (2026-07-07, `656f7f7`).** Owner-reported: clicking Recompute/rebuild on
 saving throws for a two-class **gestalt** character (fractional irrelevant) "treats all levels as actual
 class levels rather than A/B." Root cause (reproduced): under gestalt, class rows default to
 `track: undefined` ⇒ treated as track A, so `recomputeClassDerived`'s `Math.max(trackA, trackB)` with an
