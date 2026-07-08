@@ -2,7 +2,7 @@ import type { BabProgression, ClassPreset, SaveProgression } from "./common";
 import type { PathForgeCharacterV1 } from "./character";
 import { DEFAULT_SKILLS } from "./skills";
 import { spellsPerDayTableFor } from "./spell-tables";
-import { isGestalt, gestaltLevel } from "./gestalt";
+import { isGestalt, gestaltLevel, gestaltTrackClassCounts } from "./gestalt";
 
 /**
  * §6.1 Prebuilt PF1e class presets (mechanics only — no rules text, like
@@ -192,6 +192,37 @@ export function resolveClassPreset(row: {
   return row.compendiumPreset ?? (row.presetKey ? getClassPreset(row.presetKey) : undefined);
 }
 
+/** Per-track counts of the classes that actually DRIVE the BAB/save recompute (those with a resolvable
+ * preset). Used alongside the raw class counts so a preset-less class parked on the otherwise-empty
+ * track can't hide a genuine sum-of-two-tracks collapse. */
+function gestaltLinkedTrackCounts(character: PathForgeCharacterV1): { a: number; b: number } {
+  let a = 0;
+  let b = 0;
+  for (const c of character.identity.classes) {
+    if (!resolveClassPreset(c)) continue;
+    if (c.track === "b") b += 1;
+    else a += 1;
+  }
+  return { a, b };
+}
+
+/** Gestalt is enabled with ≥2 classes but every class that carries weight sits on ONE track — so the
+ * class-derived recompute SUMS both class lines onto that track (character level 40, saves/BAB summed)
+ * instead of taking the best of A vs B. This is a misconfiguration (a `track` was never split), not a
+ * valid build — surface it and offer the split rather than silently producing inflated numbers.
+ *
+ * Two shapes count as collapsed: (1) one track has NO class rows at all (the dominant case — every
+ * class defaulted to track A); (2) ≥2 preset-linked classes all sit on one track while the other holds
+ * only preset-less rows — level/HP still take the max but BAB/saves are summed over the linked side. */
+export function gestaltTracksCollapsed(character: PathForgeCharacterV1): boolean {
+  if (!isGestalt(character)) return false;
+  if (character.identity.classes.length < 2) return false;
+  const all = gestaltTrackClassCounts(character);
+  if (all.a === 0 || all.b === 0) return true;
+  const linked = gestaltLinkedTrackCounts(character);
+  return linked.a + linked.b >= 2 && (linked.a === 0 || linked.b === 0);
+}
+
 // ---- Pure math helpers (produce STORED numbers the engine then reads) ----
 
 export function babForLevel(prog: BabProgression, level: number): number {
@@ -369,6 +400,14 @@ export function recomputeClassDerived(
     fort = Math.max(A.fort, B.fort);
     ref = Math.max(A.ref, B.ref);
     will = Math.max(A.will, B.will);
+    // Guard the silent-sum: if every class is on ONE track, Math.max just returns that track's SUM —
+    // i.e. BAB/saves/level count both class lines as real levels instead of taking the best of A/B.
+    // Warn so the caller can prompt the user to split a class onto the other track.
+    if (gestaltTracksCollapsed(character)) {
+      warnings.push(
+        "Gestalt is on but every class is on one track — BAB, saves, and character level were summed across both class lines instead of taking the best of tracks A and B. Assign a class to the other track.",
+      );
+    }
     // Gestalt character level = the higher track total, not the sum of every class level.
     character.identity.totalLevel = gestaltLevel(character);
   } else {

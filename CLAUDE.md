@@ -730,6 +730,27 @@ auto-open signal — fixed with a `forceOpen` escape hatch on `<CollapsibleGroup
 adjust-on-prop-change, the `EntryCard` idiom; preserves a manual collapse) + each editor force-opens the
 group holding the just-added id. Live-verified all surfaces. **746 unit tests**; no schema/DB changes.
 
+**Gestalt track-collapse fix (2026-07-07).** Owner-reported: clicking Recompute/rebuild on
+saving throws for a two-class **gestalt** character (fractional irrelevant) "treats all levels as actual
+class levels rather than A/B." Root cause (reproduced): under gestalt, class rows default to
+`track: undefined` ⇒ treated as track A, so `recomputeClassDerived`'s `Math.max(trackA, trackB)` with an
+empty track B just returns track A's **SUM** → character level 40 (not 20), BAB/saves/HP summed across both
+class lines. The engine was already correct for distinct a/b tracks; the bug is the silent collapse when a
+sheet's tracks were never split (every existing 2+ class char is `track: undefined` on all rows, so simply
+enabling gestalt collapses). **Fix** (engine `packages/pathforge-schema` — `gestalt.ts` + `class-catalog.ts`
+— + editor `character-editor.tsx`): `gestaltTracksCollapsed` (PRESET-AWARE via `gestaltLinkedTrackCounts`,
+so a preset-less class parked on the otherwise-empty track can't mask a genuine two-preset sum) +
+`splitGestaltTracks` (alternate a,b,a…) + `gestaltTrackClassCounts`; `recomputeClassDerived` now pushes a
+collapse warning instead of silently summing. Editor: a reusable **`<GestaltCollapseBanner>`** (warning +
+one-click **"Split into A / B"**, which also HEALS an auto-computed Max HP but leaves a hand-entered one
+untouched) rendered on **Classes / Health / Optional-rules**; **enabling gestalt now AUTO-SPLITS** a
+collapsed sheet (the dominant 2-class build lands correct by default); the Health "Apply to Max HP" is
+disabled while collapsed; new Custom classes default onto the empty track. Shipped after a 13-agent
+adversarial Workflow review — 6 confirmed findings (the dominant: the gestalt toggle in the Optional-rules
+panel collapsed silently with its only warning on an unmounted section; also the preset-less mask, the
+Health inflated-write, stale HP after split, and the hard-coded "track A" copy) — all fixed + each locked by
+a test. **760 unit tests**; no schema/DB migration (additive/Zod-only). See [[pathforge-gestalt-collapse]].
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

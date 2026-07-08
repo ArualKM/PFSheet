@@ -53,6 +53,9 @@ import {
   COMBAT_TRICKS,
   isGestalt,
   gestaltLevel,
+  gestaltTracksCollapsed,
+  gestaltTrackClassCounts,
+  splitGestaltTracks,
   MYTHIC_PATHS,
   maxMythicPower,
   mythicSurgeDie,
@@ -2899,6 +2902,10 @@ function OptionalRulesEditor({ ed }: { ed: EditorApi }) {
       }
       // Gestalt changes BAB/saves/HP and the character level — recompute so the toggle takes effect.
       if (mod.key === "gestalt") {
+        // Enabling gestalt on a normal multi-class character leaves every class on the default track A,
+        // which would SUM both class lines (level 40, saves/BAB summed). Split them so the toggle lands
+        // on correct best-of-A/B numbers by default — the dominant 2-class build gets the exact split.
+        if (isGestalt(c) && gestaltTracksCollapsed(c)) splitGestaltTracks(c);
         c.identity.totalLevel = isGestalt(c) ? gestaltLevel(c) : c.identity.classes.reduce((s, x) => s + x.level, 0);
         recomputeClassDerived(c, { hpMethod: "manual" });
       }
@@ -2916,6 +2923,10 @@ function OptionalRulesEditor({ ed }: { ed: EditorApi }) {
           {enabledCount > 0 ? ` ${enabledCount} enabled.` : ""}
         </p>
       </div>
+
+      {/* If gestalt was enabled on an already-collapsed sheet (e.g. imported/older data), warn here too —
+          the Classes section isn't mounted while the user is on this panel. */}
+      <GestaltCollapseBanner ed={ed} />
 
       {RULE_GROUPS.map((g) => (
         <section key={g.key}>
@@ -3129,6 +3140,48 @@ const SAVE_LABEL: Record<"fortitude" | "reflex" | "will", string> = { fortitude:
 function dieToNum(d: string | undefined): 6 | 8 | 10 | 12 {
   const n = parseInt(String(d ?? "").replace(/[^0-9]/g, ""), 10);
   return n === 6 || n === 8 || n === 10 || n === 12 ? n : 8;
+}
+
+/**
+ * Warns when a gestalt character's classes aren't split across the two tracks, so BAB/saves/level/HP
+ * are being SUMMED across both class lines instead of taking the best of A/B (see gestaltTracksCollapsed).
+ * Rendered on every section that can trigger or expose the collapse (Classes, Health, Optional rules).
+ * The "Split into A / B" button assigns classes to distinct tracks and re-derives — including Max HP,
+ * but ONLY when the stored maxHp is a collapse-inflated auto value (so a hand-entered HP is never lost).
+ */
+function GestaltCollapseBanner({ ed }: { ed: EditorApi }) {
+  if (!gestaltTracksCollapsed(ed.draft)) return null;
+  const { a, b } = gestaltTrackClassCounts(ed.draft);
+  const where = a === 0 ? "all on track B" : b === 0 ? "all on track A" : "stacked on one track";
+  const split = () =>
+    ed.update((c) => {
+      // Heal an auto-computed Max HP too: if the stored maxHp equals the collapsed (all-on-one-track)
+      // HP pool, it was applied from "Compute HP from levels" while collapsed — re-derive it against the
+      // now-split tracks. A hand-entered maxHp (matching neither average nor max) is left untouched.
+      const before = c.health.maxHp;
+      const autoMethod: "average" | "max" | null =
+        before === computeMaxHpFromLevels(c, "average", c.identity.classes).total
+          ? "average"
+          : before === computeMaxHpFromLevels(c, "max", c.identity.classes).total
+            ? "max"
+            : null;
+      splitGestaltTracks(c);
+      c.identity.totalLevel = gestaltLevel(c);
+      recomputeClassDerived(c, { hpMethod: autoMethod ?? "manual" });
+    });
+  return (
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/50 bg-warning/10 p-2.5">
+      <p className="min-w-0 flex-1 text-xs text-foreground">
+        <strong>Gestalt tracks aren&apos;t split.</strong> Your class progressions are {where}, so BAB, saves,
+        character level, and HP are being <em>summed</em> across both class lines instead of taking the best of
+        tracks A&nbsp;/&nbsp;B. Put a class on the other track (each class row&apos;s <strong>Gestalt track</strong>{" "}
+        selector), or split them automatically.
+      </p>
+      <Button size="sm" variant="outline" onClick={split}>
+        Split into A / B
+      </Button>
+    </div>
+  );
 }
 
 /**
@@ -3743,7 +3796,13 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
               variant="outline"
               onClick={() =>
                 ed.update((c) => {
-                  c.identity.classes.push({ id: newId("class"), name: "Class", level: 1 });
+                  // Under gestalt, drop the new class on the empty track so a 2-class build splits
+                  // A/B by default (avoids the silent all-on-track-A sum). Per-row selector still wins.
+                  const track =
+                    isGestalt(c) && c.identity.classes.length > 0 && !c.identity.classes.some((x) => x.track === "b")
+                      ? ("b" as const)
+                      : undefined;
+                  c.identity.classes.push({ id: newId("class"), name: "Class", level: 1, ...(track ? { track } : {}) });
                   c.identity.totalLevel = isGestalt(c)
                     ? gestaltLevel(c)
                     : c.identity.classes.reduce((s, cl) => s + cl.level, 0);
@@ -3773,6 +3832,7 @@ function IdentityEditor({ ed }: { ed: EditorApi }) {
             <ClassRow key={cl.id} ed={ed} cl={cl} i={i} />
           ))}
         </div>
+        <GestaltCollapseBanner ed={ed} />
         <p className="mt-2 text-sm text-muted-foreground">
           Total level: <span className="font-semibold text-foreground">{id.totalLevel}</span>
         </p>
@@ -4340,6 +4400,9 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
 
       <section>
         <h3 className="mb-2 text-sm font-semibold text-foreground">Compute HP from levels</h3>
+        {/* Under a collapsed gestalt, hpFromLevels sums both class lines (track b is empty) — block the
+            apply and offer the split so a wrong Max HP can't be committed here. */}
+        <GestaltCollapseBanner ed={ed} />
         <div className="flex flex-wrap items-end gap-3">
           <SelectField
             label="Method"
@@ -4379,7 +4442,12 @@ function HealthEditor({ ed }: { ed: EditorApi }) {
               {hpFromLevels.fcb ? ` · FCB +${hpFromLevels.fcb}` : ""})
             </span>
           </div>
-          <Button size="sm" variant="secondary" onClick={applyComputedHp} disabled={hpFromLevels.levels === 0}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={applyComputedHp}
+            disabled={hpFromLevels.levels === 0 || gestaltTracksCollapsed(ed.draft)}
+          >
             Apply to Max HP
           </Button>
         </div>
