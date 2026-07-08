@@ -2524,6 +2524,15 @@ function PsionicsEditor({ ed }: { ed: EditorApi }) {
   );
 }
 
+/** Difficulty ladder tints for the job tiles — green → blue → gold → red conveys escalating risk.
+ * The tone colors the border/bg only; the label + reward stay text-foreground for WCAG contrast. */
+const MILESTONE_DIFFICULTY_TONES: Record<MilestoneDifficulty, string> = {
+  easy: "border-success/40 bg-success/5 hover:border-success/60 hover:bg-success/10",
+  medium: "border-rune/40 bg-rune/5 hover:border-rune/60 hover:bg-rune/10",
+  hard: "border-gold/40 bg-gold/5 hover:border-gold/60 hover:bg-gold/10",
+  deadly: "border-danger/40 bg-danger/5 hover:border-danger/60 hover:bg-danger/10",
+};
+
 function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
   const ml = ed.draft.milestoneLeveling;
   const summary = ed.computed.summary.milestoneLeveling;
@@ -2601,39 +2610,43 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
         )}
       </div>
 
-      <div>
-        <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Complete a job</h4>
+      <div className="space-y-2.5">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Complete a job</h4>
+        <div className="flex flex-wrap items-end gap-3">
           <NumberField
             label="Job level"
             value={jobLevel}
             min={1}
             max={MILESTONE_MAX_JOB_LEVEL}
             onChange={(v) => setJobLevel(Math.max(1, Math.min(MILESTONE_MAX_JOB_LEVEL, v)))}
-            className="w-28"
+            className="w-24"
           />
+          <p className="pb-2 text-[11px] text-muted-foreground">
+            Tap a difficulty to bank its milestones. Rewards scale by job level (defaults to your
+            level); jobs below level&nbsp;3 are worth 0.
+          </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="flex flex-wrap gap-2">
           {MILESTONE_DIFFICULTIES.map((d) => {
             const value = milestoneJobReward(jobLevel, d);
             return (
-              <Button
+              <button
                 key={d}
-                size="sm"
-                variant="secondary"
+                type="button"
                 disabled={value <= 0}
                 onClick={() => earnJob(d)}
-                className="flex-col items-start py-2 capitalize"
+                aria-label={`Complete a ${d} job for ${value} milestones`}
+                className={cn(
+                  "tap-target flex grow basis-[calc(50%-0.25rem)] flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors sm:grow-0 sm:basis-auto sm:min-w-[5rem] disabled:cursor-not-allowed disabled:opacity-40",
+                  MILESTONE_DIFFICULTY_TONES[d],
+                )}
               >
-                <span>{d}</span>
-                <span className="tnum text-xs text-muted-foreground">+{value}</span>
-              </Button>
+                <span className="text-xs font-medium capitalize text-foreground">{d}</span>
+                <span className="tnum text-base font-semibold leading-none text-foreground">+{value}</span>
+              </button>
             );
           })}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Job rewards scale by job level (defaults to your level); jobs below level 3 are worth 0.
-        </p>
       </div>
 
       {log.length > 0 && (
