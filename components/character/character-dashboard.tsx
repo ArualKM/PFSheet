@@ -951,13 +951,17 @@ export function CharacterDashboard({
             <SectionCard title="Milestones" icon={Flag}>
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-semibold text-foreground">Level {vm.milestoneLeveling.level}</span>
+                  <span className="text-lg font-semibold text-foreground">
+                    Level {vm.milestoneLeveling.level}
+                  </span>
                   {vm.milestoneLeveling.atCap ? (
                     <span className="text-xs text-muted-foreground">Max level</span>
                   ) : vm.milestoneLeveling.span === 0 ? (
                     <span className="text-xs text-muted-foreground">Levels freely</span>
                   ) : vm.milestoneLeveling.readyToLevel ? (
-                    <span className="text-xs font-semibold text-success">Ready to level up!</span>
+                    <Badge variant="gold" className="shrink-0 text-[10px]">
+                      Ready to level up!
+                    </Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">
                       {vm.milestoneLeveling.remaining} to level {vm.milestoneLeveling.nextLevel}
@@ -978,7 +982,8 @@ export function CharacterDashboard({
                       />
                     </div>
                     <div className="tnum text-xs text-muted-foreground">
-                      {vm.milestoneLeveling.current}/{vm.milestoneLeveling.nextThreshold} milestones
+                      {vm.milestoneLeveling.intoLevel}/{vm.milestoneLeveling.span} toward level{" "}
+                      {vm.milestoneLeveling.nextLevel}
                     </div>
                   </>
                 )}

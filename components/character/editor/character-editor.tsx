@@ -2551,13 +2551,21 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
     });
 
   const current = summary?.current ?? 0;
+  const level = summary?.level ?? charLevel;
+  const nextLevel = summary?.nextLevel ?? charLevel + 1;
+  const intoLevel = summary?.intoLevel ?? 0;
+  const span = summary?.span ?? 0;
+  const remaining = summary?.remaining ?? 0;
+  const atCap = !!summary?.atCap;
+  const freeLevels = !atCap && span === 0;
+  const showBar = !atCap && span > 0;
   const log = ml?.log ?? [];
   const pct = summary
     ? Math.min(100, summary.span > 0 ? (summary.intoLevel / summary.span) * 100 : 100)
     : 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Replaces XP. Milestones are <strong>cumulative</strong> — finish jobs to earn them, and level up
         (bump your class level on the Identity tab) when your running total reaches the next threshold.
@@ -2565,27 +2573,29 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
       </p>
 
       <div className="space-y-2 rounded-lg border border-border p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-lg font-semibold text-foreground">Level {summary?.level ?? charLevel}</span>
-          {summary?.atCap ? (
-            <span className="text-sm text-muted-foreground">Max level</span>
-          ) : summary && summary.span === 0 ? (
-            <span className="text-sm text-muted-foreground">Levels freely (no milestones required yet)</span>
-          ) : summary?.readyToLevel ? (
-            <span className="text-sm font-semibold text-success">Ready to level up!</span>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {summary?.remaining ?? 0} to level {summary?.nextLevel ?? charLevel + 1}
-            </span>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Milestones</span>
+          <StatChip label="level" value={level} tone="rune" />
+          <StatChip label="earned" value={current} />
+          <div className="ml-auto">
+            {atCap ? (
+              <StatChip value="Max level" />
+            ) : freeLevels ? (
+              <StatChip value="Levels freely" />
+            ) : summary?.readyToLevel ? (
+              <StatChip value="Ready to level up!" tone="gold" />
+            ) : (
+              <StatChip label={`to L${nextLevel}`} value={remaining} />
+            )}
+          </div>
         </div>
-        {!summary?.atCap && (summary?.span ?? 0) > 0 && (
+        {showBar && (
           <>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-rune" style={{ width: `${pct}%` }} />
             </div>
             <div className="tnum text-xs text-muted-foreground">
-              {current}/{summary?.nextThreshold ?? 0} cumulative milestones
+              {intoLevel}/{span} toward level {nextLevel}
             </div>
           </>
         )}
@@ -2593,7 +2603,7 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
 
       <div>
         <div className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
-          <p className="text-sm font-medium text-foreground">Complete a job</p>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Complete a job</h4>
           <NumberField
             label="Job level"
             value={jobLevel}
@@ -2616,7 +2626,7 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
                 className="flex-col items-start py-2 capitalize"
               >
                 <span>{d}</span>
-                <span className="text-xs text-muted-foreground">+{value}</span>
+                <span className="tnum text-xs text-muted-foreground">+{value}</span>
               </Button>
             );
           })}
@@ -2626,41 +2636,47 @@ function MilestoneLevelingEditor({ ed }: { ed: EditorApi }) {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <NumberField
-          label="Milestones (manual)"
-          value={ml?.current ?? 0}
-          min={0}
-          onChange={(v) => ensure((m) => (m.current = Math.max(0, v)))}
-          className="w-44"
-        />
-        <span className="pb-2 text-xs text-muted-foreground">Adjust the total directly if needed.</span>
-      </div>
-
       {log.length > 0 && (
         <div>
-          <p className="mb-1.5 text-sm font-medium text-foreground">Recent jobs</p>
-          <div className="space-y-1">
-            {log.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border/60 px-2 py-1 text-sm"
-              >
-                <span className="capitalize text-foreground">
-                  {e.difficulty} job{" "}
-                  <span className="text-muted-foreground">(lvl {e.jobLevel})</span>
+          <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recent jobs</h4>
+          <ul className="space-y-0.5 text-sm">
+            {log.slice(0, 8).map((e) => (
+              <li key={e.id} className="flex items-baseline gap-2">
+                <span className="tnum text-rune">+{e.value}</span>
+                <span className="flex-1 capitalize text-muted-foreground">
+                  {e.difficulty} job <span className="normal-case">(lvl {e.jobLevel})</span>
                 </span>
-                <span className="flex items-center gap-2">
-                  <span className="tnum text-muted-foreground">+{e.value}</span>
-                  <Button variant="ghost" size="sm" onClick={() => undoJob(e.id)}>
-                    Undo
-                  </Button>
-                </span>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => undoJob(e.id)}
+                  className="tap-target -my-1 shrink-0 rounded px-1 text-xs text-muted-foreground hover:text-danger"
+                >
+                  Undo
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
+
+      <details className="group">
+        <summary className="tap-target flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+          Adjust total manually
+        </summary>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <NumberField
+            label="Milestones earned"
+            value={ml?.current ?? 0}
+            min={0}
+            onChange={(v) => ensure((m) => (m.current = Math.max(0, v)))}
+            className="w-44"
+          />
+          <span className="pb-2 text-xs text-muted-foreground">
+            Set the cumulative total directly (e.g. after a mid-campaign import).
+          </span>
+        </div>
+      </details>
     </div>
   );
 }
