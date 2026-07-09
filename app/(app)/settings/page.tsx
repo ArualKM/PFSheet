@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProfileForm } from "@/components/settings/profile-form";
+import { MotionSettings } from "@/components/settings/motion-settings";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -36,6 +37,15 @@ export default async function SettingsPage() {
           />
         </CardContent>
       </Card>
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Motion &amp; animations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MotionSettings />
+        </CardContent>
+      </Card>
+
       <Card className="mt-4">
         <CardContent className="flex items-center justify-between gap-3 py-4">
           <div>

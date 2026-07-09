@@ -52,9 +52,9 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="pf-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map(({ label, value, href, icon: Icon }) => (
-          <Card key={label}>
+          <Card key={label} className="pf-hover-lift">
             <CardContent className="flex items-center gap-4 p-5">
               <span className="grid size-11 place-items-center rounded-xl bg-surface-raised text-gold">
                 <Icon className="size-5" />

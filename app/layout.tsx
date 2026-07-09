@@ -55,6 +55,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// Applies a stored motion preference before first paint so an explicit "Off" never flashes an
+// animation. The SSR default is data-motion="system" (plays, but OS reduce-motion wins); this only
+// overrides to "full" or "off". Mirrors the next-themes no-flash pattern (CSP allows inline script).
+const MOTION_INIT = `try{var m=localStorage.getItem('pf-motion');if(m==='full'||m==='off'){document.documentElement.dataset.motion=m}}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,9 +69,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${fraunces.variable} obsidian h-full`}
+      data-motion="system"
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased">
+        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT }} />
         <Providers>{children}</Providers>
         <ServiceWorkerRegister />
       </body>

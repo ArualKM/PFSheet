@@ -91,14 +91,14 @@ export default async function CampaignsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="pf-stagger grid gap-3 sm:grid-cols-2">
           {campaigns.map((c) => {
             const role = roleByCampaign.get(c.id);
             const isGm = role ? GM_ROLES.has(role) : false;
             const rosterCount = c.campaign_characters?.[0]?.count ?? 0;
             return (
               <Link key={c.id} href={`/campaigns/${c.id}`}>
-                <Card className="h-full transition-colors hover:border-gold/40">
+                <Card className="h-full pf-hover-lift">
                   <CardContent className="flex h-full flex-col gap-3 p-5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

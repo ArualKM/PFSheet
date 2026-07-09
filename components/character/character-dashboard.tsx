@@ -56,7 +56,7 @@ export function CharacterDashboard({
   // none) and imply an over-ready the editor correctly doesn't warn about.
 
   return (
-    <div className="space-y-3">
+    <div className="pf-stagger space-y-3">
       <HeroCard vm={vm} actions={actions} />
 
       {/* Core vitals — bento stat tiles */}

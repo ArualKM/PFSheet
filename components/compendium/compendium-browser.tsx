@@ -197,7 +197,7 @@ export async function CompendiumBrowser({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="pf-stagger space-y-3">
           {rows.map((row) => {
             const expandable = Boolean(config.renderDetail && (config.hasDetail?.(row) ?? true));
             if (!expandable) {

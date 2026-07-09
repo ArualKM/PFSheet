@@ -86,7 +86,7 @@ export default async function CharactersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid items-start gap-3 sm:grid-cols-2">
+        <div className="pf-stagger grid items-start gap-3 sm:grid-cols-2">
           {characters.map((c) => {
             // Only TRUE top-level cards nest companions — a fallback card (companion whose parent
             // is absent) must not nest, or its children would render twice (nested + top-level).
@@ -94,7 +94,7 @@ export default async function CharactersPage() {
             return (
               <div key={c.id}>
                 <Link href={`/characters/${c.id}`}>
-                  <Card className="transition-colors hover:border-gold/40">
+                  <Card className="pf-hover-lift">
                     <CardContent className="flex items-center justify-between gap-3 p-5">
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-foreground">{c.name}</div>

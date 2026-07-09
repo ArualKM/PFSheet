@@ -157,15 +157,28 @@
     outline-offset: 2px;
   }
 
+  /* Motion gating. The OS `prefers-reduced-motion` setting collapses all motion to instant —
+     UNLESS the user explicitly forced full motion in-app (data-motion="full"). An explicit
+     in-app "Off" (data-motion="off") always collapses, regardless of the OS. Everything still
+     renders; only the movement is removed. See the motion system block below + MotionSettings. */
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    :root:not([data-motion="full"]) *,
+    :root:not([data-motion="full"]) *::before,
+    :root:not([data-motion="full"]) *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
       scroll-behavior: auto !important;
     }
+  }
+
+  :root[data-motion="off"] *,
+  :root[data-motion="off"] *::before,
+  :root[data-motion="off"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -220,4 +233,172 @@
 }
 .pf-view-fade {
   animation: pf-view-fade 0.22s ease-out;
+}
+
+/* ============================================================================
+   Motion system — "lively & characterful"
+   Reusable, tokenized entrance + interaction animations. All DECORATIVE and
+   gated by the motion preference (data-motion on <html>) + the reduced-motion
+   rules above, so every one collapses to instant when motion is off. Durations
+   and easings are tokens so the whole app moves as a single system.
+   ============================================================================ */
+:root {
+  --pf-dur-fast: 140ms;
+  --pf-dur: 240ms;
+  --pf-dur-slow: 360ms;
+  /* Soft ease-out (settles quickly, lands gently) for entrances + transitions. */
+  --pf-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Overshoot spring for tactile "pop" on press / appear. */
+  --pf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pf-stagger-step: 45ms;
+}
+
+@keyframes pf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pf-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pf-shimmer {
+  from {
+    background-position: -150% 0;
+  }
+  to {
+    background-position: 250% 0;
+  }
+}
+
+@utility pf-fade-in {
+  animation: pf-fade-in var(--pf-dur) var(--pf-ease) both;
+}
+@utility pf-rise {
+  animation: pf-rise var(--pf-dur) var(--pf-ease) both;
+}
+@utility pf-scale-in {
+  animation: pf-scale-in var(--pf-dur) var(--pf-ease) both;
+}
+
+/* Staggered entrance: add `pf-stagger` to a container and its direct children rise in one
+   after another. Auto-staggers the first 12 children (no per-item markup); set `--pf-i` inline
+   for longer/virtualized lists. Movement is translateY + opacity only (never X) so it can't
+   widen the page under `overflow-x: clip`. */
+@utility pf-stagger {
+  & > * {
+    animation: pf-rise var(--pf-dur) var(--pf-ease) both;
+    animation-delay: calc(var(--pf-i, 0) * var(--pf-stagger-step));
+  }
+  & > *:nth-child(1) {
+    --pf-i: 0;
+  }
+  & > *:nth-child(2) {
+    --pf-i: 1;
+  }
+  & > *:nth-child(3) {
+    --pf-i: 2;
+  }
+  & > *:nth-child(4) {
+    --pf-i: 3;
+  }
+  & > *:nth-child(5) {
+    --pf-i: 4;
+  }
+  & > *:nth-child(6) {
+    --pf-i: 5;
+  }
+  & > *:nth-child(7) {
+    --pf-i: 6;
+  }
+  & > *:nth-child(8) {
+    --pf-i: 7;
+  }
+  & > *:nth-child(9) {
+    --pf-i: 8;
+  }
+  & > *:nth-child(10) {
+    --pf-i: 9;
+  }
+  & > *:nth-child(11) {
+    --pf-i: 10;
+  }
+  & > *:nth-child(12) {
+    --pf-i: 11;
+  }
+}
+
+/* Desktop hover-lift — a pointer-only affordance (skipped on touch, where there is no hover).
+   Gold-tinted glow reads as "arcane" on dark and stays subtle on parchment. */
+@utility pf-hover-lift {
+  transition:
+    transform var(--pf-dur-fast) var(--pf-ease),
+    box-shadow var(--pf-dur-fast) var(--pf-ease),
+    border-color var(--pf-dur-fast) var(--pf-ease);
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px -14px color-mix(in srgb, var(--pf-gold) 30%, transparent);
+      border-color: color-mix(in srgb, var(--pf-gold) 35%, var(--pf-border));
+    }
+  }
+}
+
+/* Arcane sheen sweep — for skeletons + "new / updated" accents. */
+@utility pf-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--pf-text) 8%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: pf-shimmer 1.6s linear infinite;
+}
+
+/* ----------------------------------------------------------------------------
+   Route transitions. Each navigation re-mounts <RouteTransition> (keyed by the
+   pathname), replaying this entrance so pages animate in rather than pop. DESKTOP:
+   fade + a gentle rise. MOBILE (<=640px): an app-like slide from the right. Purely
+   decorative — the motion gating above collapses it to instant when motion is off.
+---------------------------------------------------------------------------- */
+@keyframes pf-route-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--pf-route-x, 0), var(--pf-route-y, 8px), 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pf-route {
+  animation: pf-route-in var(--pf-dur) var(--pf-ease) both;
+}
+/* Mobile: swap the entrance offset to a horizontal slide (app-like) by changing the custom props
+   the single keyframe reads — no media-scoped @keyframes (which Tailwind v4's Lightning CSS drops). */
+@media (max-width: 640px) {
+  .pf-route {
+    --pf-route-x: 14px;
+    --pf-route-y: 0px;
+  }
 }

@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/app-shell/theme-toggle";
 import { AccountMenu } from "@/components/app-shell/account-menu";
+import { RouteTransition } from "@/components/motion/route-transition";
 import { getUser } from "@/lib/auth/session";
 
 export default async function MarketingLayout({ children }: { children: ReactNode }) {
@@ -39,7 +40,9 @@ export default async function MarketingLayout({ children }: { children: ReactNod
           </nav>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <RouteTransition>{children}</RouteTransition>
+      </main>
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:px-6">
           <Logo href="/" showWordmark />

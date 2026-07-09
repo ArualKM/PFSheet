@@ -774,6 +774,35 @@ btree `name` indexes on 18 browse compendium tables (browse 4ms→0.16ms; applie
 editor bundle code-split (doesn't affect the swap symptom; core-dep-dominated; RSC-boundary risk). See
 [[pathforge-nav-perf]]. **Migrations now run through `0029`.**
 
+**Motion system — "lively & characterful" (2026-07-08, branch `feat/motion-system`).** Built right after
+the perf pass ("now we can afford animations"). A cohesive, tokenized motion layer, gated by a user
+preference with reduced-motion fallbacks, desktop/mobile-aware. No new deps; gate-green (lint/typecheck/
+760 tests/prod build). See [[pathforge-motion-system]].
+- **Preference system:** `data-motion` on `<html>` (`system` default / `full` / `off`) — SSR default +
+  no-flash inline script (app/layout.tsx) + a 3-way toggle in Settings (`components/settings/
+  motion-settings.tsx`, useSyncExternalStore, no global provider). CSS gates everything: OS
+  `prefers-reduced-motion` collapses motion UNLESS `data-motion="full"`; `data-motion="off"` always
+  collapses. All in `app/globals.css`.
+- **Token layer (globals.css):** `--pf-dur*`/`--pf-ease*`/`--pf-stagger-step` + `@utility` primitives
+  `pf-fade-in` / `pf-rise` / `pf-scale-in` / `pf-stagger` (auto-staggers first 12 children via nth-child +
+  `--pf-i`) / `pf-hover-lift` (pointer-only `@media (hover:hover)`, gold-glow) / `pf-shimmer`.
+- **Page transitions (Phase 1):** `<RouteTransition>` (`components/motion/route-transition.tsx`, keyed by
+  usePathname) wraps the (app) + marketing layout children → each nav replays `.pf-route` (desktop
+  rise+fade, mobile app-like slide via a custom-prop offset the media query swaps). **NOT the browser
+  View Transitions API** — Next's `experimental.viewTransition` only wires it on the EXPERIMENTAL React
+  runtime, and this app is on stable React 19.2.4 (verified `startViewTransition` never fires), so the
+  flag was removed and the CSS keyed-remount approach used instead (robust, dep-free). Live-verified on
+  public routes (desktop + mobile, gating, no overflow).
+- **Applied (Phases 2-4):** stagger entrances on dashboard / characters / campaigns / compendium lists;
+  hover-lift on the clickable list cards; global button press (`active:scale-[0.97]` + `transition` in
+  `components/ui/button.tsx`, live-verified); `<Skeleton>` → shimmer; character-dashboard sections cascade
+  in (`pf-stagger` on the top container).
+- **Gotcha locked:** Tailwind v4 / Lightning CSS DROPS `@keyframes` defined inside `@media` (silently) —
+  use one keyframe reading CSS custom props the media query swaps, never a media-nested `@keyframes`.
+- **Deferred/needs owner eyes:** the authed-page FEEL (entrances/hover/sheet reveal) couldn't be
+  browser-verified without a session — primitives verified to compile+apply + gate-green, but the taste
+  wants a real look. Marketing feature-card stagger/hover-lift is an easy verifiable follow-up.
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
