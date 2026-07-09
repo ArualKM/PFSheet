@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
 import { ClassicSheet } from "@/components/character/classic-sheet";
+import { CompanionSheet } from "@/components/character/companion-sheet";
 import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { Button } from "@/components/ui/button";
 
@@ -89,6 +90,10 @@ export default async function PublicSharePage({
 
   const computed = computeCharacter(result.character);
   const vm = buildCharacterViewModel(result.character, computed, "public", data.visibility);
+  // Derived from the GATED view-model, NOT the raw sheet: a privacy-hidden companion section must not
+  // leak "this is a companion" to an anonymous visitor via the pill, the default view, or the RSC
+  // payload embedding the companion subtree.
+  const isCompanion = Boolean(vm.companion);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -105,6 +110,8 @@ export default async function PublicSharePage({
         characterId={data.id}
         modern={<CharacterDashboard vm={vm} />}
         classic={<ClassicSheet vm={vm} />}
+        companion={isCompanion ? <CompanionSheet vm={vm} /> : undefined}
+        defaultView={isCompanion ? "companion" : undefined}
       />
 
       <footer className="mt-10 border-t border-border/60 pt-6 text-center">

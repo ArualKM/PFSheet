@@ -12,6 +12,7 @@ import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { loadCampaignFeedback } from "@/lib/character/campaign-feedback";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
 import { ClassicSheet } from "@/components/character/classic-sheet";
+import { CompanionSheet } from "@/components/character/companion-sheet";
 import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { CampaignFeedback } from "@/components/character/campaign-feedback";
 import { CompanionsCard } from "@/components/character/companions-card";
@@ -88,6 +89,9 @@ export default async function CharacterOverviewPage({
 
   const computed = computeCharacter(result.character);
   const vm = buildCharacterViewModel(result.character, computed, "owner", data.visibility);
+  // Derived from the GATED view-model (not the raw sheet) so the companion view/pill obeys the §15
+  // "companion" section privacy like everything else it shows.
+  const isCompanion = Boolean(vm.companion);
 
   const feedback = isOwner ? await loadCampaignFeedback(characterId, user.id, result.character) : [];
 
@@ -118,6 +122,8 @@ export default async function CharacterOverviewPage({
         characterId={data.id}
         modern={<CharacterDashboard vm={vm} actions={actions} />}
         classic={<ClassicSheet vm={vm} actions={actions} />}
+        companion={isCompanion ? <CompanionSheet vm={vm} actions={actions} /> : undefined}
+        defaultView={isCompanion ? "companion" : undefined}
       />
       <CampaignFeedback items={feedback} characterId={characterId} />
       {isOwner && <CompanionsCard parentId={characterId} companions={companions} />}

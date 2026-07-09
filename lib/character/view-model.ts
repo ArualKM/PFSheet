@@ -365,6 +365,10 @@ export type CharacterViewModel = {
     grantedAbilities: Array<{ level: number; name: string; note: string; fromArchetype?: boolean }>;
     naturalArmorAdj?: number;
     spellResistance?: number;
+    /** What THIS familiar grants its master (species bonus from the compendium), for the grants card. */
+    masterBenefit?: { effects: Array<{ target: string; value: number; note?: string }>; rawText?: string };
+    /** True when the standard Alertness grant is active (archetype may have traded it away). */
+    grantsAlertness: boolean;
   } | null;
   /** MASTER side: the benefits this character's linked familiars grant it (null unless it has
    * familiars). Alertness + each familiar's specific bonus — already folded into the master's
@@ -973,6 +977,21 @@ export function buildCharacterViewModel(
                   : {}),
               }
             : undefined,
+          // Familiar-only, matching the engine's grantedAbilities gate: a stale masterBenefit that
+          // survived a companion-type switch (preserved on the sheet for a switch-back) must not
+          // render a species bonus on a non-familiar companion.
+          masterBenefit:
+            character.companion?.type === "familiar" &&
+            character.companion.masterBenefit &&
+            (character.companion.masterBenefit.effects.length || character.companion.masterBenefit.rawText)
+              ? {
+                  effects: character.companion.masterBenefit.effects,
+                  rawText: character.companion.masterBenefit.rawText,
+                }
+              : undefined,
+          grantsAlertness: computed.summary.companion.grantedAbilities.some(
+            (a) => a.name.toLowerCase() === "alertness",
+          ),
         })
       : null,
     // The master-side familiar benefit is part of the master's own (public) stats. Gated under the
