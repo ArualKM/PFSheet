@@ -751,6 +751,29 @@ panel collapsed silently with its only warning on an unmounted section; also the
 Health inflated-write, stale HP after split, and the hard-coded "track A" copy) — all fixed + each locked by
 a test. **760 unit tests**; no schema/DB migration (additive/Zod-only). See [[pathforge-gestalt-collapse]].
 
+**Authed-nav performance pass (2026-07-08, migration `0029`).** Owner-reported 1-2s per page swap in the
+authed shell on PROD (not local dev). A grounded 5-agent Workflow audit (measured against prod) found the
+cost is **round-trip COUNT × cross-region latency, made fully visible by missing loading states** — NOT
+bandwidth or DB (browse queries 7-12ms, counts <1ms, `computeCharacter` 0.16ms). Vercel functions ran in
+**iad1 (Virginia)** while Supabase is **us-west-2 (Oregon)**; `proxy.ts` called `supabase.auth.getUser()` (a
+GoTrue NETWORK call) on every request incl. RSC nav/prefetch, and `requireUser()` pages hit it again
+(React `cache()` can't span the middleware vs render invocation) → 1-2 serial cross-country auth RTTs per
+swap; and 33/36 `(app)` routes had no `loading.tsx`, so the OLD page stayed frozen for the whole render.
+Fixes (gate-green: lint/typecheck/**760 tests**/prod build; getClaims live-smoke-tested, no crashes):
+(1) **`getUser()`→`getClaims()`** in `lib/supabase/middleware.ts` + `lib/auth/session.ts` — verifies the JWT
+LOCALLY via the project's **ES256** signing key (JWKS cached module-globally), zero network per request;
+getClaims still refreshes the session under the hood so cookie rotation is preserved. (2) **`app/(app)/
+loading.tsx`** — one skeleton covers all 33 uncovered routes (instant paint + re-enables prefetch). (3)
+**`experimental.staleTimes {dynamic:30,static:300}`** — instant re-visits from the Router Cache. (4)
+**Compendium caching** — `lib/supabase/public.ts` cookie-free anon client + `unstable_cache` around browse
+(1h) + `distinctValues` (24h) in `compendium-browser.tsx` (search stays live); anon read grants/policies +
+RPC EXECUTE verified. Reseed → `revalidateTag("compendium")` or wait out the TTL. (5) Migration **0029** —
+btree `name` indexes on 18 browse compendium tables (browse 4ms→0.16ms; applied to prod, advisors clean).
+(6) Removed unused **`@tanstack/react-query`** (dead ~130KB gzip). (7) Compendium Prev/Next `<a>`→`<Link>`.
+(8) **`vercel.json` `regions:["pdx1"]`** — co-locate functions with Supabase (Oregon), was iad1. Deferred:
+editor bundle code-split (doesn't affect the swap symptom; core-dep-dominated; RSC-boundary risk). See
+[[pathforge-nav-perf]]. **Migrations now run through `0029`.**
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,

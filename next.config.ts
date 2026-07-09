@@ -13,6 +13,15 @@ const supabaseHost = (() => {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  // Client-side Router Cache reuse window. Every (app) route is dynamically rendered (it reads the
+  // auth cookie), and Next's default `dynamic` staleTime is 0 — so re-visiting a page you just left
+  // (back/forward, or re-clicking a nav item) discards the cached RSC payload and re-runs the full
+  // server render. A 30s window lets recent dynamic pages restore instantly from the client cache;
+  // static shells (loading boundaries, prefetched skeletons) stay warm for 5 min.
+  experimental: {
+    staleTimes: { dynamic: 30, static: 300 },
+  },
+
   // Workspace packages ship TypeScript source and are compiled by Next.
   transpilePackages: [
     "@pathforge/schema",

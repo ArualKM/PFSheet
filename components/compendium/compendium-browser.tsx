@@ -1,10 +1,44 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Search, ChevronDown } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { PageHeader } from "@/components/app-shell/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+/** Compendium data changes only on a reseed/migration, so browse reads are cached for an hour and
+ * filter-option lists for a day. This is the core per-navigation win: landing on a compendium page no
+ * longer re-round-trips to Supabase for its (identical-for-everyone) list. Invalidate with
+ * `revalidateTag("compendium")` after a reseed if you need it fresh sooner. */
+const BROWSE_REVALIDATE = 3600;
+const DISTINCT_REVALIDATE = 86400;
+
+/** Cached pure-browse read (no free-text query) — the default view hit on every navigation. Uses the
+ * cookie-free public client so it's legal inside unstable_cache (compendium tables are public-read). */
+const cachedBrowse = unstable_cache(
+  async (
+    table: string,
+    selectCols: string,
+    orderCol: string,
+    filters: [string, string][],
+    from: number,
+    to: number,
+  ): Promise<{ rows: Record<string, unknown>[]; total: number; error: string | null }> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (createPublicClient() as any).from(table).select(selectCols, { count: "exact" });
+    for (const [col, value] of filters) query = query.eq(col, value);
+    const res = await query.order(orderCol).range(from, to);
+    return {
+      rows: (res.data ?? []) as Record<string, unknown>[],
+      total: res.count ?? 0,
+      error: res.error?.message ?? null,
+    };
+  },
+  ["compendium-browse-v1"],
+  { revalidate: BROWSE_REVALIDATE, tags: ["compendium"] },
+);
 
 /** A `.eq` filter exposed as a `<select>` (applied in browse + search-with-filter mode). */
 export type CompendiumFilter = {
@@ -64,9 +98,8 @@ export async function CompendiumBrowser({
     .map((f) => ({ f, value: (sp[f.param] ?? "").trim() }))
     .filter((x) => x.value);
 
-  const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
+  const from = (pageNum - 1) * PAGE;
+  const to = from + PAGE - 1;
 
   let rows: Record<string, unknown>[] = [];
   let total = 0;
@@ -75,29 +108,44 @@ export async function CompendiumBrowser({
   let error: { message: string } | null = null;
 
   if (q && activeFilters.length === 0) {
+    // Ranked relevance search — LIVE (an explicit user search, not a page swap; freshness beats cache).
     // Fetch one extra row to know whether there are MORE than RANKED matches (accurate "60+" badge).
-    const res = await sb.rpc(config.rpc, { p_query: q, p_limit: RANKED + 1 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (createPublicClient() as any).rpc(config.rpc, { p_query: q, p_limit: RANKED + 1 });
     const all = (res.data ?? []) as Record<string, unknown>[];
     ranked = true;
     hasMore = all.length > RANKED;
     rows = hasMore ? all.slice(0, RANKED) : all;
     total = rows.length;
-    error = res.error;
-  } else {
-    let query = sb.from(config.table).select(config.selectCols, { count: "exact" });
-    // Match the 0026 RPC semantics in filtered-search mode: name SUBSTRING (so prefixes like
-    // "Wiza" hit "Wizard") OR whole-word FTS. PostgREST `or` needs its values double-quoted —
+    error = res.error ? { message: res.error.message } : null;
+  } else if (q) {
+    // Free-text search WITH a filter — LIVE. Match the 0026 RPC semantics: name SUBSTRING (so prefixes
+    // like "Wiza" hit "Wizard") OR whole-word FTS. PostgREST `or` needs its values double-quoted —
     // escape one level for the quoted string, and LIKE metacharacters inside the pattern.
-    if (q) {
-      const pgQuote = (v: string) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-      const likePattern = `%${q.replace(/\\/g, "\\\\").replace(/[%_]/g, (m) => `\\${m}`)}%`;
-      query = query.or(`${config.orderCol}.ilike.${pgQuote(likePattern)},search.wfts(english).${pgQuote(q)}`);
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (createPublicClient() as any).from(config.table).select(config.selectCols, { count: "exact" });
+    const pgQuote = (v: string) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    const likePattern = `%${q.replace(/\\/g, "\\\\").replace(/[%_]/g, (m) => `\\${m}`)}%`;
+    query = query.or(`${config.orderCol}.ilike.${pgQuote(likePattern)},search.wfts(english).${pgQuote(q)}`);
     for (const { f, value } of activeFilters) query = query.eq(f.col, value);
-    const res = await query.order(config.orderCol).range((pageNum - 1) * PAGE, (pageNum - 1) * PAGE + PAGE - 1);
+    const res = await query.order(config.orderCol).range(from, to);
     rows = (res.data ?? []) as Record<string, unknown>[];
     total = res.count ?? 0;
-    error = res.error;
+    error = res.error ? { message: res.error.message } : null;
+  } else {
+    // Pure browse (optionally filtered / paginated) — the path hit on every NAVIGATION to a compendium
+    // page. CACHED so a page swap serves from Next's data cache instead of round-tripping to Supabase.
+    const res = await cachedBrowse(
+      config.table,
+      config.selectCols,
+      config.orderCol,
+      activeFilters.map(({ f, value }) => [f.col, value] as [string, string]),
+      from,
+      to,
+    );
+    rows = res.rows;
+    total = res.total;
+    error = res.error ? { message: res.error } : null;
   }
   const totalPages = ranked ? 1 : Math.max(1, Math.ceil(total / PAGE));
 
@@ -187,12 +235,12 @@ export async function CompendiumBrowser({
             <div className="flex gap-2">
               {pageNum > 1 && (
                 <Button asChild variant="secondary" size="sm">
-                  <a href={hrefFor(pageNum - 1)}>Previous</a>
+                  <Link href={hrefFor(pageNum - 1)}>Previous</Link>
                 </Button>
               )}
               {pageNum < totalPages && (
                 <Button asChild variant="secondary" size="sm">
-                  <a href={hrefFor(pageNum + 1)}>Next</a>
+                  <Link href={hrefFor(pageNum + 1)}>Next</Link>
                 </Button>
               )}
             </div>
@@ -243,11 +291,23 @@ export function Prose({ label, value }: { label?: string; value: unknown }) {
   );
 }
 
-/** Sorted distinct values of a compendium column — for building `<select>` filter options. Uses the
- * `compendium_distinct` RPC so it isn't truncated by PostgREST's default row cap. */
+/** Cached distinct values of a compendium column — for `<select>` filter options. Uses the
+ * `compendium_distinct` RPC (no PostgREST row-cap truncation) via the cookie-free public client, and is
+ * cached for a day since the option set is static per deploy — so filter dropdowns don't re-round-trip
+ * to Supabase on every navigation. */
+const cachedDistinct = unstable_cache(
+  async (table: string, col: string): Promise<{ value: string; label: string }[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (createPublicClient() as any).rpc("compendium_distinct", {
+      p_table: table,
+      p_col: col,
+    });
+    return ((data ?? []) as { value: string }[]).map((r) => ({ value: r.value, label: r.value }));
+  },
+  ["compendium-distinct-v1"],
+  { revalidate: DISTINCT_REVALIDATE, tags: ["compendium"] },
+);
+
 export async function distinctValues(table: string, col: string): Promise<{ value: string; label: string }[]> {
-  const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any).rpc("compendium_distinct", { p_table: table, p_col: col });
-  return ((data ?? []) as { value: string }[]).map((r) => ({ value: r.value, label: r.value }));
+  return cachedDistinct(table, col);
 }

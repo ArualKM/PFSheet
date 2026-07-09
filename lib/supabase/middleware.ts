@@ -32,9 +32,13 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT LOCALLY against the project's cached asymmetric signing key (JWKS is
+  // memoized module-globally with a TTL) — zero network per request in steady state, unlike getUser()
+  // which round-trips to the Auth server on every call. getClaims() still calls getSession() first, so
+  // an expired access token is refreshed via the refresh token (cookies updated through setAll above)
+  // exactly as before. `claims` is null when there's no valid session.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims ?? null;
 
   const { pathname } = request.nextUrl;
   const isProtected =

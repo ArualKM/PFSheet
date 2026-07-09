@@ -16,14 +16,18 @@ export type SessionUser = {
  */
 export const getUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // getClaims() verifies the JWT locally via the cached asymmetric signing key (no network round-trip
+  // to the Auth server, unlike getUser()); id/email/display_name all live in the token claims. It still
+  // refreshes an expired session under the hood, so cookie rotation is preserved. cache() keeps this
+  // memoized per render so the layout + page share one call.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  const displayName = claims.user_metadata?.display_name;
   return {
-    id: user.id,
-    email: user.email,
-    displayName: (user.user_metadata?.display_name as string | undefined) ?? undefined,
+    id: claims.sub,
+    email: typeof claims.email === "string" ? claims.email : undefined,
+    displayName: typeof displayName === "string" ? displayName : undefined,
   };
 });
 
