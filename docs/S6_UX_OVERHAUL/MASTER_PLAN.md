@@ -1,7 +1,14 @@
-# S6 — UX Overhaul: companion sheets, fluid Modern editor, new-player wizard
+# S6 — UX Overhaul: companion sheets, fluid Modern editor, wizard, unified viewers
 
-**Status:** planned (2026-07-09). Handoff package for a fresh Fable 5 chat. Everything here is additive on
+**Status:** LOCKED IN (2026-07-09). Handoff package for a fresh Fable 5 chat. Everything here is additive on
 top of a v1-complete app; nothing below requires throwing away working code.
+
+**North star:** ONE cohesive design language across the whole app. The mockups in `mockups/` set the visual
+vocabulary — chip/stat-tile density, live summaries, purposeful hierarchy, disciplined gold/rune accents,
+generous radius, and subtle Motion. First we make the *editor* side of that vocabulary real and functional
+(Pillars 1–3); then we bring the read/share/GM **Viewers** into the same language so the whole app feels like
+one deliberate thing (Pillar 4). Editor leads, viewers follow — so the shared components (chips, cards,
+section shells, Motion recipes) are proven on the editor before the viewers adopt them.
 
 This folder is the single source of truth for the next big UX push. Read this file first, then the pillar docs
 and the mockups. **Do not relitigate the locked decisions** — they were made deliberately with the owner.
@@ -29,6 +36,7 @@ on mobile. Three gaps:
 | 1 | Simple/Advanced **Companion** sheet + editor | [`01_COMPANION_SHEETS.md`](01_COMPANION_SHEETS.md) |
 | 2 | **Modern editor** overhaul (desktop + mobile, fluid, animated) | [`02_MODERN_EDITOR.md`](02_MODERN_EDITOR.md) |
 | 3 | New-player **Create-a-character wizard** | [`03_CHARACTER_WIZARD.md`](03_CHARACTER_WIZARD.md) |
+| 4 | **Viewers** design-language unification (Modern/Classic read, public share, GM audit) | [`04_VIEWERS_DESIGN_LANGUAGE.md`](04_VIEWERS_DESIGN_LANGUAGE.md) |
 | — | **Animation system** (Motion library integration) | [`ANIMATION_SYSTEM.md`](ANIMATION_SYSTEM.md) |
 | — | **Mockups** (openable HTML, desktop + mobile) | [`mockups/`](mockups/) |
 
@@ -43,9 +51,11 @@ on mobile. Three gaps:
 - **Editor overhaul = evolve in place.** Refactor the existing `character-editor.tsx` section-group model into
   the new fluid canvas incrementally, reusing every section editor and the `useCharacterEditor` draft/save loop.
   Lower risk, ships in stages behind the existing Modern⇄Classic editor toggle. No ground-up rewrite.
-- **Scope = all three, sequenced.** Build order is **1 → 2 → 3**: companion sheets first (smallest,
+- **Scope = all four, sequenced.** Build order is **1 → 2 → 3 → 4**: companion sheets first (smallest,
   self-contained, immediate win), then the editor overhaul (the big one, the foundation), then the wizard on top
-  of the overhauled editor.
+  of the overhauled editor, then the Viewers design-language pass — which adopts the shared components (chips,
+  cards, section shells, Motion recipes) the editor pillar proves. Pillars 1–3 make the new UX functional;
+  Pillar 4 makes the read/share/GM side match it.
 
 ## Sequencing & definition of done
 
@@ -62,7 +72,15 @@ gate green each stage; adversarially reviewed.
 editors as embeddable steps, with recommended defaults + plain-language help, handing off cleanly to the full
 editor; gate green; adversarially reviewed.
 
-Each pillar ships independently — do not block Pillar 1 on Pillar 2.
+**Pillar 4 — Viewers design language (last).** Done when: the Modern read dashboard, the Classic sheet, the
+public share (`/c/[publicSlug]`), and the GM audit view all speak the editor's design vocabulary
+(chips / stat-tiles / section shells / Motion), the public/share/GM surfaces lead with the info that matters +
+clear CTAs ("everything up front"), and §15 privacy gating + the `buildCharacterViewModel` contract are
+untouched (design-only pass — never a new data path); gate green; adversarially reviewed. See
+[`04_VIEWERS_DESIGN_LANGUAGE.md`](04_VIEWERS_DESIGN_LANGUAGE.md).
+
+Each pillar ships independently — do not block Pillar 1 on Pillar 2. Pillar 4 depends on Pillar 2 (it reuses
+the editor's proven components), so it genuinely comes last.
 
 ---
 

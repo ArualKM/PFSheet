@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Viewers Design Language — Pillar 4 mockup</title>
+<style>
+  :root {
+    --pf-bg: #090d12;
+    --pf-surface: #121922;
+    --pf-surface-raised: #18212c;
+    --pf-surface-sunken: #0c1219;
+    --pf-border: #2c3a4a;
+    --pf-text: #f4f0e7;
+    --pf-muted: #aeb8c3;
+    --pf-gold: #f0b35a;
+    --pf-on-gold: #1c1407;
+    --pf-rune: #67d5ff;
+    --pf-danger: #f2616b;
+    --pf-warning: #e8a93c;
+    --pf-success: #57d9a3;
+    --pf-radius: 0.75rem;
+    --pf-tap: 44px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--pf-bg); color: var(--pf-text);
+    font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  }
+  body { padding: 1.75rem 1.5rem 4rem; }
+  a { color: inherit; }
+
+  .note {
+    max-width: 1180px; margin: 0 auto 1.75rem; padding: 0.65rem 1rem;
+    border: 1px dashed var(--pf-border); border-radius: calc(var(--pf-radius) - 0.25rem);
+    background: color-mix(in srgb, var(--pf-warning) 8%, var(--pf-surface));
+    color: var(--pf-muted); font-size: 0.8rem; line-height: 1.45;
+  }
+  .note b { color: var(--pf-warning); }
+
+  .page { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+
+  .zone-label {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pf-gold);
+    font-weight: 700; margin-bottom: 0.9rem;
+  }
+  .zone-label .rule { flex: 1 1 auto; height: 1px; background: var(--pf-border); }
+  .zone-label small { color: var(--pf-muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 0.78rem; }
+
+  .card {
+    background: var(--pf-surface); border: 1px solid var(--pf-border);
+    border-radius: var(--pf-radius); padding: 1.1rem;
+  }
+  .card-title {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--pf-muted); display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem;
+  }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pf-rune); box-shadow: 0 0 8px var(--pf-rune); }
+  .card-title.gold .dot { background: var(--pf-gold); box-shadow: 0 0 8px var(--pf-gold); }
+  .card-title .icon { width: 15px; height: 15px; color: var(--pf-gold); }
+
+  /* accent bar, matches editor-canvas.html's .section-card */
+  .accent-card {
+    position: relative; padding-left: 1.4rem;
+    border-color: color-mix(in srgb, var(--pf-gold) 40%, var(--pf-border));
+  }
+  .accent-card::before {
+    content: ""; position: absolute; left: 0; top: 0.6rem; bottom: 0.6rem; width: 3px;
+    border-radius: 999px; background: linear-gradient(var(--pf-gold), color-mix(in srgb, var(--pf-gold) 30%, transparent));
+  }
+
+  /* ============ Section 1: Modern read view (unified chip language) ============ */
+  .frame-desktop {
+    width: 100%; border: 1px solid var(--pf-border); border-radius: 1rem;
+    background: var(--pf-bg); box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7); overflow: hidden;
+  }
+  .app-topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--pf-border);
+    background: linear-gradient(180deg, var(--pf-surface-raised), var(--pf-surface));
+  }
+  .view-toggle {
+    display: inline-flex; border: 1px solid var(--pf-border); border-radius: 999px; padding: 3px;
+    background: var(--pf-surface-sunken); gap: 2px;
+  }
+  .view-toggle button {
+    border: none; background: transparent; color: var(--pf-muted); font-size: 0.75rem; font-weight: 600;
+    padding: 0.35rem 0.75rem; border-radius: 999px; cursor: pointer; min-height: 30px;
+  }
+  .view-toggle button.active { background: var(--pf-gold); color: var(--pf-on-gold); }
+  .edit-cta {
+    display: inline-flex; align-items: center; gap: 0.4rem; background: var(--pf-gold); color: var(--pf-on-gold);
+    border: none; font-weight: 700; font-size: 0.85rem; padding: 0 1rem; height: var(--pf-tap);
+    border-radius: 0.6rem; cursor: pointer;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 0.6rem; }
+
+  .sheet-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .desktop-grid { display: grid; grid-template-columns: 250px 1fr; gap: 1rem; align-items: start; }
+
+  .infobox { display: flex; flex-direction: column; gap: 0.85rem; text-align: center; }
+  .portrait {
+    width: 100%; aspect-ratio: 3/4; border-radius: calc(var(--pf-radius) - 0.1rem); border: 2px solid var(--pf-gold);
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--pf-gold) 30%, transparent), transparent 60%),
+      linear-gradient(160deg, #2a2116, #100b07 70%);
+    display: flex; align-items: center; justify-content: center; font-size: 2.8rem;
+  }
+  .name { font-size: 1.3rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .sub { font-size: 0.8rem; color: var(--pf-muted); margin: 0.15rem 0 0; }
+  .facts-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 0.6rem; font-size: 0.8rem; text-align: left; margin: 0.2rem 0 0; }
+  .facts-dl dt { color: var(--pf-muted); font-weight: 600; }
+  .facts-dl dd { margin: 0; text-align: right; }
+
+  .stat-tile-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; }
+  .stat-tile {
+    background: var(--pf-surface-raised); border: 1px solid var(--pf-border); border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.55rem 0.3rem; text-align: center;
+  }
+  .stat-tile .label { font-size: 0.66rem; color: var(--pf-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-tile .score { font-size: 1.25rem; font-weight: 800; line-height: 1.15; margin-top: 0.1rem; }
+  .stat-tile .mod { font-size: 0.72rem; color: var(--pf-gold); font-weight: 700; }
+
+  .mini-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.55rem; }
+  .mini-stat {
+    background: var(--pf-surface-raised); border: 1px solid var(--pf-border); border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.6rem 0.4rem; text-align: center;
+  }
+  .mini-stat .lbl { font-size: 0.68rem; color: var(--pf-muted); font-weight: 700; text-transform: uppercase; }
+  .mini-stat .val { font-size: 1.35rem; font-weight: 800; margin-top: 0.1rem; color: var(--pf-text); }
+  .mini-stat.rune .val { color: var(--pf-rune); }
+  .mini-stat.gold .val { color: var(--pf-gold); }
+  .mini-stat.danger .val { color: var(--pf-danger); }
+
+  .chip-strip { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+  .mini-chip {
+    display: inline-flex; align-items: center; gap: 0.3rem; background: var(--pf-surface-sunken);
+    border: 1px solid var(--pf-border); border-radius: calc(var(--pf-radius) - 0.35rem);
+    padding: 0.2rem 0.55rem; font-size: 0.76rem; color: var(--pf-muted); white-space: nowrap;
+  }
+  .mini-chip b { color: var(--pf-text); font-weight: 700; }
+  .mini-chip.gold { border-color: color-mix(in srgb, var(--pf-gold) 40%, var(--pf-border)); }
+  .mini-chip.gold b { color: var(--pf-gold); }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .main-col { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* ============ Section 2: public share — everything up front + CTA ============ */
+  .share-hero {
+    display: flex; align-items: center; gap: 1.1rem; padding: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--pf-gold) 45%, var(--pf-border));
+    border-radius: var(--pf-radius);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--pf-gold) 8%, var(--pf-surface)), var(--pf-surface));
+    flex-wrap: wrap;
+  }
+  .share-portrait {
+    width: 84px; height: 84px; border-radius: calc(var(--pf-radius) - 0.1rem); border: 2px solid var(--pf-gold);
+    background: linear-gradient(160deg, #2a2116, #100b07 70%); display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; flex-shrink: 0;
+  }
+  .share-title { flex: 1 1 260px; min-width: 0; }
+  .share-title h1 { margin: 0 0 0.15rem; font-size: 1.5rem; }
+  .share-title .classline { color: var(--pf-muted); font-size: 0.9rem; margin: 0; }
+  .share-cta-col { display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end; flex: 0 0 auto; }
+  .share-badge {
+    display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 700;
+    color: var(--pf-muted); background: var(--pf-surface-sunken); border: 1px solid var(--pf-border);
+    border-radius: 999px; padding: 0.25rem 0.65rem;
+  }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem; background: var(--pf-gold); color: var(--pf-on-gold);
+    border: none; font-weight: 800; font-size: 0.88rem; padding: 0 1.2rem; height: var(--pf-tap);
+    border-radius: 0.6rem; cursor: pointer; white-space: nowrap;
+  }
+  .cta-ghost {
+    display: inline-flex; align-items: center; gap: 0.4rem; background: transparent; color: var(--pf-text);
+    border: 1px solid var(--pf-border); font-weight: 600; font-size: 0.82rem; padding: 0 1rem; height: 38px;
+    border-radius: 0.55rem; cursor: pointer; white-space: nowrap;
+  }
+  .share-glance-row {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.55rem; margin-top: 1rem;
+  }
+
+  /* ============ Section 3: GM audit — at-a-glance pills ============ */
+  .gm-status-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1rem; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 700;
+    padding: 0.35rem 0.75rem; border-radius: 999px; border: 1px solid;
+  }
+  .status-pill.approved { color: var(--pf-success); background: color-mix(in srgb, var(--pf-success) 14%, transparent); border-color: color-mix(in srgb, var(--pf-success) 40%, transparent); }
+  .status-pill.pending { color: var(--pf-warning); background: color-mix(in srgb, var(--pf-warning) 14%, transparent); border-color: color-mix(in srgb, var(--pf-warning) 40%, transparent); }
+  .status-pill.stale { color: var(--pf-danger); background: color-mix(in srgb, var(--pf-danger) 14%, transparent); border-color: color-mix(in srgb, var(--pf-danger) 40%, transparent); }
+
+  .severity-strip { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .sev-chip {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; font-weight: 600;
+    padding: 0.4rem 0.7rem; border-radius: calc(var(--pf-radius) - 0.25rem); border: 1px solid var(--pf-border);
+    background: var(--pf-surface-raised); color: var(--pf-text);
+  }
+  .sev-chip .n { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .sev-chip.warn { border-color: color-mix(in srgb, var(--pf-warning) 45%, var(--pf-border)); }
+  .sev-chip.warn .n { color: var(--pf-warning); }
+  .sev-chip.info { border-color: color-mix(in srgb, var(--pf-rune) 45%, var(--pf-border)); }
+  .sev-chip.info .n { color: var(--pf-rune); }
+  .sev-chip.ok { border-color: color-mix(in srgb, var(--pf-success) 45%, var(--pf-border)); }
+  .sev-chip.ok .n { color: var(--pf-success); }
+  .sev-chip.flag { border-color: color-mix(in srgb, var(--pf-danger) 45%, var(--pf-border)); }
+  .sev-chip.flag .n { color: var(--pf-danger); }
+
+  .checklist-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .check-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem;
+    padding: 0.3rem 0.6rem; border-radius: calc(var(--pf-radius) - 0.3rem); border: 1px dashed var(--pf-border);
+    color: var(--pf-muted);
+  }
+  .check-chip.done { border-style: solid; border-color: color-mix(in srgb, var(--pf-success) 45%, var(--pf-border)); color: var(--pf-success); }
+
+  @media (max-width: 860px) {
+    .desktop-grid { grid-template-columns: 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+    .stat-tile-row { grid-template-columns: repeat(3, 1fr); }
+    .mini-stat-row { grid-template-columns: repeat(2, 1fr); }
+    .share-glance-row { grid-template-columns: repeat(3, 1fr); }
+    .share-hero { flex-direction: column; align-items: flex-start; }
+    .share-cta-col { align-items: flex-start; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>Static mockup</b> — no interactivity, no live data. Illustrates the Pillar 4 target: read/share/GM
+  viewers speaking the <b>same chip/stat-tile/section-card vocabulary</b> as
+  <code>editor-canvas.html</code> and <code>companion-sheet.html</code>. Three zones below stand in for
+  the three viewer surfaces this plan touches (Modern dashboard, public share, GM audit) — Classic and
+  the companion read view reuse the same primitives, not shown separately here. Values are representative.
+</div>
+
+<div class="page">
+
+  <!-- ================= ZONE 1: Modern read view ================= -->
+  <div>
+    <div class="zone-label"><span class="rule"></span>1 — Modern read view (owner/editor)<span class="rule"></span></div>
+    <div class="frame-desktop">
+      <div class="app-topbar">
+        <div style="font-weight:700;">Anise Thorne</div>
+        <div class="topbar-right">
+          <div class="view-toggle">
+            <button class="active">Modern</button>
+            <button>Classic</button>
+          </div>
+          <button class="edit-cta">Edit</button>
+        </div>
+      </div>
+      <div class="sheet-body">
+        <div class="desktop-grid">
+          <div class="card infobox">
+            <div class="portrait">🧙</div>
+            <div>
+              <h1 class="name">Anise Thorne</h1>
+              <p class="sub">Human Wizard 8 / Loremaster 2</p>
+            </div>
+            <dl class="facts-dl">
+              <dt>Race</dt><dd>Human</dd>
+              <dt>Alignment</dt><dd>NG</dd>
+              <dt>Size</dt><dd>Medium</dd>
+              <dt>Deity</dt><dd>Nethys</dd>
+            </dl>
+          </div>
+          <div class="main-col">
+            <div class="card">
+              <p class="card-title"><span class="dot"></span>Ability Scores</p>
+              <div class="stat-tile-row">
+                <div class="stat-tile"><div class="label">Str</div><div class="score">9</div><div class="mod">−1</div></div>
+                <div class="stat-tile"><div class="label">Dex</div><div class="score">14</div><div class="mod">+2</div></div>
+                <div class="stat-tile"><div class="label">Con</div><div class="score">13</div><div class="mod">+1</div></div>
+                <div class="stat-tile"><div class="label">Int</div><div class="score">20</div><div class="mod">+5</div></div>
+                <div class="stat-tile"><div class="label">Wis</div><div class="score">12</div><div class="mod">+1</div></div>
+                <div class="stat-tile"><div class="label">Cha</div><div class="score">10</div><div class="mod">+0</div></div>
+              </div>
+            </div>
+
+            <div class="card accent-card">
+              <p class="card-title gold"><span class="dot"></span>Combat</p>
+              <div class="mini-stat-row">
+                <div class="mini-stat"><div class="lbl">BAB</div><div class="val">+5</div></div>
+                <div class="mini-stat"><div class="lbl">CMB</div><div class="val">+4</div></div>
+                <div class="mini-stat"><div class="lbl">CMD</div><div class="val">17</div></div>
+                <div class="mini-stat rune"><div class="lbl">Init</div><div class="val">+6</div></div>
+              </div>
+              <div class="chip-strip">
+                <span class="mini-chip">Quarterstaff <b>+5</b> · 1d6−1</span>
+                <span class="mini-chip">Dagger (thrown) <b>+7</b> · 1d4+2</span>
+                <span class="mini-chip gold">2 attacks</span>
+              </div>
+            </div>
+
+            <div class="row-2">
+              <div class="card">
+                <p class="card-title"><span class="dot"></span>Defenses</p>
+                <div class="mini-stat-row" style="grid-template-columns:repeat(3,1fr);">
+                  <div class="mini-stat"><div class="lbl">Fort</div><div class="val">+4</div></div>
+                  <div class="mini-stat"><div class="lbl">Ref</div><div class="val">+6</div></div>
+                  <div class="mini-stat"><div class="lbl">Will</div><div class="val">+9</div></div>
+                </div>
+                <div class="chip-strip">
+                  <span class="mini-chip">AC <b>16</b></span>
+                  <span class="mini-chip">Touch <b>13</b></span>
+                  <span class="mini-chip">Flat 13</span>
+                </div>
+              </div>
+              <div class="card">
+                <p class="card-title"><span class="dot"></span>Spellcasting</p>
+                <div class="chip-strip" style="margin-top:0;">
+                  <span class="mini-chip gold">CL <b>10</b></span>
+                  <span class="mini-chip">DC 15+lvl</span>
+                  <span class="mini-chip">4/4/3/3/2 slots</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ZONE 2: Public share ================= -->
+  <div>
+    <div class="zone-label"><span class="rule"></span>2 — Public share (anonymous, "everything up front")<span class="rule"></span></div>
+    <div class="frame-desktop">
+      <div class="sheet-body">
+        <div class="share-hero">
+          <div class="share-portrait">🧙</div>
+          <div class="share-title">
+            <h1>Anise Thorne</h1>
+            <p class="classline">Human Wizard 8 / Loremaster 2 — built on PathForge</p>
+          </div>
+          <div class="share-cta-col">
+            <span class="share-badge">👁 Public share</span>
+            <button class="cta-btn">Create your own character</button>
+            <button class="cta-ghost">View full sheet ↓</button>
+          </div>
+        </div>
+        <div class="share-glance-row">
+          <div class="mini-stat"><div class="lbl">HP</div><div class="val">54</div></div>
+          <div class="mini-stat gold"><div class="lbl">AC</div><div class="val">16</div></div>
+          <div class="mini-stat rune"><div class="lbl">Init</div><div class="val">+6</div></div>
+          <div class="mini-stat"><div class="lbl">Fort</div><div class="val">+4</div></div>
+          <div class="mini-stat"><div class="lbl">Ref</div><div class="val">+6</div></div>
+          <div class="mini-stat"><div class="lbl">Will</div><div class="val">+9</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ZONE 3: GM audit ================= -->
+  <div>
+    <div class="zone-label"><span class="rule"></span>3 — GM audit (at-a-glance state)<span class="rule"></span></div>
+    <div class="frame-desktop">
+      <div class="sheet-body">
+        <div class="gm-status-row">
+          <span class="status-pill pending">● Pending review</span>
+          <span class="status-pill stale">⚠ Changed since approval</span>
+        </div>
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Math &amp; content audit — at a glance</p>
+          <div class="severity-strip">
+            <span class="sev-chip warn">Warnings <span class="n">2</span></span>
+            <span class="sev-chip info">Notes <span class="n">3</span></span>
+            <span class="sev-chip flag">Flagged <span class="n">1</span></span>
+            <span class="sev-chip ok">Clean sections <span class="n">9</span></span>
+          </div>
+          <div class="checklist-row">
+            <span class="check-chip done">✓ HP math checked</span>
+            <span class="check-chip done">✓ Attacks checked</span>
+            <span class="check-chip">Spells reviewed</span>
+            <span class="check-chip">Backstory read</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
