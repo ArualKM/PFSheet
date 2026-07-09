@@ -51,7 +51,7 @@ export default async function LandingPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 md:px-6">
       {/* Hero */}
-      <section className="flex flex-col items-center py-20 text-center md:py-28">
+      <section className="pf-stagger flex flex-col items-center py-20 text-center md:py-28">
         <Badge variant="gold" className="mb-6">
           PFSheet.org · Pathfinder 1e
         </Badge>
@@ -87,9 +87,9 @@ export default async function LandingPage() {
       </section>
 
       {/* Feature grid */}
-      <section className="grid gap-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="pf-stagger grid gap-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
         {features.map(({ icon: Icon, title, body }) => (
-          <Card key={title} className="transition-colors hover:border-gold/40">
+          <Card key={title} className="pf-hover-lift">
             <CardContent className="space-y-3 p-6">
               <span className="grid size-10 place-items-center rounded-xl bg-gold/10 text-gold">
                 <Icon className="size-5" />
