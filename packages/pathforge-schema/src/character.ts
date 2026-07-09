@@ -26,7 +26,7 @@ import { akashicBlockSchema } from "./akashic";
 import { oathsBlockSchema } from "./oaths";
 import { backgroundOccupationBlockSchema } from "./background-occupation";
 import { milestoneLevelingBlockSchema } from "./milestone-leveling";
-import { companionBlockSchema } from "./companion";
+import { companionBlockSchema, familiarBenefitSchema } from "./companion";
 import {
   characterMetadataSchema,
   languageBlockSchema,
@@ -81,6 +81,10 @@ export const pathForgeCharacterV1Schema = z.object({
   /** Present on companion characters (familiar / animal companion / …): compendium linkage,
    * familiar archetype, and the cached master stats the engine's master-link rules read. */
   companion: companionBlockSchema.optional(),
+  /** Present on a MASTER: the denormalized benefits its linked familiars grant it (Alertness + each
+   * familiar's specific bonus). Rebuilt by the reverse familiar→master sync; the engine reads it to
+   * apply the master-side benefit without a cross-character read. */
+  familiars: z.array(familiarBenefitSchema).optional(),
   privacy: privacyBlockSchema,
   notes: notesBlockSchema,
   metadata: characterMetadataSchema,

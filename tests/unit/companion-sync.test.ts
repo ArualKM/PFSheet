@@ -31,7 +31,9 @@ describe("statblock parsing", () => {
       { name: "2 claws", damage: "1d3" },
     ]);
     expect(parseSize("Size Medium; Speed 30 ft.")).toBe("medium");
-    expect(parseSize(null)).toBe("medium");
+    // Returns undefined (not a forced "medium") when there is no size token, so the caller leaves the
+    // sheet's existing size rather than mis-sizing a size-less row (e.g. a familiar) as Medium.
+    expect(parseSize(null)).toBeUndefined();
   });
 
   it("applyCompanionStatblock fills the sheet and preserves the source text", () => {

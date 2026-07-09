@@ -27,8 +27,10 @@ import {
   familiarIntelligence,
   familiarGrantedAbilities,
   familiarArchetypeAlters,
+  familiarStrengthBonus,
   familiarMaxHp,
   type CompanionMasterCache,
+  type FamiliarBenefit,
   type FamiliarGrantedAbility,
 } from "@pathforge/schema";
 import { evaluate, type Resolver } from "./formula/evaluator";
@@ -410,6 +412,54 @@ export function buildModifierIndex(
           });
         }
       }
+      // Mauler's Increased Strength (Ex): +1 at 3rd master level and every 2 levels thereafter — the
+      // defining numeric of a combat familiar (a pure display note until now). Untyped so it stacks.
+      const strBonus = familiarStrengthBonus(master.level, alters);
+      if (strBonus > 0) {
+        push("ability.str", {
+          id: "familiar-str",
+          label: `Increased Strength (master L${master.level})`,
+          source: "Familiar archetype",
+          value: strBonus,
+          bonusType: "untyped",
+        });
+      }
+    }
+  }
+
+  // Master side: the benefits this character's linked FAMILIARS grant it (the reverse of the familiar
+  // master-link). Each familiar grants Alertness (+2 Perception / +2 Sense Motive while within arm's
+  // reach) unless its archetype kept Alertness for itself, plus its species-specific bonus (cat +3
+  // Stealth, rat +2 Fort, toad +3 hp, …). `character.familiars` is a denormalized cache rebuilt by the
+  // reverse sync — the engine stays a pure single-sheet computation. Alertness uses a stacking group so
+  // two familiars can't double it (RAW: Alertness doesn't stack with itself).
+  for (const [i, fam] of (character.familiars ?? []).entries()) {
+    const label = `${fam.name || "Familiar"} (familiar)`;
+    if (fam.grantsAlertness) {
+      for (const key of ["perception", "sense_motive"]) {
+        push(`skill.${key}`, {
+          id: `familiar-alertness-${i}-${key}`,
+          label: `Alertness (${fam.name || "familiar"})`,
+          source: "Familiar",
+          value: 2,
+          bonusType: "untyped",
+          stackingGroup: "familiar-alertness",
+        });
+      }
+    }
+    for (const eff of fam.effects ?? []) {
+      if (!Number.isFinite(eff.value) || eff.value === 0) continue;
+      // Situational bonuses (eff.note set: "against disease", "in bright light", "if within 1 mile")
+      // are surfaced on the Familiar card but NOT folded into the master's base total — RAW, a
+      // conditional bonus doesn't inflate the always-on number.
+      if (eff.note) continue;
+      push(eff.target, {
+        id: `familiar-benefit-${i}-${eff.target}`,
+        label,
+        source: "Familiar",
+        value: eff.value,
+        bonusType: "untyped",
+      });
     }
   }
 
@@ -874,6 +924,10 @@ export type ComputedCharacter = {
       /** Familiar spell resistance (master level + 5 at master level 11+). */
       spellResistance?: number;
     };
+    /** MASTER side: the benefits this character's linked familiars grant it (absent unless it has
+     * familiars). Drives the master's read-view "Familiar" card; the mechanical bonuses are already
+     * folded into skills/saves/initiative/hp above. */
+    masterFamiliars?: FamiliarBenefit[];
     /** Psionics roll-up (absent unless the module is enabled). */
     psionics?: {
       powerPoints: { current: number; max: number };
@@ -1492,6 +1546,11 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
     };
   }
 
+  // MASTER side: expose the linked familiars' benefits for the read-view card (already applied above).
+  const masterFamiliars: FamiliarBenefit[] | undefined = character.familiars?.length
+    ? character.familiars
+    : undefined;
+
   return {
     abilities,
     armorClass,
@@ -1565,6 +1624,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       oaths,
       milestoneLeveling,
       companion,
+      masterFamiliars,
     },
   };
 }

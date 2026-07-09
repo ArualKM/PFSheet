@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
+import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
@@ -64,17 +65,31 @@ export default async function CharacterOverviewPage({
     );
   }
 
-  const computed = computeCharacter(result.character);
-  const vm = buildCharacterViewModel(result.character, computed, "owner", data.visibility);
-
   // GM feedback is owner-facing; only load it for the character's owner.
   const isOwner = data.owner_id === user.id;
-  const feedback = isOwner ? await loadCampaignFeedback(characterId, user.id, result.character) : [];
 
   // Companions (linked character rows) — owner-only. A companion isn't itself a companion-parent here.
   const companions = isOwner
     ? ((await supabase.from("characters").select("id, name, companion_type").eq("parent_character_id", characterId).order("created_at")).data ?? [])
     : [];
+
+  // MASTER side: rebuild + apply the benefits this character's linked familiars grant it (Alertness +
+  // each familiar's specific bonus) and persist the cache. Self-heals create/edit/delete drift for the
+  // editor/API too. Only for the owner (they can read the children); non-owners fall back to the
+  // persisted cache on the sheet. Gated so non-master characters skip the extra reads.
+  if (isOwner && (companions.some((c) => c.companion_type === "familiar") || result.character.familiars?.length)) {
+    try {
+      const benefits = await syncMasterFamiliars(characterId);
+      result.character.familiars = benefits.length ? benefits : undefined;
+    } catch (e) {
+      console.error("overview: master familiar sync failed", e);
+    }
+  }
+
+  const computed = computeCharacter(result.character);
+  const vm = buildCharacterViewModel(result.character, computed, "owner", data.visibility);
+
+  const feedback = isOwner ? await loadCampaignFeedback(characterId, user.id, result.character) : [];
 
   const actions = (
     <>

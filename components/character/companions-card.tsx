@@ -192,6 +192,7 @@ function StatblockSearch({
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<StatblockPick[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const term = q.trim();
@@ -200,15 +201,23 @@ function StatblockSearch({
       if (term.length < 2) {
         if (!cancelled) {
           setRows([]);
+          setError(null);
           setLoading(false); // an in-flight fetch may have been cancelled with the spinner on
         }
         return;
       }
       setLoading(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).rpc(rpc, { p_query: term, p_limit: 8 });
+      const { data, error: rpcError } = await (supabase as any).rpc(rpc, { p_query: term, p_limit: 8 });
       if (!cancelled) {
-        setRows(((data ?? []) as { slug: string; name: string }[]).map((r) => ({ slug: r.slug, name: r.name })));
+        // Surface the error instead of rendering a real failure as an indistinguishable "no results".
+        if (rpcError) {
+          setError(rpcError.message ?? "Search failed.");
+          setRows([]);
+        } else {
+          setError(null);
+          setRows(((data ?? []) as { slug: string; name: string }[]).map((r) => ({ slug: r.slug, name: r.name })));
+        }
         setLoading(false);
       }
     }, 250);
@@ -235,7 +244,7 @@ function StatblockSearch({
   return (
     <div className="text-xs">
       <span className="mb-1 block font-medium text-muted-foreground">
-        Statblock (optional — autofills abilities, AC, attacks)
+        Statblock (optional — fills in the creature&rsquo;s stats)
       </span>
       <div className="relative">
         <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -248,6 +257,7 @@ function StatblockSearch({
         />
         {loading && <Loader2 className="absolute right-2 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />}
       </div>
+      {error && <p className="mt-1 text-danger">{error}</p>}
       {rows.length > 0 && (
         <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-border bg-surface sm:max-w-xs">
           {rows.map((r) => (

@@ -37,6 +37,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
 
+/** "sense_motive" → "Sense Motive". */
+function titleCaseKey(key: string): string {
+  return key
+    .split("_")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+/** A familiar master-benefit engine effect → a short human label ("+3 Stealth", "+2 Fortitude save"). */
+function formatFamiliarEffect(eff: { target: string; value: number }): string {
+  const sign = eff.value >= 0 ? "+" : "";
+  if (eff.target === "init") return `${sign}${eff.value} initiative`;
+  if (eff.target === "hp") return `${sign}${eff.value} HP`;
+  const [domain, key] = eff.target.split(".");
+  if (domain === "skill" && key) return `${sign}${eff.value} ${titleCaseKey(key)}`;
+  if (domain === "save" && key) return `${sign}${eff.value} ${titleCaseKey(key)} save`;
+  return `${sign}${eff.value}`;
+}
+
 export function CharacterDashboard({
   vm,
   actions,
@@ -610,6 +629,11 @@ export function CharacterDashboard({
                     {vm.companion.spellResistance ? <span>SR {vm.companion.spellResistance}</span> : null}
                   </div>
                 )}
+                {vm.companion.synced && (
+                  <p className="text-[11px] text-muted-foreground">
+                    HP (½ master), BAB, saves &amp; skills are linked from the master.
+                  </p>
+                )}
                 {vm.companion.grantedAbilities.length > 0 && (
                   <ShowMore cap={6} noun="abilities" className="space-y-0.5 pt-1">
                     {vm.companion.grantedAbilities.map((a, i) => (
@@ -626,6 +650,45 @@ export function CharacterDashboard({
                 {vm.companion.grantedAbilities.some((a) => a.fromArchetype) && (
                   <p className="text-[10px] text-muted-foreground">† from the {vm.companion.archetype} archetype</p>
                 )}
+              </div>
+            </SectionCard>
+          )}
+          {vm.familiarBenefits && vm.familiarBenefits.length > 0 && (
+            <SectionCard title="Familiar" icon={Sparkles}>
+              <div className="space-y-2.5 text-sm">
+                {vm.familiarBenefits.map((f, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="font-semibold text-gold">{f.name}</span>
+                      {f.archetype && <span className="text-xs text-muted-foreground">{f.archetype}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {f.grantsAlertness && (
+                        <span className="rounded-full border border-border/60 px-2 py-0.5 text-xs text-foreground">
+                          Alertness +2 Perception / +2 Sense Motive
+                        </span>
+                      )}
+                      {f.effects.map((eff, j) => (
+                        <span
+                          key={j}
+                          title={eff.note}
+                          className={
+                            eff.note
+                              ? "rounded-full border border-border/60 px-2 py-0.5 text-xs text-muted-foreground"
+                              : "rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-xs text-foreground"
+                          }
+                        >
+                          {formatFamiliarEffect(eff)}
+                          {eff.note ? ` · ${eff.note}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                    {f.effects.length === 0 && f.rawText && (
+                      <p className="text-xs text-muted-foreground">{f.rawText}</p>
+                    )}
+                  </div>
+                ))}
+                <p className="text-[10px] text-muted-foreground">Granted while your familiar is within arm&rsquo;s reach.</p>
               </div>
             </SectionCard>
           )}

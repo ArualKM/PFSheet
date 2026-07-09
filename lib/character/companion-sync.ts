@@ -1,4 +1,13 @@
-import type { CompanionMasterCache, PathForgeCharacterV1, AttackEntry, ModifierEntry } from "@pathforge/schema";
+import {
+  familiarBaseBody,
+  familiarGrantedAbilities,
+  type CompanionMasterCache,
+  type FamiliarBenefit,
+  type MasterBenefitEffect,
+  type PathForgeCharacterV1,
+  type AttackEntry,
+  type ModifierEntry,
+} from "@pathforge/schema";
 import type { ComputedCharacter } from "@pathforge/rules-pf1e";
 
 /**
@@ -85,10 +94,11 @@ export function parseAttacks(text: string | null | undefined): { name: string; d
   return out;
 }
 
-/** "Medium" / "Size Medium; Speed 30 ft." → a canonical size key (default medium). */
-export function parseSize(text: string | null | undefined): string {
+/** "Medium" / "Size Medium; Speed 30 ft." → a canonical size key, or undefined when no size token is
+ * present (so the caller leaves the sheet's existing size rather than forcing "medium"). */
+export function parseSize(text: string | null | undefined): string | undefined {
   const t = String(text ?? "").toLowerCase();
-  return SIZES.find((s) => t.includes(s)) ?? "medium";
+  return SIZES.find((s) => t.includes(s));
 }
 
 export type CompanionStatblockRow = {
@@ -122,7 +132,8 @@ export function applyCompanionStatblock(sheet: PathForgeCharacterV1, row: Compan
     if (slot && typeof score === "number") slot.score = score;
   }
 
-  sheet.identity.size = parseSize(row.size ?? row.starting_stats);
+  const parsedSize = parseSize(row.size ?? row.starting_stats);
+  if (parsedSize) sheet.identity.size = parsedSize;
   if (row.speed) sheet.combat.speed.base = row.speed;
 
   const na = parseNaturalArmor(row.ac ?? row.starting_stats);
@@ -170,4 +181,183 @@ export function applyCompanionStatblock(sheet: PathForgeCharacterV1, row: Compan
       automation: [],
     });
   }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Familiar body + master-benefit (familiar → master)                          */
+/* ------------------------------------------------------------------------- */
+
+/** familiar_compendium.granted_ability trails a " | source citation" — drop it for display/parse. */
+export function stripBenefitCitation(text: string | null | undefined): string {
+  return String(text ?? "").split("|")[0]!.trim();
+}
+
+/** Skill label (as it appears in granted-ability prose) → canonical skill key. */
+const SKILL_KEY_BY_NAME: Record<string, string> = {
+  acrobatics: "acrobatics",
+  appraise: "appraise",
+  bluff: "bluff",
+  climb: "climb",
+  diplomacy: "diplomacy",
+  "disable device": "disable_device",
+  disguise: "disguise",
+  "escape artist": "escape_artist",
+  fly: "fly",
+  "handle animal": "handle_animal",
+  heal: "heal",
+  intimidate: "intimidate",
+  linguistics: "linguistics",
+  perception: "perception",
+  ride: "ride",
+  "sense motive": "sense_motive",
+  "sleight of hand": "sleight_of_hand",
+  spellcraft: "spellcraft",
+  stealth: "stealth",
+  survival: "survival",
+  swim: "swim",
+  "use magic device": "use_magic_device",
+};
+
+/** A situational qualifier ("against disease", "in bright light", "if familiar is within 1 mile",
+ * "(witch only)") that restricts a familiar benefit. When present, the effect is recorded for display
+ * but NOT folded into the master's base total (RAW: a conditional bonus doesn't inflate the base). */
+function benefitCondition(text: string): string | undefined {
+  const m = text.match(
+    /(against\b[^|]*|\bif\b[^|]*|\bwhen\b[^|]*|\bin (?:bright|shadow|dim|dark|daylight)[^|]*|\bwithin \d+ mile[^|]*|\([^)]*only[^)]*\))/i,
+  );
+  return m ? m[0]!.replace(/[()]/g, "").trim().replace(/[.,]$/, "") : undefined;
+}
+
+/**
+ * Parse a familiar's `granted_ability` prose (e.g. "Master gains a +3 bonus on Stealth checks",
+ * "+2 bonus on Reflex saves", "+4 bonus on initiative checks (if familiar is within 1 mile)",
+ * "gains 3 hit points") into structured engine effects. Unparseable text is preserved in `rawText`
+ * ("import never silently discards data").
+ */
+export function parseMasterBenefit(text: string | null | undefined): {
+  effects: MasterBenefitEffect[];
+  rawText?: string;
+} {
+  const benefit = stripBenefitCitation(text);
+  if (!benefit) return { effects: [], rawText: undefined };
+  const effects: MasterBenefitEffect[] = [];
+  const note = benefitCondition(benefit);
+
+  const skillMatch = benefit.match(/\+\s*(\d+)\s+bonus on\s+(.+?)\s+checks?/i);
+  if (skillMatch) {
+    const phrase = skillMatch[2]!.toLowerCase();
+    for (const [name, key] of Object.entries(SKILL_KEY_BY_NAME)) {
+      if (phrase.includes(name)) {
+        effects.push({ target: `skill.${key}`, value: toInt(skillMatch[1]), note });
+        break;
+      }
+    }
+  }
+
+  const saveMatch = benefit.match(/\+\s*(\d+)\s+bonus on\s+(reflex|fortitude|will)\s+saves?/i);
+  if (saveMatch) effects.push({ target: `save.${saveMatch[2]!.toLowerCase()}`, value: toInt(saveMatch[1]), note });
+
+  const initMatch = benefit.match(/\+\s*(\d+)\s+bonus on\s+initiative/i);
+  if (initMatch) effects.push({ target: "init", value: toInt(initMatch[1]), note });
+
+  // Tolerate both "gains 3 hit points" (toad) and "gains a +3 hit points" (chicken/cockroach/lamprey).
+  const hpMatch = benefit.match(/gains?\s+(?:a\s+)?\+?\s*(\d+)\s+hit points?/i);
+  if (hpMatch) effects.push({ target: "hp", value: toInt(hpMatch[1]), note });
+
+  return { effects, rawText: benefit };
+}
+
+/**
+ * Give a freshly-created familiar sheet a real creature body from {@link familiarBaseBody} — abilities,
+ * size, speed, and natural attacks (natural armor is left to the engine's master-level adjustment; Int
+ * is the animal's base and the engine raises it to the master-level table). familiar_compendium ships
+ * no statblock, so without this a familiar is an all-10s Medium shell.
+ */
+export function applyFamiliarBaseBody(sheet: PathForgeCharacterV1, slug: string | null | undefined): void {
+  const body = familiarBaseBody(slug);
+  for (const [key, score] of Object.entries(body.abilityScores)) {
+    const slot = sheet.abilities.primary[key as keyof typeof sheet.abilities.primary];
+    if (slot) slot.score = score;
+  }
+  sheet.identity.size = body.size;
+  sheet.combat.speed.base = body.speed;
+  for (const atk of body.attacks) {
+    const entry: AttackEntry = {
+      id: newId("atk"),
+      name: atk.name,
+      attackType: "natural",
+      damageFormula: atk.damage,
+      enabled: true,
+      conditionalModifiers: [],
+      showInCombat: true,
+    };
+    sheet.combat.attacks.push(entry);
+  }
+  if (body.specialQualities) {
+    sheet.features.list.push({
+      id: newId("feat"),
+      name: "Special qualities",
+      category: "racial_trait",
+      description: body.specialQualities,
+      automation: [],
+    });
+  }
+}
+
+/**
+ * Build the master-facing benefit of a linked familiar (the reverse of {@link buildMasterCache}):
+ * Alertness (unless the archetype keeps it) + the familiar's specific parsed bonus. Returns null for
+ * a non-familiar or an unlinked familiar. Prefers the structured `companion.masterBenefit` seeded at
+ * create; falls back to parsing the familiar's stored "Master benefit" feature (older sheets).
+ */
+export function buildFamiliarBenefit(
+  familiar: PathForgeCharacterV1,
+  characterId?: string,
+): FamiliarBenefit | null {
+  const c = familiar.companion;
+  if (!c || c.type !== "familiar" || !c.syncEnabled) return null;
+  const masterLevel = c.master?.level ?? familiar.identity.totalLevel ?? 0;
+  const archetype = c.archetype;
+  // Alertness is granted to the master unless the archetype removed standard Alertness (e.g. the
+  // familiar keeps it for itself). Reuse the granted-ability computation so archetype swaps are honored.
+  const grantsAlertness = familiarGrantedAbilities(masterLevel, archetype).some(
+    (a) => !a.fromArchetype && a.name === "Alertness",
+  );
+  let effects = c.masterBenefit?.effects ?? [];
+  let rawText = c.masterBenefit?.rawText;
+  if (effects.length === 0 && !rawText) {
+    const feat = familiar.features.list.find((f) => f.name === "Master benefit");
+    // Only parse a real benefit ("Master gains …"); an improved familiar's stored alignment/
+    // requirement text ("Lawful evil") is not a benefit and must not become a bogus card line.
+    if (feat?.description && /master gains/i.test(feat.description)) {
+      const parsed = parseMasterBenefit(feat.description);
+      effects = parsed.effects;
+      rawText = parsed.rawText;
+    }
+  }
+  return {
+    characterId,
+    name: familiar.identity.name || "Familiar",
+    archetype,
+    masterLevel,
+    grantsAlertness,
+    effects,
+    rawText,
+    syncedAt: new Date().toISOString(),
+  };
+}
+
+/** Two familiar-benefit lists are equivalent when everything except the sync timestamps matches —
+ * used to skip no-op reverse-sync writes (mirrors {@link masterCacheEquals}). */
+export function familiarBenefitsEqual(a: FamiliarBenefit[] | undefined, b: FamiliarBenefit[]): boolean {
+  // Sort by characterId first — Postgres returns child rows in unstable heap order (a familiar save
+  // relocates its tuple), so a positional compare would report "changed" on every view for a
+  // multi-familiar master and needlessly rewrite + flip its reviews stale.
+  const strip = (list: FamiliarBenefit[]) =>
+    JSON.stringify(
+      [...list]
+        .sort((x, y) => (x.characterId ?? "").localeCompare(y.characterId ?? ""))
+        .map((f) => ({ ...f, syncedAt: undefined })),
+    );
+  return strip(a ?? []) === strip(b);
 }

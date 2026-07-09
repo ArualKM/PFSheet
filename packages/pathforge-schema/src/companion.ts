@@ -46,6 +46,24 @@ export const companionMasterCacheSchema = z.object({
 });
 export type CompanionMasterCache = z.infer<typeof companionMasterCacheSchema>;
 
+/** A single mechanical benefit a familiar grants its MASTER, expressed as an engine modifier target
+ * (`skill.stealth`, `save.reflex`, `init`, `hp`, …) + a value. `note` carries any RAW condition
+ * ("in bright light", "if within 1 mile") so the master's card can show the caveat. */
+export const masterBenefitEffectSchema = z.object({
+  target: z.string(),
+  value: z.number(),
+  note: z.string().optional(),
+});
+export type MasterBenefitEffect = z.infer<typeof masterBenefitEffectSchema>;
+
+/** The parsed master-facing benefit of a familiar (from familiar_compendium.granted_ability), stored
+ * on the familiar's own companion block. `rawText` preserves the source prose ("never discards data"). */
+export const companionMasterBenefitSchema = z.object({
+  effects: z.array(masterBenefitEffectSchema).default([]),
+  rawText: z.string().optional(),
+});
+export type CompanionMasterBenefit = z.infer<typeof companionMasterBenefitSchema>;
+
 export const companionBlockSchema = z.object({
   type: z.enum(COMPANION_TYPES).optional(),
   /** Compendium slug this companion was autofilled from (animal_companion/familiar compendium). */
@@ -55,8 +73,30 @@ export const companionBlockSchema = z.object({
   /** Apply the master-linked rules in the engine (familiars only for now). */
   syncEnabled: z.boolean().optional(),
   master: companionMasterCacheSchema.optional(),
+  /** The benefit THIS familiar grants its master (Alertness is handled separately + universally).
+   * Denormalized from the compendium at create so the reverse familiar→master sync needs no re-query. */
+  masterBenefit: companionMasterBenefitSchema.optional(),
 });
 export type CompanionBlock = z.infer<typeof companionBlockSchema>;
+
+/** Denormalized cache, stored on a MASTER's sheet, of one linked familiar's benefit to the master.
+ * The reverse of {@link companionMasterCacheSchema} (which caches master stats onto the familiar):
+ * this lets the engine grant the master Alertness + the familiar's specific bonus with no
+ * cross-character read at compute time. Rebuilt by the reverse sync on familiar create/save and
+ * self-healed when the master views its sheet. */
+export const familiarBenefitSchema = z.object({
+  /** The familiar's character id (for the master's display link). */
+  characterId: z.string().optional(),
+  name: z.string().default("Familiar"),
+  archetype: z.string().optional(),
+  masterLevel: z.number().int().default(0),
+  /** True unless the chosen archetype keeps Alertness for the familiar (Egotist/Infiltrator/…). */
+  grantsAlertness: z.boolean().default(true),
+  effects: z.array(masterBenefitEffectSchema).default([]),
+  rawText: z.string().optional(),
+  syncedAt: z.string().optional(),
+});
+export type FamiliarBenefit = z.infer<typeof familiarBenefitSchema>;
 
 /** The standard familiar special-ability progression by MASTER level (Core Rulebook). */
 export const FAMILIAR_GRANTED_ABILITIES: { level: number; name: string; note: string }[] = [
@@ -127,15 +167,27 @@ export type FamiliarArchetypeAlters = {
   hp?: { rule: "full" | "quarter"; minMasterLevel?: number };
   /** The archetype trades away sharing the master's skill ranks (Sage). */
   shareSkillRanks?: false;
+  /** Strength increases by 1 at this master level and every 2 levels thereafter (Mauler's Increased
+   * Strength) — the defining numeric of a combat familiar. */
+  strengthProgressionFrom?: number;
 };
 
 export const FAMILIAR_ARCHETYPE_ALTERS: Record<string, FamiliarArchetypeAlters> = {
   Sage: { int: "masterLevelUncapped", naturalArmor: "halfMasterLevel", shareSkillRanks: false },
   Ambassador: { int: "frozen" },
-  Mauler: { int: "frozen" },
+  Mauler: { int: "frozen", strengthProgressionFrom: 3 },
   Protector: { hp: { rule: "full", minMasterLevel: 11 } },
   Figment: { hp: { rule: "quarter" } },
 };
+
+/** Mauler's Increased Strength bonus at a given master level: +1 at `from`, +1 per 2 levels after
+ * (RAW: "at 3rd level and every 2 levels thereafter"). 0 before `from` or when the archetype has no
+ * strength progression. */
+export function familiarStrengthBonus(masterLevel: number, alters: FamiliarArchetypeAlters): number {
+  const from = alters.strengthProgressionFrom;
+  if (!from || masterLevel < from) return 0;
+  return 1 + Math.floor((masterLevel - from) / 2);
+}
 
 export function familiarArchetypeAlters(archetypeName?: string): FamiliarArchetypeAlters {
   if (!archetypeName) return {};
@@ -153,4 +205,58 @@ export function familiarMaxHp(masterHpMax: number, masterLevel: number, alters: 
     if (hp.rule === "quarter") return Math.floor(masterHpMax / 4);
   }
   return Math.floor(masterHpMax / 2);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Familiar base bodies                                                        */
+/* ------------------------------------------------------------------------- */
+
+/** A base animal's physical statblock. familiar_compendium ships only the master benefit (no body),
+ * and there is no tiny-animal bestiary table to draw from, so the ~17 canonical familiar bodies are
+ * hardcoded here so a picked familiar becomes a real creature (abilities/size/speed/attacks) instead
+ * of a default all-10s Medium shell. Natural armor is intentionally omitted — the engine applies the
+ * familiar's master-level natural-armor adjustment on top of any base. Int is the animal's base; the
+ * engine raises it to the master-level table value. */
+export type FamiliarBaseBody = {
+  size: string;
+  speed: string;
+  abilityScores: { str: number; dex: number; con: number; int: number; wis: number; cha: number };
+  attacks: { name: string; damage: string }[];
+  specialQualities?: string;
+};
+
+/** A plausible Tiny-animal body for a familiar whose slug isn't in {@link FAMILIAR_BASE_BODIES},
+ * so EVERY familiar gets a real creature body rather than a default-10s Medium sheet. */
+export const DEFAULT_FAMILIAR_BODY: FamiliarBaseBody = {
+  size: "tiny",
+  speed: "30 ft.",
+  abilityScores: { str: 3, dex: 15, con: 8, int: 2, wis: 12, cha: 7 },
+  attacks: [{ name: "bite", damage: "1d3" }],
+};
+
+/** Canonical familiar base bodies keyed by familiar_compendium slug (CRB + Animal Archive). */
+export const FAMILIAR_BASE_BODIES: Record<string, FamiliarBaseBody> = {
+  bat: { size: "tiny", speed: "5 ft., fly 40 ft. (good)", abilityScores: { str: 1, dex: 15, con: 6, int: 2, wis: 14, cha: 5 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "blindsense 20 ft." },
+  cat: { size: "tiny", speed: "30 ft., climb 20 ft.", abilityScores: { str: 3, dex: 15, con: 8, int: 2, wis: 12, cha: 7 }, attacks: [{ name: "2 claws", damage: "1d2" }, { name: "bite", damage: "1d3" }], specialQualities: "low-light vision, scent" },
+  "centipede-house": { size: "tiny", speed: "30 ft., climb 30 ft.", abilityScores: { str: 1, dex: 15, con: 8, int: 1, wis: 10, cha: 2 }, attacks: [{ name: "bite", damage: "1d3 plus poison" }], specialQualities: "darkvision 60 ft." },
+  fox: { size: "small", speed: "40 ft.", abilityScores: { str: 9, dex: 15, con: 11, int: 2, wis: 12, cha: 6 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision, scent" },
+  goat: { size: "small", speed: "30 ft.", abilityScores: { str: 11, dex: 11, con: 12, int: 1, wis: 11, cha: 5 }, attacks: [{ name: "gore", damage: "1d3" }], specialQualities: "low-light vision" },
+  hawk: { size: "tiny", speed: "10 ft., fly 60 ft. (average)", abilityScores: { str: 7, dex: 17, con: 10, int: 2, wis: 14, cha: 7 }, attacks: [{ name: "2 talons", damage: "1d4" }], specialQualities: "low-light vision" },
+  lizard: { size: "tiny", speed: "20 ft., climb 20 ft.", abilityScores: { str: 3, dex: 15, con: 8, int: 1, wis: 12, cha: 2 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision" },
+  monkey: { size: "tiny", speed: "30 ft., climb 30 ft.", abilityScores: { str: 3, dex: 15, con: 10, int: 2, wis: 12, cha: 5 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision" },
+  owl: { size: "tiny", speed: "10 ft., fly 60 ft. (average)", abilityScores: { str: 4, dex: 17, con: 10, int: 2, wis: 14, cha: 4 }, attacks: [{ name: "2 talons", damage: "1d4" }], specialQualities: "low-light vision" },
+  pig: { size: "small", speed: "40 ft.", abilityScores: { str: 11, dex: 13, con: 12, int: 2, wis: 13, cha: 4 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision, scent" },
+  rat: { size: "tiny", speed: "15 ft., climb 15 ft., swim 15 ft.", abilityScores: { str: 2, dex: 15, con: 11, int: 2, wis: 13, cha: 2 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision, scent" },
+  raven: { size: "tiny", speed: "10 ft., fly 40 ft. (average)", abilityScores: { str: 1, dex: 15, con: 8, int: 2, wis: 15, cha: 7 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision" },
+  "scorpion-greensting": { size: "tiny", speed: "30 ft.", abilityScores: { str: 3, dex: 16, con: 10, int: 1, wis: 10, cha: 2 }, attacks: [{ name: "sting", damage: "1d2 plus poison" }], specialQualities: "darkvision 60 ft." },
+  "spider-scarlet": { size: "tiny", speed: "30 ft., climb 30 ft.", abilityScores: { str: 3, dex: 17, con: 10, int: 1, wis: 10, cha: 2 }, attacks: [{ name: "bite", damage: "1d3 plus poison" }], specialQualities: "darkvision 60 ft." },
+  toad: { size: "diminutive", speed: "5 ft.", abilityScores: { str: 1, dex: 12, con: 6, int: 1, wis: 14, cha: 4 }, attacks: [], specialQualities: "low-light vision" },
+  viper: { size: "tiny", speed: "20 ft., climb 20 ft., swim 20 ft.", abilityScores: { str: 4, dex: 17, con: 8, int: 1, wis: 13, cha: 2 }, attacks: [{ name: "bite", damage: "1d2 plus poison" }], specialQualities: "scent" },
+  weasel: { size: "tiny", speed: "20 ft., climb 10 ft.", abilityScores: { str: 3, dex: 15, con: 10, int: 2, wis: 12, cha: 5 }, attacks: [{ name: "bite", damage: "1d3" }], specialQualities: "low-light vision, scent" },
+};
+
+/** Resolve a familiar's base body by compendium slug (falls back to a generic Tiny animal). */
+export function familiarBaseBody(slug: string | null | undefined): FamiliarBaseBody {
+  const key = String(slug ?? "").trim().toLowerCase();
+  return FAMILIAR_BASE_BODIES[key] ?? DEFAULT_FAMILIAR_BODY;
 }

@@ -366,6 +366,16 @@ export type CharacterViewModel = {
     naturalArmorAdj?: number;
     spellResistance?: number;
   } | null;
+  /** MASTER side: the benefits this character's linked familiars grant it (null unless it has
+   * familiars). Alertness + each familiar's specific bonus — already folded into the master's
+   * computed skills/saves/etc. */
+  familiarBenefits: Array<{
+    name: string;
+    archetype?: string;
+    grantsAlertness: boolean;
+    effects: Array<{ target: string; value: number; note?: string }>;
+    rawText?: string;
+  }> | null;
   /** Psionics roll-up (null unless the module is enabled). */
   psionics: {
     powerPoints: { current: number; max: number };
@@ -964,6 +974,17 @@ export function buildCharacterViewModel(
               }
             : undefined,
         })
+      : null,
+    // The master-side familiar benefit is part of the master's own (public) stats. Gated under the
+    // same "companion" section so the owner can hide it; the familiar's name is only shown to the owner.
+    familiarBenefits: computed.summary.masterFamiliars?.length
+      ? gate("companion", computed.summary.masterFamiliars.map((f) => ({
+          name: isOwnerView ? f.name : "Familiar",
+          archetype: f.archetype,
+          grantsAlertness: f.grantsAlertness,
+          effects: f.effects,
+          rawText: f.rawText,
+        }))) ?? null
       : null,
     psionics: computed.summary.psionics
       ? gate("psionics", {

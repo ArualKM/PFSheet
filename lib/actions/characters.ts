@@ -9,10 +9,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   applyCompanionStatblock,
+  applyFamiliarBaseBody,
   buildMasterCache,
   masterCacheEquals,
+  parseMasterBenefit,
+  stripBenefitCitation,
   type CompanionStatblockRow,
 } from "@/lib/character/companion-sync";
+import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
 import type { Database } from "@/lib/supabase/types";
 
 const VISIBILITIES = ["private", "campaign", "unlisted", "public"] as const;
@@ -126,16 +130,41 @@ export async function createCompanionAction(
 
   const finalName = name.trim() || "Companion";
   const sheet = createDefaultCharacter({ name: finalName, playerName: userDisplayName(user) });
+  const isFamiliar = companionType === "familiar";
 
-  // Compendium autofill: copy the statblock (abilities/size/speed/natural armor/attacks) and
-  // preserve the full source text as features. Failure to find the row is non-fatal.
+  // Compendium autofill. Familiars and animal companions differ: an animal-companion row carries a
+  // full statblock, but familiar_compendium stores only the master benefit (no body). So a familiar
+  // gets its base creature body from the hardcoded catalog, and the row's granted_ability becomes the
+  // MASTER benefit (structured + preserved). Failure to find the row is non-fatal.
+  let masterBenefit: ReturnType<typeof parseMasterBenefit> | undefined;
   if (options?.compendiumTable && options.compendiumSlug) {
     const { data: row } = await supabase
       .from(options.compendiumTable)
       .select("*")
       .eq("slug", options.compendiumSlug)
       .maybeSingle();
-    if (row) applyCompanionStatblock(sheet, row as unknown as CompanionStatblockRow);
+    if (row) {
+      if (options.compendiumTable === "familiar_compendium") {
+        applyFamiliarBaseBody(sheet, options.compendiumSlug);
+        const granted = (row as { granted_ability?: string | null }).granted_ability ?? null;
+        // Normal familiars store the master benefit here ("Master gains a +3 bonus on …"). IMPROVED
+        // familiars instead store their alignment + caster-level REQUIREMENT ("Lawful evil | 7th"),
+        // which is not a benefit — skip it so the master doesn't get a bogus "Master benefit" entry.
+        if (granted && /master gains/i.test(granted)) {
+          const parsed = parseMasterBenefit(granted);
+          if (parsed.effects.length || parsed.rawText) masterBenefit = parsed;
+          sheet.features.list.push({
+            id: `feat_${randomBytes(4).toString("hex")}`,
+            name: "Master benefit",
+            category: "racial_trait",
+            description: stripBenefitCitation(granted),
+            automation: [],
+          });
+        }
+      } else {
+        applyCompanionStatblock(sheet, row as unknown as CompanionStatblockRow);
+      }
+    }
   }
 
   // The companion block: rules-side linkage. The master cache is seeded from the parent's sheet
@@ -145,10 +174,11 @@ export async function createCompanionAction(
     type: companionType as CompanionType,
     compendiumId: options?.compendiumSlug,
     archetype: options?.archetype?.trim() || undefined,
-    syncEnabled: options?.linkToMaster ?? companionType === "familiar",
+    syncEnabled: options?.linkToMaster ?? isFamiliar,
     master: parentParsed.ok
       ? buildMasterCache(parentId, parentParsed.character, computeCharacter(parentParsed.character))
       : undefined,
+    masterBenefit: masterBenefit ? { effects: masterBenefit.effects, rawText: masterBenefit.rawText } : undefined,
   };
 
   const computed = computeCharacter(sheet);
@@ -170,6 +200,17 @@ export async function createCompanionAction(
     .single();
 
   if (error || !data) return { error: error?.message ?? "Could not create companion." };
+
+  // Reverse familiar→master sync: a new familiar grants its master Alertness + a specific bonus.
+  // Rebuild the master's cached familiar benefits so the owner's sheet reflects it. Best-effort.
+  if (isFamiliar) {
+    try {
+      await syncMasterFamiliars(parentId);
+    } catch (e) {
+      console.error("createCompanionAction: master familiar sync failed", e);
+    }
+  }
+
   revalidatePath(`/characters/${parentId}`);
   return { id: data.id };
 }
@@ -352,6 +393,17 @@ export async function saveCharacterSheetAction(
     await syncCompanionCaches(characterId, parsed.character, computed);
   } catch (e) {
     console.error("saveCharacterSheetAction: companion sync failed", e);
+  }
+
+  // Reverse familiar→master sync: if the saved character IS a familiar, refresh its master's cached
+  // familiar benefits (name/archetype/bonus may have changed, or the stat-link was toggled). The
+  // master id is on the familiar's own cached companion.master. Best-effort — never blocks the save.
+  try {
+    const comp = parsed.character.companion;
+    const masterId = comp?.type === "familiar" ? comp.master?.characterId : undefined;
+    if (masterId) await syncMasterFamiliars(masterId);
+  } catch (e) {
+    console.error("saveCharacterSheetAction: master familiar sync failed", e);
   }
 
   // §16.3 stale detection: editing an approved sheet marks it "changed since
