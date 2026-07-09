@@ -40,6 +40,7 @@ import {
   Settings,
   Heart,
   Handshake,
+  Footprints,
 } from "@/components/ui/game-icons";
 import {
   ABILITY_KEYS,
@@ -188,11 +189,11 @@ type SheetSection = {
   items: Array<{ key: string; label: string; render: () => ReactNode }>;
 };
 
-/** Modern (rail + tabbed panel) vs Classic (all-in-one continuous sheet) edit layout. Persisted like
- *  the read view's SheetViewSwitch — a global default plus a per-character override — but under its
- *  own keys (the owner chose a standalone edit toggle, independent of `pf:sheetView*`). */
-type EditLayout = "modern" | "classic";
-const EDIT_LAYOUTS: EditLayout[] = ["modern", "classic"];
+/** Modern (rail + tabbed panel) vs Classic (all-in-one continuous sheet) vs Companion (single-scroll
+ *  simple sheet for a linked companion) edit layout. Persisted like the read view's SheetViewSwitch —
+ *  a global default plus a per-character override — but under its own keys (the owner chose a
+ *  standalone edit toggle, independent of `pf:sheetView*`). */
+type EditLayout = "modern" | "classic" | "companion";
 const EDIT_LAYOUT_GLOBAL = "pf:editLayout";
 const editLayoutKey = (id: string) => `pf:editLayout:${id}`;
 
@@ -208,27 +209,55 @@ export function CharacterEditor({
   const ed = useCharacterEditor(characterId, initial, initialVersion);
   const [advanced, setAdvanced] = useState(false);
 
-  // Modern ⇄ Classic edit layout (docs/CLASSIC_EDITOR_PLAN.md). Restored on mount (per-character
-  // override wins over the global default); choosing a layout writes BOTH keys.
-  const [editLayout, setEditLayoutState] = useState<EditLayout>("modern");
+  // A companion (familiar / animal companion / eidolon / …) auto-defaults into the single-scroll
+  // Companion Simple layout instead of Modern. Derived from the LIVE draft — identical to `initial`
+  // on the very first render (the draft initializes synchronously from it, so no hydration mismatch)
+  // but, unlike a frozen `initial` read, a companion `type` set mid-session (e.g. on an imported
+  // sheet whose companion block arrived typeless) immediately offers the Companion layout.
+  const isCompanionChar = Boolean(ed.draft.companion?.type);
+  const editLayouts: EditLayout[] = isCompanionChar ? ["companion", "modern", "classic"] : ["modern", "classic"];
+
+  // Modern ⇄ Classic ⇄ Companion edit layout (docs/CLASSIC_EDITOR_PLAN.md,
+  // docs/S6_UX_OVERHAUL/01_COMPANION_SHEETS.md §2.2). Mirrors the read view's SheetViewSwitch
+  // persistence contract: the per-character key wins on restore if it names an available layout;
+  // the GLOBAL key is consulted only when this ISN'T a companion character — a global modern/classic
+  // choice made while editing an unrelated PC must never beat the companion auto-default. Choosing
+  // "companion" is deliberately NOT written to the global key for the same reason (meaningless, and
+  // would pollute every other sheet's default); modern/classic still write both keys.
+  const [editLayout, setEditLayoutState] = useState<EditLayout>(isCompanionChar ? "companion" : "modern");
   /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(editLayoutKey(characterId)) ?? localStorage.getItem(EDIT_LAYOUT_GLOBAL);
-      if (stored === "classic" || stored === "modern") setEditLayoutState(stored);
+      const perChar = localStorage.getItem(editLayoutKey(characterId));
+      if (perChar && (editLayouts as string[]).includes(perChar)) {
+        setEditLayoutState(perChar as EditLayout);
+        return;
+      }
+      if (!isCompanionChar) {
+        const global = localStorage.getItem(EDIT_LAYOUT_GLOBAL);
+        if (global && (editLayouts as string[]).includes(global)) setEditLayoutState(global as EditLayout);
+      }
     } catch {
       // ignore unreadable/absent storage
     }
-  }, [characterId]);
+    // Deps are the STABLE derivations (id + whether this is a companion character), not `editLayouts`
+    // itself — it's a fresh array every render, and depending on it would re-run this restore on
+    // every re-render and silently revert an explicit layout choice back to the stored value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `editLayouts` is derived from `isCompanionChar` each render
+  }, [characterId, isCompanionChar]);
   /* eslint-enable react-hooks/set-state-in-effect */
   const setEditLayout = (next: EditLayout) => {
     setEditLayoutState(next);
     try {
       localStorage.setItem(editLayoutKey(characterId), next);
-      localStorage.setItem(EDIT_LAYOUT_GLOBAL, next);
+      if (next !== "companion") localStorage.setItem(EDIT_LAYOUT_GLOBAL, next);
     } catch {
       // ignore write failures
     }
+    // The keyed layout wrappers remount on switch, which drops keyboard/SR focus to <body> —
+    // land it on the incoming layout's container instead. Only for user-initiated switches
+    // (the mount-restore path calls setEditLayoutState directly and must not steal focus).
+    requestAnimationFrame(() => document.getElementById(`edit-layout-${next}`)?.focus());
   };
 
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
@@ -385,11 +414,11 @@ export function CharacterEditor({
     },
   ];
 
-  // ONE `ed`, two layouts (the load-bearing invariant): both layouts render the same sub-editors fed
-  // the same hook instance — the classic layout must never call useCharacterEditor itself.
+  // ONE `ed`, three layouts (the load-bearing invariant): every layout renders the same sub-editors
+  // fed the same hook instance — no layout may call useCharacterEditor itself.
   if (editLayout === "classic") {
     return (
-      <div key="classic" className="pf-view-fade">
+      <div key="classic" id="edit-layout-classic" tabIndex={-1} className="pf-view-fade outline-none">
         <ClassicEditorLayout
           ed={ed}
           characterId={characterId}
@@ -397,12 +426,30 @@ export function CharacterEditor({
           advanced={advanced}
           onToggleAdvanced={() => setAdvanced((v) => !v)}
           onSwitchLayout={setEditLayout}
+          layouts={editLayouts}
+        />
+      </div>
+    );
+  }
+  // A stale/foreign "companion" value (e.g. localStorage from before this character lost its
+  // companion link) falls through to Modern rather than rendering a layout that has nothing to show.
+  if (editLayout === "companion" && isCompanionChar) {
+    return (
+      <div key="companion" id="edit-layout-companion" tabIndex={-1} className="pf-view-fade outline-none">
+        <CompanionSimpleLayout
+          ed={ed}
+          characterId={characterId}
+          sections={sections}
+          advanced={advanced}
+          onToggleAdvanced={() => setAdvanced((v) => !v)}
+          onSwitchLayout={setEditLayout}
+          layouts={editLayouts}
         />
       </div>
     );
   }
   return (
-    <div key="modern" className="pf-view-fade">
+    <div key="modern" id="edit-layout-modern" tabIndex={-1} className="pf-view-fade outline-none">
       <ModernEditorLayout
         ed={ed}
         characterId={characterId}
@@ -410,6 +457,7 @@ export function CharacterEditor({
         advanced={advanced}
         onToggleAdvanced={() => setAdvanced((v) => !v)}
         onSwitchLayout={setEditLayout}
+        layouts={editLayouts}
       />
     </div>
   );
@@ -422,11 +470,14 @@ type EditorLayoutProps = {
   advanced: boolean;
   onToggleAdvanced: () => void;
   onSwitchLayout: (layout: EditLayout) => void;
+  /** The layouts available for THIS character (2-way for a PC, 3-way for a companion) — threaded
+   *  through to EditorControls so its pill only ever offers a layout that actually applies. */
+  layouts: EditLayout[];
 };
 
 /** The modern editor layout — the existing section rail + sub-tabs + single panel, extracted
  *  mechanically from CharacterEditor. All tab-navigation state is modern-only, so it lives here. */
-function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout }: EditorLayoutProps) {
+function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout, layouts }: EditorLayoutProps) {
   const [activeSection, setActiveSection] = useState("core");
   const [activeSub, setActiveSub] = useState("details");
 
@@ -695,6 +746,7 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
             onToggleAdvanced={onToggleAdvanced}
             layout="modern"
             onSwitchLayout={onSwitchLayout}
+            layouts={layouts}
           />
         </div>
 
@@ -732,22 +784,25 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
   );
 }
 
-/** Right-aligned toolbar cluster shared by both layouts — the Modern⇄Classic layout pill,
- *  Simple/Advanced, Undo and the save-status badge. One definition so the two layouts can't drift.
- *  The layout pill locks while a sync conflict is open (switching would remount the resolver and
- *  drop its in-progress choices). */
+/** Right-aligned toolbar cluster shared by every layout — the layout pill, Simple/Advanced, Undo and
+ *  the save-status badge. One definition so the layouts can't drift. The pill only ever offers the
+ *  layouts the caller says are available for this character (`layouts` — 2-way for a PC, 3-way for a
+ *  companion). It locks while a sync conflict is open (switching would remount the resolver and drop
+ *  its in-progress choices). */
 function EditorControls({
   ed,
   advanced,
   onToggleAdvanced,
   layout,
   onSwitchLayout,
+  layouts,
 }: {
   ed: EditorApi;
   advanced: boolean;
   onToggleAdvanced: () => void;
   layout: EditLayout;
   onSwitchLayout: (layout: EditLayout) => void;
+  layouts: EditLayout[];
 }) {
   const conflictOpen = ed.status === "conflict";
   return (
@@ -757,7 +812,7 @@ function EditorControls({
         aria-label="Editor layout"
         className="inline-flex rounded-full border border-border bg-surface-sunken p-0.5"
       >
-        {EDIT_LAYOUTS.map((val) => (
+        {layouts.map((val) => (
           <button
             key={val}
             type="button"
@@ -811,7 +866,7 @@ function EditorControls({
  *  Classic order (mirrors ClassicSheet): Identity → Core Stats (2-col grid) → Defenses (2-col grid) →
  *  Attacks → Skills → Spellcasting → Optional Systems → Feats & Features → Buffs → Inventory & Wealth →
  *  Story → Companion → Settings (collapsed). */
-function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout }: EditorLayoutProps) {
+function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout, layouts }: EditorLayoutProps) {
   const byKey = new Map(sections.map((s) => [s.key, s] as const));
   const coreItems = byKey.get("core")?.items ?? [];
   const identityItem = coreItems.find((i) => i.key === "details");
@@ -962,7 +1017,9 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
   if (companionItem) {
     zones.push({
       key: "companion",
-      label: "Companion",
+      // "Companion Link", not "Companion" — the 3-way layout pill on a companion character already
+      // has a button accessibly named "Companion"; two same-named buttons confuse SR element lists.
+      label: "Companion Link",
       icon: Handshake,
       navSection: "core",
       defaultOpen: true,
@@ -1097,6 +1154,7 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
           onToggleAdvanced={onToggleAdvanced}
           layout="classic"
           onSwitchLayout={onSwitchLayout}
+          layouts={layouts}
         />
       </div>
 
@@ -1130,6 +1188,275 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
             {z.body}
           </ClassicZone>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Companion Simple layout (docs/S6_UX_OVERHAUL/01_COMPANION_SHEETS.md §2.2) — a single continuous
+ *  scroll for a linked companion (familiar / animal companion / eidolon / cohort / mount). The ~6
+ *  things anyone tunes on a companion (the master link, base body, HP/AC/saves, attacks, identity)
+ *  are up front and already open; everything else (skills, feats, spellcasting, inventory, buffs,
+ *  story, optional systems, settings) sits collapsed below a "More" divider, reachable without
+ *  leaving Simple — or via the "Advanced" escape hatch to the full Modern layout, in place, no
+ *  navigation. Reuses `ClassicZone`/`ClassicCell` and every existing sub-editor from the SAME
+ *  sections[] gating the other two layouts use — this is a different ARRANGEMENT of the same
+ *  editors, not new state, new save logic, or a second `useCharacterEditor` call. */
+function CompanionSimpleLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout, layouts }: EditorLayoutProps) {
+  const byKey = new Map(sections.map((s) => [s.key, s] as const));
+  const coreItems = byKey.get("core")?.items ?? [];
+  const companionItem = coreItems.find((i) => i.key === "companion");
+  const abilitiesItem = coreItems.find((i) => i.key === "abilities");
+  const healthItem = coreItems.find((i) => i.key === "health");
+  const detailsItem = coreItems.find((i) => i.key === "details");
+  const remainingCoreItems = coreItems.filter(
+    (i) => i.key !== "companion" && i.key !== "abilities" && i.key !== "health" && i.key !== "details",
+  );
+  const defensesSec = byKey.get("defenses");
+  const attacksSec = byKey.get("attacks");
+  const attacksItem = attacksSec?.items[0];
+  const optionalSec = byKey.get("optional");
+  const settingsSec = byKey.get("settings");
+
+  const attackCount = ed.draft.combat.attacks.length;
+  const featCount = ed.draft.feats.list.length + ed.draft.features.list.length;
+  const casterCount = ed.draft.spellcasting.casters.length;
+  const buffCount = ed.draft.buffs.active.length;
+  const inv = ed.draft.inventory;
+  const itemCount =
+    inv.armorAndShields.length + inv.weapons.length + inv.potionsScrollsMagicItems.length + inv.gear.length + inv.otherItems.length;
+
+  // Per-zone open/collapse, shared across BOTH zone stacks below (keys are unique across the two).
+  const [openZones, setOpenZones] = useState<Record<string, boolean>>({});
+
+  type SimpleZoneDef = {
+    key: string;
+    label: string;
+    icon: typeof User;
+    accessory?: string | undefined;
+    defaultOpen: boolean;
+    body: ReactNode;
+  };
+
+  // "Above the fold": the handful of things anyone actually tunes on a companion, all open by
+  // default (Identity & Details is the exception — companions rarely touch race/class/portrait).
+  const primaryZones: SimpleZoneDef[] = [];
+  if (companionItem) {
+    // "Companion Link", not "Companion": the layout pill button right above is already accessibly
+    // named "Companion" — two same-named buttons with different actions confuse SR element lists
+    // and voice control.
+    primaryZones.push({ key: "companion", label: "Companion Link", icon: Handshake, defaultOpen: true, body: companionItem.render() });
+  }
+  if (abilitiesItem) {
+    primaryZones.push({ key: "base_body", label: "Base Body", icon: Sparkles, defaultOpen: true, body: abilitiesItem.render() });
+  }
+  if (healthItem) {
+    primaryZones.push({
+      key: "health",
+      label: "Health",
+      icon: Heart,
+      accessory: `HP ${ed.computed.summary.hp.current}/${ed.computed.summary.hp.max}`,
+      defaultOpen: true,
+      body: healthItem.render(),
+    });
+  }
+  if (defensesSec && defensesSec.items.length > 0) {
+    primaryZones.push({
+      key: "defenses",
+      label: "Defenses",
+      icon: defensesSec.icon,
+      accessory: `AC ${ed.computed.summary.ac}`,
+      defaultOpen: true,
+      body: (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {defensesSec.items.map((i) => (
+            <ClassicCell key={i.key} id={`companion-defenses-${i.key}`} title={i.label}>
+              {i.render()}
+            </ClassicCell>
+          ))}
+        </div>
+      ),
+    });
+  }
+  if (attacksItem) {
+    primaryZones.push({
+      key: "attacks",
+      label: "Attacks",
+      icon: attacksSec?.icon ?? Swords,
+      accessory: attackCount > 0 ? String(attackCount) : undefined,
+      defaultOpen: true,
+      body: attacksItem.render(),
+    });
+  }
+  if (detailsItem) {
+    primaryZones.push({
+      key: "details",
+      label: "Identity & Details",
+      icon: User,
+      defaultOpen: false,
+      body: detailsItem.render(),
+    });
+  }
+
+  // "More": everything Simple mode doesn't foreground — still one tap away, all collapsed.
+  const secondaryZones: SimpleZoneDef[] = [];
+  if (remainingCoreItems.length > 0) {
+    secondaryZones.push({
+      key: "movement_languages",
+      label: "Movement & Languages",
+      icon: Footprints,
+      defaultOpen: false,
+      body: (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {remainingCoreItems.map((i) => (
+            <ClassicCell key={i.key} id={`companion-core-${i.key}`} title={i.label}>
+              {i.render()}
+            </ClassicCell>
+          ))}
+        </div>
+      ),
+    });
+  }
+  const singleSecondary = (sectionKey: string, label: string, accessory?: string) => {
+    const sec = byKey.get(sectionKey);
+    if (!sec || sec.items.length === 0) return;
+    secondaryZones.push({ key: sectionKey, label, icon: sec.icon, accessory, defaultOpen: false, body: sec.items[0]!.render() });
+  };
+  singleSecondary("skills", "Skills");
+  singleSecondary("abilities", "Feats & Features", featCount > 0 ? String(featCount) : undefined);
+  singleSecondary("spells", "Spellcasting", casterCount > 0 ? `${casterCount} caster${casterCount === 1 ? "" : "s"}` : undefined);
+  singleSecondary("equipment", "Inventory & Wealth", itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"}` : undefined);
+  singleSecondary("buffs", "Buffs", buffCount > 0 ? String(buffCount) : undefined);
+  singleSecondary("story", "Story");
+  if (optionalSec) {
+    for (const item of optionalSec.items) {
+      secondaryZones.push({
+        key: `optional-${item.key}`,
+        label: item.label,
+        icon: optionalSec.icon,
+        defaultOpen: false,
+        body: item.render(),
+      });
+    }
+  }
+  if (settingsSec && settingsSec.items.length > 0) {
+    secondaryZones.push({
+      key: "settings",
+      label: "Settings",
+      icon: settingsSec.icon,
+      defaultOpen: false,
+      body: (
+        // Stacked full-width like ClassicEditorLayout's settings zone — OptionalRulesEditor has its
+        // own internal multi-column grid, and nesting it in a half-width xl cell cramps the module
+        // cards into ~250px columns.
+        <div className="space-y-6">
+          {settingsSec.items.map((i) => (
+            <div key={i.key}>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{i.label}</p>
+              {i.render()}
+            </div>
+          ))}
+        </div>
+      ),
+    });
+  }
+
+  const locked = ed.status === "conflict";
+  const renderZone = (z: SimpleZoneDef, zi: number) => (
+    <ClassicZone
+      key={z.key}
+      zoneKey={z.key}
+      icon={z.icon}
+      title={z.label}
+      accessory={z.accessory}
+      staggerIndex={zi}
+      locked={locked}
+      open={openZones[z.key] ?? z.defaultOpen}
+      onToggle={() => setOpenZones((p) => ({ ...p, [z.key]: !(p[z.key] ?? z.defaultOpen) }))}
+    >
+      {z.body}
+    </ClassicZone>
+  );
+
+  return (
+    <div>
+      <LivePreviewBar
+        ed={ed}
+        characterId={characterId}
+        advanced={advanced}
+        sections={sections}
+        activeSection="core"
+        activeSub=""
+        onSelectSection={() => {}}
+        hideSectionNav
+      />
+
+      <div className="mb-4">
+        <EditorControls
+          ed={ed}
+          advanced={advanced}
+          onToggleAdvanced={onToggleAdvanced}
+          layout="companion"
+          onSwitchLayout={onSwitchLayout}
+          layouts={layouts}
+        />
+      </div>
+
+      {ed.conflict && (
+        <div className="mb-3">
+          <ConflictResolver
+            merged={ed.conflict.merged}
+            conflicts={ed.conflict.conflicts}
+            serverSheet={ed.conflict.serverSheet}
+            onResolve={ed.resolveConflict}
+          />
+        </div>
+      )}
+
+      {/* Same conflict lock as the layout pill: switching layouts remounts ConflictResolver and
+          would silently drop its in-progress per-field choices. Button content is spans only —
+          <button> permits phrasing content, not <div>/<p>. */}
+      <button
+        type="button"
+        onClick={() => onSwitchLayout("modern")}
+        disabled={locked}
+        title={locked ? "Resolve the sync conflict before switching layouts" : undefined}
+        className="mb-4 flex min-h-11 w-full items-center gap-3 rounded-xl border border-border px-4 py-3 text-left transition-colors hover:border-rune disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      >
+        <span className="block">
+          <span className="block text-sm font-semibold text-rune">Open the Advanced editor</span>
+          <span className="block text-xs text-muted-foreground">Every section — spells, buffs, inventory, optional systems.</span>
+        </span>
+      </button>
+
+      <div className="pf-stagger overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+        {primaryZones.map((z, zi) => renderZone(z, zi))}
+      </div>
+
+      {secondaryZones.length > 0 && (
+        <>
+          <p className="mb-2 mt-6 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            More — everything else this sheet can do
+          </p>
+          <div className="pf-stagger overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+            {secondaryZones.map((z, zi) => renderZone(z, primaryZones.length + zi))}
+          </div>
+        </>
+      )}
+
+      <div className="mt-6 flex flex-col items-center gap-1.5 text-center">
+        <p className="text-xs text-muted-foreground">
+          Need more? Feats, spells, buffs, and every optional system live in the full editor.
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onSwitchLayout("modern")}
+          disabled={locked}
+          title={locked ? "Resolve the sync conflict before switching layouts" : undefined}
+        >
+          Open the Advanced editor
+        </Button>
       </div>
     </div>
   );
@@ -1418,6 +1745,7 @@ function LivePreviewBar({
   onSelectSection,
   secondRow,
   jumpNavigation = false,
+  hideSectionNav = false,
 }: {
   ed: EditorApi;
   characterId: string;
@@ -1432,6 +1760,10 @@ function LivePreviewBar({
    *  expanded preview on navigate (a jump would land hidden under the up-to-70dvh panel) and keeps
    *  focus off the navigator trigger so the jump effect's destination focus survives. */
   jumpNavigation?: boolean;
+  /** Companion Simple layout: there's no section rail to navigate to (it's one continuous scroll),
+   *  so the mobile hamburger has nothing useful to open — hide it. The stat row + expandable Live
+   *  Values preview are unaffected. */
+  hideSectionNav?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const s = ed.computed.summary;
@@ -1443,15 +1775,17 @@ function LivePreviewBar({
     <div className="sticky top-14 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur md:top-20">
       <div className="flex items-stretch">
         {/* Mobile section hamburger → full-screen navigator; the desktop left rail handles sections at md+. */}
-        <div className="flex shrink-0 items-center border-r border-border pl-1 pr-0.5 md:hidden">
-          <SectionSheet
-            sections={sections}
-            activeKey={activeSection}
-            activeSubKey={activeSub}
-            onSelect={handleSelect}
-            keepFocusAfterSelect={jumpNavigation}
-          />
-        </div>
+        {!hideSectionNav && (
+          <div className="flex shrink-0 items-center border-r border-border pl-1 pr-0.5 md:hidden">
+            <SectionSheet
+              sections={sections}
+              activeKey={activeSection}
+              activeSubKey={activeSub}
+              onSelect={handleSelect}
+              keepFocusAfterSelect={jumpNavigation}
+            />
+          </div>
+        )}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
