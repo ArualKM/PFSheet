@@ -1003,13 +1003,11 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
 
   useEffect(() => {
     if (!jump) return;
-    // Double rAF: the zone/group opened in the same update must lay out before we can scroll to it.
-    const raf = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        document.getElementById(jump.anchor)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      });
-    });
-    return () => cancelAnimationFrame(raf);
+    // Runs after the commit that opened the target zone (same setState batch), so the anchor is in
+    // the DOM — scroll synchronously. Instant (not smooth): Chrome aborts long smooth scrollIntoView
+    // animations when layout is invalidated mid-flight (the scroll-spy re-renders during the scroll),
+    // leaving the jump stranded partway — verified in-browser. Instant also matches reduced motion.
+    document.getElementById(jump.anchor)?.scrollIntoView?.({ behavior: "auto", block: "start" });
   }, [jump]);
 
   // Scroll-spy for the chip bar: the first zone (in sheet order) crossing the band just under the
