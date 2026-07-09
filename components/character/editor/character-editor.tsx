@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
@@ -38,6 +38,8 @@ import {
   Zap,
   ScrollText,
   Settings,
+  Heart,
+  Handshake,
 } from "@/components/ui/game-icons";
 import {
   ABILITY_KEYS,
@@ -186,6 +188,14 @@ type SheetSection = {
   items: Array<{ key: string; label: string; render: () => ReactNode }>;
 };
 
+/** Modern (rail + tabbed panel) vs Classic (all-in-one continuous sheet) edit layout. Persisted like
+ *  the read view's SheetViewSwitch — a global default plus a per-character override — but under its
+ *  own keys (the owner chose a standalone edit toggle, independent of `pf:sheetView*`). */
+type EditLayout = "modern" | "classic";
+const EDIT_LAYOUTS: EditLayout[] = ["modern", "classic"];
+const EDIT_LAYOUT_GLOBAL = "pf:editLayout";
+const editLayoutKey = (id: string) => `pf:editLayout:${id}`;
+
 export function CharacterEditor({
   characterId,
   initial,
@@ -197,75 +207,29 @@ export function CharacterEditor({
 }) {
   const ed = useCharacterEditor(characterId, initial, initialVersion);
   const [advanced, setAdvanced] = useState(false);
-  const [activeSection, setActiveSection] = useState("core");
-  const [activeSub, setActiveSub] = useState("details");
 
-  // Restore the last-open section/sub on mount (client-only; per character). Done in an
-  // effect, not lazy init, to avoid an SSR/client hydration mismatch.
-  const navKey = `pf-editor-nav:${characterId}`;
+  // Modern ⇄ Classic edit layout (docs/CLASSIC_EDITOR_PLAN.md). Restored on mount (per-character
+  // override wins over the global default); choosing a layout writes BOTH keys.
+  const [editLayout, setEditLayoutState] = useState<EditLayout>("modern");
   /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(navKey);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { section?: string; sub?: string };
-      if (saved.section) setActiveSection(saved.section);
-      if (saved.sub) setActiveSub(saved.sub);
+      const stored = localStorage.getItem(editLayoutKey(characterId)) ?? localStorage.getItem(EDIT_LAYOUT_GLOBAL);
+      if (stored === "classic" || stored === "modern") setEditLayoutState(stored);
     } catch {
       // ignore unreadable/absent storage
     }
-  }, [navKey]);
+  }, [characterId]);
   /* eslint-enable react-hooks/set-state-in-effect */
-  // Skip the first persist so the initial default state can't clobber the saved nav
-  // before the restore effect's update commits; persist on every change after.
-  const skipInitialPersist = useRef(true);
-  useEffect(() => {
-    if (skipInitialPersist.current) {
-      skipInitialPersist.current = false;
-      return;
-    }
+  const setEditLayout = (next: EditLayout) => {
+    setEditLayoutState(next);
     try {
-      localStorage.setItem(navKey, JSON.stringify({ section: activeSection, sub: activeSub }));
+      localStorage.setItem(editLayoutKey(characterId), next);
+      localStorage.setItem(EDIT_LAYOUT_GLOBAL, next);
     } catch {
-      // ignore quota/unavailable
+      // ignore write failures
     }
-  }, [navKey, activeSection, activeSub]);
-
-  // Section rail collapse (md+): "auto" icons-only + hover/focus overlay-expand; "open" pinned wide
-  // (reflows the grid); "closed" pinned icons-only (no hover-expand).
-  const sectionsModeKey = "pf-sidebar-mode:editor-sections";
-  const [sectionsMode, setSectionsMode] = useState<"auto" | "open" | "closed">("auto");
-  /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
-  useEffect(() => {
-    try {
-      const raw =
-        localStorage.getItem(sectionsModeKey) ?? localStorage.getItem("pf-sidebar-pinned:editor-sections");
-      if (raw === "open" || raw === "closed" || raw === "auto") setSectionsMode(raw);
-      else if (raw === "1") setSectionsMode("open"); // migrate the old boolean-pin value
-    } catch {
-      // ignore unreadable/absent storage
-    }
-  }, [sectionsModeKey]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-  const chooseSectionsMode = (target: "auto" | "open" | "closed") =>
-    setSectionsMode((m) => {
-      const next = m === target ? "auto" : target;
-      try {
-        localStorage.setItem(sectionsModeKey, next);
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  // Hover tooltip for the force-collapsed ("closed") section rail — identifies each icon without expanding.
-  const [sectionTip, setSectionTip] = useState<{ key: string; label: string; top: number; left: number } | null>(null);
-  const showSectionTip = (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>, key: string, label: string) => {
-    if (sectionsMode !== "closed") return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const top = Math.min(Math.max(r.top + r.height / 2, 28), window.innerHeight - 28);
-    setSectionTip({ key, label, top, left: r.right + 10 });
   };
-  const hideSectionTip = () => setSectionTip(null);
 
   // §6 grouped sections (left "Sheet Sections" sidebar). The sub-editors are
   // unchanged; this only reorganizes navigation. Optional rulesets (Sanity,
@@ -420,6 +384,118 @@ export function CharacterEditor({
       ],
     },
   ];
+
+  // ONE `ed`, two layouts (the load-bearing invariant): both layouts render the same sub-editors fed
+  // the same hook instance — the classic layout must never call useCharacterEditor itself.
+  if (editLayout === "classic") {
+    return (
+      <div key="classic" className="pf-view-fade">
+        <ClassicEditorLayout
+          ed={ed}
+          characterId={characterId}
+          sections={sections}
+          advanced={advanced}
+          onToggleAdvanced={() => setAdvanced((v) => !v)}
+          onSwitchLayout={setEditLayout}
+        />
+      </div>
+    );
+  }
+  return (
+    <div key="modern" className="pf-view-fade">
+      <ModernEditorLayout
+        ed={ed}
+        characterId={characterId}
+        sections={sections}
+        advanced={advanced}
+        onToggleAdvanced={() => setAdvanced((v) => !v)}
+        onSwitchLayout={setEditLayout}
+      />
+    </div>
+  );
+}
+
+type EditorLayoutProps = {
+  ed: EditorApi;
+  characterId: string;
+  sections: SheetSection[];
+  advanced: boolean;
+  onToggleAdvanced: () => void;
+  onSwitchLayout: (layout: EditLayout) => void;
+};
+
+/** The modern editor layout — the existing section rail + sub-tabs + single panel, extracted
+ *  mechanically from CharacterEditor. All tab-navigation state is modern-only, so it lives here. */
+function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout }: EditorLayoutProps) {
+  const [activeSection, setActiveSection] = useState("core");
+  const [activeSub, setActiveSub] = useState("details");
+
+  // Restore the last-open section/sub on mount (client-only; per character). Done in an
+  // effect, not lazy init, to avoid an SSR/client hydration mismatch.
+  const navKey = `pf-editor-nav:${characterId}`;
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(navKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { section?: string; sub?: string };
+      if (saved.section) setActiveSection(saved.section);
+      if (saved.sub) setActiveSub(saved.sub);
+    } catch {
+      // ignore unreadable/absent storage
+    }
+  }, [navKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // Skip the first persist so the initial default state can't clobber the saved nav
+  // before the restore effect's update commits; persist on every change after.
+  const skipInitialPersist = useRef(true);
+  useEffect(() => {
+    if (skipInitialPersist.current) {
+      skipInitialPersist.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(navKey, JSON.stringify({ section: activeSection, sub: activeSub }));
+    } catch {
+      // ignore quota/unavailable
+    }
+  }, [navKey, activeSection, activeSub]);
+
+  // Section rail collapse (md+): "auto" icons-only + hover/focus overlay-expand; "open" pinned wide
+  // (reflows the grid); "closed" pinned icons-only (no hover-expand).
+  const sectionsModeKey = "pf-sidebar-mode:editor-sections";
+  const [sectionsMode, setSectionsMode] = useState<"auto" | "open" | "closed">("auto");
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time client restore; lazy init would cause an SSR hydration mismatch */
+  useEffect(() => {
+    try {
+      const raw =
+        localStorage.getItem(sectionsModeKey) ?? localStorage.getItem("pf-sidebar-pinned:editor-sections");
+      if (raw === "open" || raw === "closed" || raw === "auto") setSectionsMode(raw);
+      else if (raw === "1") setSectionsMode("open"); // migrate the old boolean-pin value
+    } catch {
+      // ignore unreadable/absent storage
+    }
+  }, [sectionsModeKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const chooseSectionsMode = (target: "auto" | "open" | "closed") =>
+    setSectionsMode((m) => {
+      const next = m === target ? "auto" : target;
+      try {
+        localStorage.setItem(sectionsModeKey, next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  // Hover tooltip for the force-collapsed ("closed") section rail — identifies each icon without expanding.
+  const [sectionTip, setSectionTip] = useState<{ key: string; label: string; top: number; left: number } | null>(null);
+  const showSectionTip = (e: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>, key: string, label: string) => {
+    if (sectionsMode !== "closed") return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const top = Math.min(Math.max(r.top + r.height / 2, 28), window.innerHeight - 28);
+    setSectionTip({ key, label, top, left: r.right + 10 });
+  };
+  const hideSectionTip = () => setSectionTip(null);
 
   const section = sections.find((s) => s.key === activeSection) ?? sections[0]!;
   const sub = section.items.find((i) => i.key === activeSub) ?? section.items[0]!;
@@ -613,32 +689,13 @@ export function CharacterEditor({
               {section.items[0]!.label}
             </h2>
           )}
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setAdvanced((v) => !v)}
-              aria-pressed={advanced}
-              title="Toggle Simple / Advanced mode"
-              className={cn(
-                "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors sm:min-h-0",
-                advanced
-                  ? "border-gold/40 bg-gold/10 text-gold"
-                  : "border-border text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Sigma className="size-3.5" /> {advanced ? "Advanced" : "Simple"}
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={ed.undo}
-              disabled={!ed.canUndo || ed.status === "conflict"}
-              title="Undo last change"
-            >
-              <Undo2 className="size-4" /> Undo
-            </Button>
-            <SaveStatusBadge status={ed.status} error={ed.error} />
-          </div>
+          <EditorControls
+            ed={ed}
+            advanced={advanced}
+            onToggleAdvanced={onToggleAdvanced}
+            layout="modern"
+            onSwitchLayout={onSwitchLayout}
+          />
         </div>
 
         {ed.conflict && (
@@ -672,6 +729,486 @@ export function CharacterEditor({
         </Card>
       </div>
     </div>
+  );
+}
+
+/** Right-aligned toolbar cluster shared by both layouts — the Modern⇄Classic layout pill,
+ *  Simple/Advanced, Undo and the save-status badge. One definition so the two layouts can't drift.
+ *  The layout pill locks while a sync conflict is open (switching would remount the resolver and
+ *  drop its in-progress choices). */
+function EditorControls({
+  ed,
+  advanced,
+  onToggleAdvanced,
+  layout,
+  onSwitchLayout,
+}: {
+  ed: EditorApi;
+  advanced: boolean;
+  onToggleAdvanced: () => void;
+  layout: EditLayout;
+  onSwitchLayout: (layout: EditLayout) => void;
+}) {
+  const conflictOpen = ed.status === "conflict";
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <div
+        role="group"
+        aria-label="Editor layout"
+        className="inline-flex rounded-full border border-border bg-surface-sunken p-0.5"
+      >
+        {EDIT_LAYOUTS.map((val) => (
+          <button
+            key={val}
+            type="button"
+            onClick={() => onSwitchLayout(val)}
+            aria-pressed={layout === val}
+            disabled={conflictOpen}
+            title={conflictOpen ? "Resolve the sync conflict before switching layouts" : `Switch to the ${val} editor layout`}
+            className={cn(
+              "min-h-11 rounded-full px-3 text-xs font-semibold capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-7",
+              layout === val ? "bg-gold text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {val}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onToggleAdvanced}
+        aria-pressed={advanced}
+        title="Toggle Simple / Advanced mode"
+        className={cn(
+          "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors sm:min-h-0",
+          advanced
+            ? "border-gold/40 bg-gold/10 text-gold"
+            : "border-border text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <Sigma className="size-3.5" /> {advanced ? "Advanced" : "Simple"}
+      </button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={ed.undo}
+        disabled={!ed.canUndo || ed.status === "conflict"}
+        title="Undo last change"
+      >
+        <Undo2 className="size-4" /> Undo
+      </Button>
+      <SaveStatusBadge status={ed.status} error={ed.error} />
+    </div>
+  );
+}
+
+/** Classic all-in-one layout — the editing twin of the classic READ sheet (`<ClassicSheet>`): every
+ *  sub-editor on one scrolling "paper sheet" inside a single continuous frame, in the classic order,
+ *  each zone a collapsible gold-icon header. A sticky chip jump-bar (desktop, scroll-spied) and the
+ *  mobile section navigator scroll-and-expand instead of switching tabs. Renders the SAME `ed`-driven
+ *  sub-editors from the SAME sections[] gating — there is no second editor state.
+ *
+ *  Classic order (mirrors ClassicSheet): Identity → Core Stats (2-col grid) → Defenses (2-col grid) →
+ *  Attacks → Skills → Spellcasting → Optional Systems → Feats & Features → Buffs → Inventory & Wealth →
+ *  Story → Companion → Settings (collapsed). */
+function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdvanced, onSwitchLayout }: EditorLayoutProps) {
+  const byKey = new Map(sections.map((s) => [s.key, s] as const));
+  const coreItems = byKey.get("core")?.items ?? [];
+  const identityItem = coreItems.find((i) => i.key === "details");
+  const companionItem = coreItems.find((i) => i.key === "companion");
+  const coreGrid = coreItems.filter((i) => i.key !== "details" && i.key !== "companion");
+  const defensesSec = byKey.get("defenses");
+  const optionalSec = byKey.get("optional");
+  const settingsSec = byKey.get("settings");
+
+  // Per-zone open/collapse; unset keys fall back to the zone's default.
+  const [openZones, setOpenZones] = useState<Record<string, boolean>>({});
+  // Jump target set by the chip bar / mobile navigator; the nonce lets repeat jumps re-fire the
+  // scroll effect. Opening the containing zone happens in the same update — the effect scrolls
+  // after the newly-revealed content has laid out.
+  const [jump, setJump] = useState<{ anchor: string; n: number } | null>(null);
+
+  // Live header accessories — a collapsed zone still tells you what's inside.
+  const inv = ed.draft.inventory;
+  const itemCount =
+    inv.armorAndShields.length + inv.weapons.length + inv.potionsScrollsMagicItems.length + inv.gear.length + inv.otherItems.length;
+  const featCount = ed.draft.feats.list.length + ed.draft.features.list.length;
+  const attackCount = ed.draft.combat.attacks.length;
+  const casterCount = ed.draft.spellcasting.casters.length;
+  const buffCount = ed.draft.buffs.active.length;
+
+  type ClassicZoneDef = {
+    key: string;
+    label: string;
+    icon: typeof User;
+    /** The sections[] key this zone came from — highlights the right row in the mobile navigator. */
+    navSection: string;
+    accessory?: string | undefined;
+    defaultOpen: boolean;
+    body: ReactNode;
+  };
+
+  const subAnchor = (section: string, item: string) => `classic-item-${section}-${item}`;
+  const anchorCls = "scroll-mt-28 md:scroll-mt-44";
+
+  const zones: ClassicZoneDef[] = [];
+  if (identityItem) {
+    zones.push({
+      key: "identity",
+      label: "Identity",
+      icon: User,
+      navSection: "core",
+      defaultOpen: true,
+      body: identityItem.render(),
+    });
+  }
+  if (coreGrid.length > 0) {
+    zones.push({
+      key: "core",
+      label: "Core Stats",
+      icon: Heart,
+      navSection: "core",
+      defaultOpen: true,
+      body: (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {coreGrid.map((i) => (
+            <ClassicCell key={i.key} id={subAnchor("core", i.key)} title={i.label}>
+              {i.render()}
+            </ClassicCell>
+          ))}
+        </div>
+      ),
+    });
+  }
+  if (defensesSec && defensesSec.items.length > 0) {
+    zones.push({
+      key: "defenses",
+      label: "Defenses",
+      icon: defensesSec.icon,
+      navSection: "defenses",
+      accessory: `AC ${ed.computed.summary.ac}`,
+      defaultOpen: true,
+      body: (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {defensesSec.items.map((i) => (
+            <ClassicCell key={i.key} id={subAnchor("defenses", i.key)} title={i.label}>
+              {i.render()}
+            </ClassicCell>
+          ))}
+        </div>
+      ),
+    });
+  }
+  const single = (sectionKey: string, label: string, accessory?: string) => {
+    const sec = byKey.get(sectionKey);
+    if (!sec || sec.items.length === 0) return;
+    zones.push({
+      key: sectionKey,
+      label,
+      icon: sec.icon,
+      navSection: sectionKey,
+      accessory,
+      defaultOpen: true,
+      body: sec.items[0]!.render(),
+    });
+  };
+  single("attacks", "Attacks", attackCount > 0 ? String(attackCount) : undefined);
+  single("skills", "Skills");
+  single("spells", "Spellcasting", casterCount > 0 ? `${casterCount} caster${casterCount === 1 ? "" : "s"}` : undefined);
+  if (optionalSec && optionalSec.items.length > 0) {
+    zones.push({
+      key: "optional",
+      label: "Optional Systems",
+      icon: optionalSec.icon,
+      navSection: "optional",
+      accessory: String(optionalSec.items.length),
+      defaultOpen: true,
+      body: (
+        <div className="space-y-3">
+          {optionalSec.items.map((i) => {
+            const anchor = subAnchor("optional", i.key);
+            return (
+              <div key={i.key} id={anchor} className={anchorCls}>
+                <CollapsibleGroup
+                  title={i.label}
+                  defaultOpen={optionalSec.items.length <= 2}
+                  forceOpen={jump?.anchor === anchor}
+                  titleClassName="text-sm normal-case tracking-normal text-foreground"
+                >
+                  <div className="p-1 sm:p-2">{i.render()}</div>
+                </CollapsibleGroup>
+              </div>
+            );
+          })}
+        </div>
+      ),
+    });
+  }
+  single("abilities", "Feats & Features", featCount > 0 ? String(featCount) : undefined);
+  single("buffs", "Buffs", buffCount > 0 ? String(buffCount) : undefined);
+  single("equipment", "Inventory & Wealth", itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"}` : undefined);
+  single("story", "Story");
+  if (companionItem) {
+    zones.push({
+      key: "companion",
+      label: "Companion",
+      icon: Handshake,
+      navSection: "core",
+      defaultOpen: true,
+      body: companionItem.render(),
+    });
+  }
+  if (settingsSec && settingsSec.items.length > 0) {
+    zones.push({
+      key: "settings",
+      label: "Settings",
+      icon: settingsSec.icon,
+      navSection: "settings",
+      defaultOpen: false,
+      body: (
+        <div className="space-y-6">
+          {settingsSec.items.map((i) => (
+            <div key={i.key} id={subAnchor("settings", i.key)} className={anchorCls}>
+              <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{i.label}</p>
+              {i.render()}
+            </div>
+          ))}
+        </div>
+      ),
+    });
+  }
+
+  // Map every (section, sub) the mobile navigator can select onto a classic zone + anchor.
+  const jumpTargets = new Map<string, { zone: string; anchor: string }>();
+  if (identityItem) jumpTargets.set("core/details", { zone: "identity", anchor: "classic-zone-identity" });
+  for (const i of coreGrid) jumpTargets.set(`core/${i.key}`, { zone: "core", anchor: subAnchor("core", i.key) });
+  if (companionItem) jumpTargets.set("core/companion", { zone: "companion", anchor: "classic-zone-companion" });
+  for (const i of defensesSec?.items ?? []) jumpTargets.set(`defenses/${i.key}`, { zone: "defenses", anchor: subAnchor("defenses", i.key) });
+  for (const key of ["attacks", "skills", "spells", "abilities", "buffs", "equipment", "story"]) {
+    for (const i of byKey.get(key)?.items ?? []) jumpTargets.set(`${key}/${i.key}`, { zone: key, anchor: `classic-zone-${key}` });
+  }
+  for (const i of optionalSec?.items ?? []) jumpTargets.set(`optional/${i.key}`, { zone: "optional", anchor: subAnchor("optional", i.key) });
+  for (const i of settingsSec?.items ?? []) jumpTargets.set(`settings/${i.key}`, { zone: "settings", anchor: subAnchor("settings", i.key) });
+
+  const jumpTo = (zoneKey: string, anchor?: string) => {
+    setOpenZones((p) => ({ ...p, [zoneKey]: true }));
+    setJump((j) => ({ anchor: anchor ?? `classic-zone-${zoneKey}`, n: (j?.n ?? 0) + 1 }));
+  };
+  const onSelectSection = (sectionKey: string, subKey: string) => {
+    const target =
+      jumpTargets.get(`${sectionKey}/${subKey}`) ??
+      [...jumpTargets.entries()].find(([k]) => k.startsWith(`${sectionKey}/`))?.[1];
+    if (target) jumpTo(target.zone, target.anchor);
+  };
+
+  useEffect(() => {
+    if (!jump) return;
+    // Double rAF: the zone/group opened in the same update must lay out before we can scroll to it.
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(jump.anchor)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [jump]);
+
+  // Scroll-spy for the chip bar: the first zone (in sheet order) crossing the band just under the
+  // sticky chrome is "current". Collapsed zones still spy correctly — their header row intersects.
+  const [spyKey, setSpyKey] = useState("identity");
+  const zoneKeys = zones.map((z) => z.key).join(",");
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const keys = zoneKeys.split(",").filter(Boolean);
+    const visible = new Set<string>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const key = (e.target as HTMLElement).dataset.zoneKey;
+          if (!key) continue;
+          if (e.isIntersecting) visible.add(key);
+          else visible.delete(key);
+        }
+        const current = keys.find((k) => visible.has(k));
+        if (current) setSpyKey(current);
+      },
+      { rootMargin: "-140px 0px -55% 0px" },
+    );
+    for (const k of keys) {
+      const el = document.getElementById(`classic-zone-${k}`);
+      if (el) io.observe(el);
+    }
+    return () => io.disconnect();
+  }, [zoneKeys]);
+
+  const spyZone = zones.find((z) => z.key === spyKey);
+  return (
+    <div>
+      <LivePreviewBar
+        ed={ed}
+        characterId={characterId}
+        advanced={advanced}
+        sections={sections}
+        activeSection={spyZone?.navSection ?? "core"}
+        activeSub=""
+        onSelectSection={onSelectSection}
+        secondRow={
+          <ClassicJumpBar
+            zones={zones.map((z) => ({ key: z.key, label: z.label, icon: z.icon }))}
+            activeKey={spyKey}
+            onJump={(k) => jumpTo(k)}
+          />
+        }
+      />
+
+      <div className="mb-4">
+        <EditorControls
+          ed={ed}
+          advanced={advanced}
+          onToggleAdvanced={onToggleAdvanced}
+          layout="classic"
+          onSwitchLayout={onSwitchLayout}
+        />
+      </div>
+
+      {ed.conflict && (
+        <div className="mb-3">
+          <ConflictResolver
+            merged={ed.conflict.merged}
+            conflicts={ed.conflict.conflicts}
+            serverSheet={ed.conflict.serverSheet}
+            onResolve={ed.resolveConflict}
+          />
+        </div>
+      )}
+
+      {/* Lock editing while a conflict is open (parity with the modern panel's fieldset). */}
+      <fieldset
+        disabled={ed.status === "conflict"}
+        className={cn("m-0 min-w-0 border-0 p-0", ed.status === "conflict" && "opacity-60")}
+      >
+        <div className="pf-stagger overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+          {zones.map((z) => (
+            <ClassicZone
+              key={z.key}
+              zoneKey={z.key}
+              icon={z.icon}
+              title={z.label}
+              accessory={z.accessory}
+              open={openZones[z.key] ?? z.defaultOpen}
+              onToggle={() => setOpenZones((p) => ({ ...p, [z.key]: !(p[z.key] ?? z.defaultOpen) }))}
+            >
+              {z.body}
+            </ClassicZone>
+          ))}
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
+/** One collapsible section of the classic sheet — the editing twin of the read view's Zone header:
+ *  gold icon + display-font title + a live summary accessory, the whole header a 44px toggle. */
+function ClassicZone({
+  zoneKey,
+  icon: Icon,
+  title,
+  accessory,
+  open,
+  onToggle,
+  children,
+}: {
+  zoneKey: string;
+  icon: typeof User;
+  title: string;
+  accessory?: string | undefined;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  const panelId = useId();
+  return (
+    <section
+      id={`classic-zone-${zoneKey}`}
+      data-zone-key={zoneKey}
+      className="scroll-mt-28 border-t border-border first:border-t-0 md:scroll-mt-44"
+    >
+      <h2 className="m-0">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex min-h-11 w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-raised/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold sm:px-5"
+        >
+          <Icon className="size-4 shrink-0 text-gold" />
+          <span className="min-w-0 truncate font-display text-lg text-foreground">{title}</span>
+          {accessory && <span className="tnum ml-auto shrink-0 text-xs text-muted-foreground">{accessory}</span>}
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              !open && "-rotate-90",
+              !accessory && "ml-auto",
+            )}
+          />
+        </button>
+      </h2>
+      {open && (
+        <div id={panelId} className="px-4 pb-6 pt-1 sm:px-5">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** A captioned cell inside a classic grid zone (Core Stats / Defenses). */
+function ClassicCell({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <div id={id} className="min-w-0 scroll-mt-28 rounded-lg border border-border/60 p-3 sm:p-4 md:scroll-mt-44">
+      <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/** Desktop jump nav for the classic layout: a horizontally scrollable chip rail rendered as the
+ *  second row of the sticky Live Values bar; the scroll-spied current zone glows gold. On mobile the
+ *  hamburger's full-screen navigator handles jumping, so this rail is md+ only. */
+function ClassicJumpBar({
+  zones,
+  activeKey,
+  onJump,
+}: {
+  zones: Array<{ key: string; label: string; icon: typeof User }>;
+  activeKey: string;
+  onJump: (zoneKey: string) => void;
+}) {
+  return (
+    <nav
+      aria-label="Jump to sheet section"
+      className="hidden items-center gap-1 overflow-x-auto border-t border-border px-2 py-1.5 md:flex"
+    >
+      {zones.map((z) => {
+        const Icon = z.icon;
+        const active = z.key === activeKey;
+        return (
+          <button
+            key={z.key}
+            type="button"
+            onClick={() => onJump(z.key)}
+            aria-current={active ? "true" : undefined}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold",
+              active ? "border-gold/40 bg-gold/10 text-gold" : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="size-3.5 shrink-0" />
+            {z.label}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -808,6 +1345,7 @@ function LivePreviewBar({
   activeSection,
   activeSub,
   onSelectSection,
+  secondRow,
 }: {
   ed: EditorApi;
   characterId: string;
@@ -816,6 +1354,8 @@ function LivePreviewBar({
   activeSection: string;
   activeSub: string;
   onSelectSection: (sectionKey: string, subKey: string) => void;
+  /** Optional extra sticky row under the stat row (the classic layout's jump-chip rail). */
+  secondRow?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const s = ed.computed.summary;
@@ -847,6 +1387,7 @@ function LivePreviewBar({
           </span>
         </button>
       </div>
+      {secondRow}
       {/* Always render the region so aria-controls resolves; only mount the (heavier)
           preview when expanded. */}
       <div
