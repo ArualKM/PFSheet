@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
@@ -849,7 +849,9 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
   };
 
   const subAnchor = (section: string, item: string) => `classic-item-${section}-${item}`;
-  const anchorCls = "scroll-mt-28 md:scroll-mt-44";
+  // md offset = header 80 + stat row ~44 + chip rail ~38 + a classic (non-overlay) horizontal
+  // scrollbar's ~17px — jumps must land clear of the sticky chrome even on Windows.
+  const anchorCls = "scroll-mt-28 md:scroll-mt-48";
 
   const zones: ClassicZoneDef[] = [];
   if (identityItem) {
@@ -870,9 +872,18 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
       navSection: "core",
       defaultOpen: true,
       body: (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        // 2-col only at xl: the reused sub-editors size their internal grids by VIEWPORT breakpoints
+        // (tuned for the modern near-full-width panel), so a half-width cell at lg would render e.g.
+        // Health's five lg:grid-cols-5 number fields ~70px wide. Abilities + Health stay full-width
+        // rows even at xl for the same reason; Languages + Speed pair up fine.
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {coreGrid.map((i) => (
-            <ClassicCell key={i.key} id={subAnchor("core", i.key)} title={i.label}>
+            <ClassicCell
+              key={i.key}
+              id={subAnchor("core", i.key)}
+              title={i.label}
+              className={i.key === "abilities" || i.key === "health" ? "xl:col-span-2" : undefined}
+            >
               {i.render()}
             </ClassicCell>
           ))}
@@ -889,7 +900,7 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
       accessory: `AC ${ed.computed.summary.ac}`,
       defaultOpen: true,
       body: (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {defensesSec.items.map((i) => (
             <ClassicCell key={i.key} id={subAnchor("defenses", i.key)} title={i.label}>
               {i.render()}
@@ -928,7 +939,7 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
           {optionalSec.items.map((i) => {
             const anchor = subAnchor("optional", i.key);
             return (
-              <div key={i.key} id={anchor} className={anchorCls}>
+              <div key={i.key} id={anchor} tabIndex={-1} className={anchorCls}>
                 <CollapsibleGroup
                   title={i.label}
                   defaultOpen={optionalSec.items.length <= 2}
@@ -968,7 +979,7 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
       body: (
         <div className="space-y-6">
           {settingsSec.items.map((i) => (
-            <div key={i.key} id={subAnchor("settings", i.key)} className={anchorCls}>
+            <div key={i.key} id={subAnchor("settings", i.key)} tabIndex={-1} className={anchorCls}>
               <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{i.label}</p>
               {i.render()}
             </div>
@@ -1007,7 +1018,22 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
     // the DOM — scroll synchronously. Instant (not smooth): Chrome aborts long smooth scrollIntoView
     // animations when layout is invalidated mid-flight (the scroll-spy re-renders during the scroll),
     // leaving the jump stranded partway — verified in-browser. Instant also matches reduced motion.
-    document.getElementById(jump.anchor)?.scrollIntoView?.({ behavior: "auto", block: "start" });
+    const el = document.getElementById(jump.anchor);
+    if (el) {
+      el.scrollIntoView?.({ behavior: "auto", block: "start" });
+      // Move focus to the destination so keyboard/SR users actually arrive (the modern layout's
+      // nav lands next to the tabpanel; scroll-only would leave them tabbing through hundreds of
+      // fields). Zone anchors focus their header button; sub-anchors are tabIndex={-1} containers.
+      const target = jump.anchor.startsWith("classic-zone-")
+        ? el.querySelector<HTMLElement>(":scope > h2 button")
+        : el;
+      (target ?? el).focus?.({ preventScroll: true });
+    }
+    // Clear the consumed jump: keeps a CollapsibleGroup's forceOpen edge-triggered (a repeat jump
+    // to the same anchor must be a fresh false→true transition to re-expand after a manual
+    // collapse) and stops a stale anchor ghost-opening groups when a collapsed zone remounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot signal consumption: must clear AFTER the commit that opened the target (clearing in the click handler would need flushSync, which would scroll while the mobile navigator dialog still holds the body scroll-lock). Bounded: one extra render per jump, and the effect early-returns on null.
+    setJump(null);
   }, [jump]);
 
   // Scroll-spy for the chip bar: the first zone (in sheet order) crossing the band just under the
@@ -1029,7 +1055,12 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
         const current = keys.find((k) => visible.has(k));
         if (current) setSpyKey(current);
       },
-      { rootMargin: "-140px 0px -55% 0px" },
+      // Current = the first zone (in sheet order) crossing the line just under the sticky chrome.
+      // The 194px top inset sits 2px BELOW the md landing offset (scroll-mt-48 = 192px) so after a
+      // jump the target zone — not the sliver of the zone above it — is the one intersecting. No
+      // bottom inset: taking the FIRST intersecting zone already ignores everything further down
+      // (a fixed-percentage bottom band would invert on short landscape viewports).
+      { rootMargin: "-194px 0px 0px 0px" },
     );
     for (const k of keys) {
       const el = document.getElementById(`classic-zone-${k}`);
@@ -1049,6 +1080,7 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
         activeSection={spyZone?.navSection ?? "core"}
         activeSub=""
         onSelectSection={onSelectSection}
+        jumpNavigation
         secondRow={
           <ClassicJumpBar
             zones={zones.map((z) => ({ key: z.key, label: z.label, icon: z.icon }))}
@@ -1079,27 +1111,26 @@ function ClassicEditorLayout({ ed, characterId, sections, advanced, onToggleAdva
         </div>
       )}
 
-      {/* Lock editing while a conflict is open (parity with the modern panel's fieldset). */}
-      <fieldset
-        disabled={ed.status === "conflict"}
-        className={cn("m-0 min-w-0 border-0 p-0", ed.status === "conflict" && "opacity-60")}
-      >
-        <div className="pf-stagger overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
-          {zones.map((z) => (
-            <ClassicZone
-              key={z.key}
-              zoneKey={z.key}
-              icon={z.icon}
-              title={z.label}
-              accessory={z.accessory}
-              open={openZones[z.key] ?? z.defaultOpen}
-              onToggle={() => setOpenZones((p) => ({ ...p, [z.key]: !(p[z.key] ?? z.defaultOpen) }))}
-            >
-              {z.body}
-            </ClassicZone>
-          ))}
-        </div>
-      </fieldset>
+      {/* During a conflict only EDITING locks (each zone body carries its own disabled fieldset);
+          the zone headers stay live so navigation keeps parity with modern, whose rail/tabs/sheet
+          all work while the panel fieldset is disabled. */}
+      <div className="pf-stagger overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+        {zones.map((z, zi) => (
+          <ClassicZone
+            key={z.key}
+            zoneKey={z.key}
+            icon={z.icon}
+            title={z.label}
+            accessory={z.accessory}
+            staggerIndex={zi}
+            locked={ed.status === "conflict"}
+            open={openZones[z.key] ?? z.defaultOpen}
+            onToggle={() => setOpenZones((p) => ({ ...p, [z.key]: !(p[z.key] ?? z.defaultOpen) }))}
+          >
+            {z.body}
+          </ClassicZone>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1111,6 +1142,8 @@ function ClassicZone({
   icon: Icon,
   title,
   accessory,
+  staggerIndex,
+  locked,
   open,
   onToggle,
   children,
@@ -1119,6 +1152,11 @@ function ClassicZone({
   icon: typeof User;
   title: string;
   accessory?: string | undefined;
+  /** Explicit pf-stagger index — the utility only auto-indexes the first 12 children, and a sheet
+   *  with optional systems + a companion has 13 zones (the 13th would animate first, out of order). */
+  staggerIndex: number;
+  /** True while a sync conflict is open — locks the body's fields, NOT the header toggle. */
+  locked: boolean;
   open: boolean;
   onToggle: () => void;
   children: ReactNode;
@@ -1128,7 +1166,8 @@ function ClassicZone({
     <section
       id={`classic-zone-${zoneKey}`}
       data-zone-key={zoneKey}
-      className="scroll-mt-28 border-t border-border first:border-t-0 md:scroll-mt-44"
+      style={{ "--pf-i": staggerIndex } as CSSProperties}
+      className="scroll-mt-28 border-t border-border first:border-t-0 md:scroll-mt-48"
     >
       <h2 className="m-0">
         <button
@@ -1151,18 +1190,37 @@ function ClassicZone({
         </button>
       </h2>
       {open && (
-        <div id={panelId} className="px-4 pb-6 pt-1 sm:px-5">
+        <fieldset
+          id={panelId}
+          disabled={locked}
+          className={cn("m-0 min-w-0 border-0 px-4 pb-6 pt-1 sm:px-5", locked && "opacity-60")}
+        >
           {children}
-        </div>
+        </fieldset>
       )}
     </section>
   );
 }
 
-/** A captioned cell inside a classic grid zone (Core Stats / Defenses). */
-function ClassicCell({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+/** A captioned cell inside a classic grid zone (Core Stats / Defenses). tabIndex −1 so a jump can
+ *  move focus to it. */
+function ClassicCell({
+  id,
+  title,
+  children,
+  className,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+  className?: string | undefined;
+}) {
   return (
-    <div id={id} className="min-w-0 scroll-mt-28 rounded-lg border border-border/60 p-3 sm:p-4 md:scroll-mt-44">
+    <div
+      id={id}
+      tabIndex={-1}
+      className={cn("min-w-0 scroll-mt-28 rounded-lg border border-border/60 p-3 sm:p-4 md:scroll-mt-48", className)}
+    >
       <p className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{title}</p>
       <div className="min-w-0">{children}</div>
     </div>
@@ -1184,7 +1242,9 @@ function ClassicJumpBar({
   return (
     <nav
       aria-label="Jump to sheet section"
-      className="hidden items-center gap-1 overflow-x-auto border-t border-border px-2 py-1.5 md:flex"
+      // The rail overflows at common desktop widths; a classic (non-overlay) Windows scrollbar
+      // would otherwise render 17px chunky chrome inside the sticky bar — keep it thin.
+      className="hidden items-center gap-1 overflow-x-auto border-t border-border px-2 py-1.5 md:flex [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent"
     >
       {zones.map((z) => {
         const Icon = z.icon;
@@ -1219,15 +1279,21 @@ function SectionSheet({
   activeKey,
   activeSubKey,
   onSelect,
+  keepFocusAfterSelect = false,
 }: {
   sections: SheetSection[];
   activeKey: string;
   activeSubKey: string;
   onSelect: (sectionKey: string, subKey: string) => void;
+  /** Classic jump mode: suppress Radix's focus-return to the trigger after a selection so the jump
+   *  effect's destination focus isn't clobbered (Esc/backdrop close still restores normally). */
+  keepFocusAfterSelect?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const selectedRef = useRef(false);
   const active = sections.find((s) => s.key === activeKey) ?? sections[0]!;
   const go = (sectionKey: string, subKey: string) => {
+    selectedRef.current = true;
     onSelect(sectionKey, subKey);
     setOpen(false);
   };
@@ -1252,6 +1318,10 @@ function SectionSheet({
             any stray child overflow; the nav owns all scrolling. */}
         <Dialog.Content
           aria-describedby={undefined}
+          onCloseAutoFocus={(e) => {
+            if (keepFocusAfterSelect && selectedRef.current) e.preventDefault();
+            selectedRef.current = false;
+          }}
           className="pf-sheet-in fixed left-0 top-0 z-50 flex h-screen w-full max-w-[100vw] flex-col overflow-hidden bg-background focus:outline-none md:hidden"
           style={{
             height: "100dvh",
@@ -1284,13 +1354,16 @@ function SectionSheet({
                 const multi = s.items.length > 1;
                 return (
                   <div key={s.key}>
+                    {/* Classic passes activeSubKey="" (its spy tracks zones, not subs) — mark the
+                        section header itself current then, so multi-item sections aren't left with
+                        no current row at all. */}
                     <button
                       type="button"
                       onClick={() => go(s.key, s.items[0]!.key)}
-                      aria-current={isActive && !multi ? "true" : undefined}
+                      aria-current={isActive && (!multi || activeSubKey === "") ? "true" : undefined}
                       className={cn(
                         "tap-target flex w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-medium",
-                        isActive && !multi
+                        isActive && (!multi || activeSubKey === "")
                           ? "bg-surface-raised text-foreground"
                           : "text-foreground hover:bg-surface-raised/60",
                       )}
@@ -1344,6 +1417,7 @@ function LivePreviewBar({
   activeSub,
   onSelectSection,
   secondRow,
+  jumpNavigation = false,
 }: {
   ed: EditorApi;
   characterId: string;
@@ -1354,15 +1428,29 @@ function LivePreviewBar({
   onSelectSection: (sectionKey: string, subKey: string) => void;
   /** Optional extra sticky row under the stat row (the classic layout's jump-chip rail). */
   secondRow?: ReactNode;
+  /** Classic mode: section selection SCROLLS the page instead of swapping a panel. Collapses the
+   *  expanded preview on navigate (a jump would land hidden under the up-to-70dvh panel) and keeps
+   *  focus off the navigator trigger so the jump effect's destination focus survives. */
+  jumpNavigation?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const s = ed.computed.summary;
+  const handleSelect = (sectionKey: string, subKey: string) => {
+    if (jumpNavigation) setOpen(false);
+    onSelectSection(sectionKey, subKey);
+  };
   return (
     <div className="sticky top-14 z-20 mb-3 rounded-lg border border-border bg-surface/95 backdrop-blur md:top-20">
       <div className="flex items-stretch">
         {/* Mobile section hamburger → full-screen navigator; the desktop left rail handles sections at md+. */}
         <div className="flex shrink-0 items-center border-r border-border pl-1 pr-0.5 md:hidden">
-          <SectionSheet sections={sections} activeKey={activeSection} activeSubKey={activeSub} onSelect={onSelectSection} />
+          <SectionSheet
+            sections={sections}
+            activeKey={activeSection}
+            activeSubKey={activeSub}
+            onSelect={handleSelect}
+            keepFocusAfterSelect={jumpNavigation}
+          />
         </div>
         <button
           type="button"
@@ -1385,7 +1473,11 @@ function LivePreviewBar({
           </span>
         </button>
       </div>
-      {secondRow}
+      {secondRow != null && (
+        // Any click in the jump rail is navigation intent — collapse the expanded preview first so
+        // the jump can't land underneath it.
+        <div onClickCapture={jumpNavigation ? () => setOpen(false) : undefined}>{secondRow}</div>
+      )}
       {/* Always render the region so aria-controls resolves; only mount the (heavier)
           preview when expanded. */}
       <div

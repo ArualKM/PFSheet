@@ -1,10 +1,17 @@
 # Classic Editor — Implementation Plan
 
-**Status:** planned (2026-07-07). **Owner-locked decisions:** all-in-one single-page editor that
-**reuses the existing modern edit cards**, entered via a **Modern⇄Classic toggle on the edit page**,
-sharing **one** `useCharacterEditor` state. This doc is self-contained so a fresh session (Fable 5)
-can execute it with minimal file loading — the grounded map is embedded below; you should not need to
-re-derive it.
+**Status: BUILT (2026-07-09, branch `feat/classic-editor`).** All phases shipped in one pass (the
+phasing below was written for a context-limited session; the build session had the full map loaded).
+Gate-green (lint / typecheck / 762 tests / prod build), browser-verified via a temporary no-auth
+harness page (deleted before commit), adversarially reviewed. §8 below records the as-built design —
+it upgrades the baseline §3 layout to a "continuous classic sheet" aesthetic; the plan's invariants
+(§5) all hold.
+
+**Original plan (kept for the map + invariants):** planned 2026-07-07. **Owner-locked decisions:**
+all-in-one single-page editor that **reuses the existing modern edit cards**, entered via a
+**Modern⇄Classic toggle on the edit page**, sharing **one** `useCharacterEditor` state. This doc is
+self-contained so a fresh session (Fable 5) can execute it with minimal file loading — the grounded
+map is embedded below; you should not need to re-derive it.
 
 Companion read-view precedent: the Classic **read** view (`components/character/classic-sheet.tsx`,
 commit `157eb20`) + its `SheetViewSwitch`. The classic *editor* is its editing counterpart.
@@ -235,6 +242,54 @@ Goal: prove one `ed` drives two layouts and the toggle persists — before touch
 
 ## 7. Open (nice-to-have, defer unless time)
 - Unify read+edit "Modern/Classic" into a single preference (owner picked separate for now).
-- Two-way in-page nav highlight (scroll-spy) in classic mode.
+- ~~Two-way in-page nav highlight (scroll-spy) in classic mode.~~ **Shipped** (see §8).
 - Denser bespoke Myth-Weavers-style inline grids for abilities/skills (a *different* editor style; the owner
   chose card-reuse — revisit only if the all-in-one card layout feels insufficiently "classic").
+
+---
+
+## 8. As-built record (2026-07-09)
+
+Everything lives in `character-editor.tsx` (per §5): `ModernEditorLayout` (mechanical extraction — the
+modern nav state moved INTO it since it's modern-only), `ClassicEditorLayout`, `ClassicZone`,
+`ClassicCell`, `ClassicJumpBar`, `EditorControls` (shared toolbar cluster), plus a `secondRow` slot on
+`LivePreviewBar`. Test: `tests/unit/character-editor-layouts.test.tsx` (mounts the FULL CharacterEditor:
+shared-draft + single-save-loop invariant, persistence restore).
+
+**Design upgrades over the baseline §3** (goal: the editing twin of `<ClassicSheet>`, not a stack of
+gray boxes):
+- **One continuous sheet frame** (`rounded-xl border bg-surface shadow-lg`), zones separated by
+  hairline `border-t` — echoes the classic read sheet exactly. **No left rail in classic**; the sheet
+  gets full width.
+- **`ClassicZone` headers** reuse the read sheet's Zone language (gold icon + `font-display` title),
+  are collapsible (44px header, aria-expanded/controls), and carry a **live accessory** (AC total,
+  feat/buff/item/caster counts) so a collapsed page reads as an informative index. Settings collapsed
+  by default; optional systems inside `CollapsibleGroup`s (collapsed when > 2).
+- **Zones are built FROM the shared `sections[]` array** — the gating (optional systems, companion) is
+  reused structurally, not duplicated. Identity is split out of core; the rest of core + defenses render
+  as 2-col `ClassicCell` grids (`lg:grid-cols-2`).
+- **Jump nav:** desktop = a sticky **chip rail** rendered as the Live Values bar's second row, with an
+  IntersectionObserver **scroll-spy** (the §7 nice-to-have); mobile = the existing full-screen
+  `SectionSheet`, repurposed to **jump-and-expand** (every (section, sub) maps to a zone + anchor via
+  `jumpTargets`). Anchors use `scroll-mt-28 md:scroll-mt-44`.
+- **Motion:** `pf-view-fade` keyed on layout switch (matches `SheetViewSwitch`), `pf-stagger` zone
+  entrance — both inherit the `data-motion` gating.
+
+**Deliberate deviations from the plan sketch (§1 diagram):**
+- `ConflictResolver` / `LivePreviewBar` / the toolbar are rendered **by each layout** rather than lifted
+  above the switch — lifting the bar above would have restructured the modern grid (the bar lives inside
+  the modern right column, beside the rail), violating "modern unchanged". Only one layout mounts at a
+  time, so the one-instance guarantee holds; the shared `EditorControls` component prevents toolbar
+  drift. Because switching layouts remounts the resolver, **the layout pill is disabled while a conflict
+  is open** (an in-progress resolution can't be dropped).
+- **Jump scrolling is instant (`behavior:"auto"`), synchronous in the effect** — browser verification
+  showed Chrome aborts long smooth `scrollIntoView` animations when the scroll-spy re-render invalidates
+  layout mid-flight (jump stranded partway), and rAF-deferred scrolling never fires in throttled
+  background tabs. Instant scroll lands exactly on the `scroll-mt` offset and matches reduced motion.
+
+**Verification notes (no-session harness):** a temporary `app/dev-classic-editor/page.tsx` mounted the
+editor unauthenticated (deleted before commit). Gotchas hit there, for future harness use: the
+**offline outbox replays on mount** — a failed save from a previous visit triggers the server action →
+`requireUser()` → client redirect to `/login` (clear `pf:outbox:<id>` first); block server-action
+fetches (reject on the `Next-Action` header) to keep autosave from redirecting mid-check (the hook
+degrades to "Offline — will sync", which is itself a nice status-path check).

@@ -166,8 +166,13 @@
     :root:not([data-motion="full"]) *::before,
     :root:not([data-motion="full"]) *::after {
       animation-duration: 0.001ms !important;
+      /* Also zero the delay: pf-stagger children use `fill-mode: both` + a per-child delay, so an
+         un-gated delay holds them invisible (from-keyframe) and pops them in sequentially — the
+         exact staged motion this gate must suppress. */
+      animation-delay: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
+      transition-delay: 0.001ms !important;
       scroll-behavior: auto !important;
     }
   }
@@ -176,8 +181,10 @@
   :root[data-motion="off"] *::before,
   :root[data-motion="off"] *::after {
     animation-duration: 0.001ms !important;
+    animation-delay: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    transition-delay: 0.001ms !important;
     scroll-behavior: auto !important;
   }
 }
