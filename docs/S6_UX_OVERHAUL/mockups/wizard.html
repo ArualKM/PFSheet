@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathForge — Create Character Wizard (mockup)</title>
+<style>
+  :root {
+    --pf-bg: #090d12;
+    --pf-surface: #121922;
+    --pf-surface-raised: #18212c;
+    --pf-surface-sunken: #0c1219;
+    --pf-border: #2c3a4a;
+    --pf-text: #f4f0e7;
+    --pf-muted: #aeb8c3;
+    --pf-gold: #f0b35a;
+    --pf-on-gold: #1c1407;
+    --pf-rune: #67d5ff;
+    --pf-danger: #f2616b;
+    --pf-warning: #e8a93c;
+    --pf-success: #57d9a3;
+    --pf-focus: #67d5ff;
+    --pf-radius: 0.75rem;
+    --pf-tap: 44px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #05070a;
+    color: var(--pf-text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ---------- page chrome (not part of the app) ---------- */
+
+  .page-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    background: linear-gradient(180deg, #0b0f14 0%, #0b0f14ee 100%);
+    border-bottom: 1px solid #1c2531;
+    backdrop-filter: blur(6px);
+  }
+
+  .mockup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pf-on-gold);
+    background: var(--pf-gold);
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+  }
+
+  .page-header h1 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--pf-text);
+  }
+
+  .page-header p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #7d8996;
+  }
+
+  .page-body {
+    padding: 2rem 1.25rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .frame-row {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+
+  .frame-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    flex-shrink: 0;
+  }
+
+  .frame-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7d8996;
+    padding-left: 0.15rem;
+  }
+
+  .frame-label .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pf-rune);
+  }
+
+  .device-frame {
+    background: var(--pf-bg);
+    border: 1px solid #202a36;
+    border-radius: 1.25rem;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02);
+    overflow: hidden;
+  }
+
+  .device-frame.desktop { width: 980px; }
+  .device-frame.mobile { width: 375px; }
+
+  .device-viewport {
+    background: var(--pf-bg);
+    color: var(--pf-text);
+    height: 780px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- shared app-chrome bits inside the frames ---------- */
+
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--pf-border);
+    background: var(--pf-surface);
+  }
+
+  .app-topbar .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--pf-text);
+  }
+
+  .app-topbar .brand svg { flex-shrink: 0; }
+
+  .exit-link {
+    font-size: 0.78rem;
+    color: var(--pf-muted);
+    text-decoration: none;
+    border: 1px solid var(--pf-border);
+    border-radius: var(--pf-radius);
+    padding: 0.4rem 0.75rem;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* ---------- progress spine ---------- */
+
+  .spine-wrap {
+    padding: 1.1rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--pf-border);
+    background: var(--pf-surface-sunken);
+  }
+
+  .spine-desktop {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .spine-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    text-align: center;
+  }
+
+  .spine-step .line {
+    position: absolute;
+    top: 15px;
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    background: var(--pf-border);
+    z-index: 0;
+  }
+
+  .spine-step:first-child .line { display: none; }
+
+  .spine-step.done .line { background: var(--pf-success); }
+  .spine-step.current .line { background: linear-gradient(90deg, var(--pf-success), var(--pf-gold)); }
+
+  .spine-node {
+    position: relative;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 2px solid var(--pf-border);
+    background: var(--pf-surface);
+    color: var(--pf-muted);
+  }
+
+  .spine-step.done .spine-node {
+    border-color: var(--pf-success);
+    background: color-mix(in srgb, var(--pf-success) 18%, var(--pf-surface));
+    color: var(--pf-success);
+  }
+
+  .spine-step.current .spine-node {
+    border-color: var(--pf-gold);
+    background: var(--pf-gold);
+    color: var(--pf-on-gold);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--pf-gold) 22%, transparent);
+  }
+
+  .spine-step .label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--pf-muted);
+  }
+
+  .spine-step.current .label { color: var(--pf-gold); }
+  .spine-step.done .label { color: var(--pf-text); }
+
+  /* mobile compact spine */
+  .spine-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .spine-mobile .top-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .spine-mobile .step-count {
+    font-size: 0.72rem;
+    color: var(--pf-muted);
+    font-weight: 600;
+  }
+
+  .spine-mobile .step-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--pf-gold);
+  }
+
+  .spine-track {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .spine-track .seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--pf-border);
+  }
+
+  .spine-track .seg.done { background: var(--pf-success); }
+  .spine-track .seg.current {
+    background: linear-gradient(90deg, var(--pf-gold), color-mix(in srgb, var(--pf-gold) 40%, transparent));
+  }
+
+  .spine-chips {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+  }
+
+  .spine-chip {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--pf-border);
+    color: var(--pf-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .spine-chip.done {
+    border-color: color-mix(in srgb, var(--pf-success) 55%, var(--pf-border));
+    color: var(--pf-success);
+  }
+
+  .spine-chip.current {
+    border-color: var(--pf-gold);
+    color: var(--pf-gold);
+    background: color-mix(in srgb, var(--pf-gold) 10%, transparent);
+  }
+
+  /* ---------- wizard body ---------- */
+
+  .wizard-body {
+    flex: 1;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .step-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .step-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pf-rune);
+  }
+
+  .step-heading h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--pf-text);
+  }
+
+  .step-heading .sub {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--pf-muted);
+    max-width: 60ch;
+    line-height: 1.5;
+  }
+
+  .help-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .help-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--pf-rune);
+    background: color-mix(in srgb, var(--pf-rune) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pf-rune) 35%, transparent);
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+    min-height: 32px;
+  }
+
+  .help-toggle svg { flex-shrink: 0; }
+
+  .help-panel {
+    display: none;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--pf-text);
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-left: 3px solid var(--pf-rune);
+    border-radius: var(--pf-radius);
+    padding: 0.85rem 1rem;
+  }
+
+  .help-panel.open { display: block; }
+
+  .help-panel strong { color: var(--pf-rune); }
+
+  /* class card grid */
+
+  .class-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.9rem;
+  }
+
+  .device-frame.mobile .class-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .class-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    background: var(--pf-surface-raised);
+    border: 1.5px solid var(--pf-border);
+    border-radius: var(--pf-radius);
+    padding: 1rem 1rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    text-align: left;
+  }
+
+  .class-card:hover {
+    border-color: color-mix(in srgb, var(--pf-gold) 45%, var(--pf-border));
+    transform: translateY(-1px);
+  }
+
+  .class-card.selected {
+    border-color: var(--pf-gold);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pf-gold) 22%, transparent);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--pf-gold) 8%, var(--pf-surface-raised)), var(--pf-surface-raised));
+  }
+
+  .class-card .recommended-badge {
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--pf-on-gold);
+    background: var(--pf-gold);
+    border-radius: 999px;
+    padding: 0.28rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  .class-card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .class-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+    background: var(--pf-surface-sunken);
+    border: 1px solid var(--pf-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--pf-gold);
+  }
+
+  .class-card.selected .class-icon {
+    color: var(--pf-gold);
+    border-color: var(--pf-gold);
+  }
+
+  .class-name-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .class-name {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--pf-text);
+  }
+
+  .class-tag {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--pf-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .class-desc {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--pf-muted);
+    margin: 0;
+  }
+
+  .class-good-if {
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: var(--pf-text);
+    background: var(--pf-surface-sunken);
+    border-radius: calc(var(--pf-radius) - 0.3rem);
+    padding: 0.5rem 0.65rem;
+    margin: 0;
+  }
+
+  .class-good-if b { color: var(--pf-gold); font-weight: 700; }
+
+  .select-check {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--pf-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pf-surface-sunken);
+    flex-shrink: 0;
+  }
+
+  .class-card.selected .select-check {
+    border-color: var(--pf-gold);
+    background: var(--pf-gold);
+    color: var(--pf-on-gold);
+  }
+
+  .class-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* ---------- footer nav ---------- */
+
+  .wizard-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--pf-border);
+    background: var(--pf-surface);
+    margin-top: auto;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    border-radius: var(--pf-radius);
+    min-height: var(--pf-tap);
+    padding: 0 1.2rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.15s ease;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: var(--pf-surface-raised);
+    border-color: var(--pf-border);
+    color: var(--pf-text);
+  }
+
+  .btn-primary {
+    background: var(--pf-gold);
+    color: var(--pf-on-gold);
+    box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--pf-gold) 60%, transparent);
+  }
+
+  .btn-primary:disabled {
+    background: var(--pf-surface-raised);
+    color: var(--pf-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .footer-hint {
+    font-size: 0.72rem;
+    color: var(--pf-muted);
+    text-align: center;
+    flex: 1;
+  }
+
+  @media (max-width: 900px) {
+    .device-frame.desktop { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="page-header">
+    <span class="mockup-badge">Static mockup</span>
+    <div>
+      <h1>Create Character Wizard — "Class" step</h1>
+      <p>No live logic. Card selection + the help toggle are wired with a few lines of demo JS so you can click around; nothing else responds. Obsidian theme, real --pf-* tokens.</p>
+    </div>
+  </header>
+
+  <main class="page-body">
+
+    <div class="frame-row">
+
+      <!-- ================= DESKTOP FRAME ================= -->
+      <div class="frame-col">
+        <div class="frame-label"><span class="dot"></span> Desktop · 980px</div>
+        <div class="device-frame desktop">
+          <div class="device-viewport">
+
+            <div class="app-topbar">
+              <div class="brand">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" stroke="#f0b35a" stroke-width="1.6"/></svg>
+                PathForge — New Character
+              </div>
+              <a class="exit-link" href="#">Save &amp; exit</a>
+            </div>
+
+            <div class="spine-wrap">
+              <div class="spine-desktop">
+                <div class="spine-step done">
+                  <div class="line"></div>
+                  <div class="spine-node">✓</div>
+                  <div class="label">Race</div>
+                </div>
+                <div class="spine-step current">
+                  <div class="line"></div>
+                  <div class="spine-node">2</div>
+                  <div class="label">Class</div>
+                </div>
+                <div class="spine-step">
+                  <div class="line"></div>
+                  <div class="spine-node">3</div>
+                  <div class="label">Abilities</div>
+                </div>
+                <div class="spine-step">
+                  <div class="line"></div>
+                  <div class="spine-node">4</div>
+                  <div class="label">Skills</div>
+                </div>
+                <div class="spine-step">
+                  <div class="line"></div>
+                  <div class="spine-node">5</div>
+                  <div class="label">Gear</div>
+                </div>
+                <div class="spine-step">
+                  <div class="line"></div>
+                  <div class="spine-node">6</div>
+                  <div class="label">Details</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="wizard-body">
+              <div class="step-heading">
+                <span class="step-eyebrow">Step 2 of 6</span>
+                <h2>Pick your class</h2>
+                <p class="sub">This is your character's profession — it shapes how you fight, whether you cast spells, and how you'll grow as you level up. Don't overthink it: every class is fun, and you can multiclass or respec details later.</p>
+              </div>
+
+              <div class="help-row">
+                <button class="help-toggle" type="button" onclick="pfToggleHelp('help-d')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 16v-1.2c0-.9.6-1.4 1.3-1.9.8-.6 1.3-1.2 1.3-2.1 0-1.5-1.2-2.6-2.8-2.6-1.3 0-2.3.7-2.7 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="18.3" r="0.9" fill="currentColor"/></svg>
+                  What's a class?
+                </button>
+              </div>
+              <div class="help-panel" id="help-d">
+                Your <strong>class</strong> is your training and calling — Fighter, Wizard, Rogue, Cleric, and more. It sets your starting hit points, attack skill, saving throws, and any spells you get. New to Pathfinder? Start with something that feels straightforward to play — you really can't pick "wrong."
+              </div>
+
+              <div class="class-grid">
+
+                <!-- Fighter -->
+                <label class="class-card">
+                  <span class="recommended-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg>
+                    Recommended for new players
+                  </span>
+                  <input type="radio" name="class-desktop">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6.5 17.5L16 8M17 4l3 3-2 2-3-3 2-2z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20l2.2-.6.6-2.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Fighter</span>
+                      <span class="class-tag">Martial · Straightforward</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A master of weapons and armor. Hit things hard, wear heavy armor, and shrug off damage. No spells to track — just gear up and swing.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> simple turns, strong numbers, being the one up front.</p>
+                </label>
+
+                <!-- Wizard -->
+                <label class="class-card">
+                  <input type="radio" name="class-desktop">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Wizard</span>
+                      <span class="class-tag">Arcane caster · Bookish</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A scholar of arcane magic with a spellbook full of options. Powerful and flexible, but takes more planning turn-to-turn.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> puzzles, big flashy effects, prepping strategy ahead of time.</p>
+                </label>
+
+                <!-- Rogue -->
+                <label class="class-card">
+                  <input type="radio" name="class-desktop">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12c1.5-4 4.5-7 7-7s5.5 3 7 7c-1.5 4-4.5 7-7 7s-5.5-3-7-7z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Rogue</span>
+                      <span class="class-tag">Skillful · Sneaky</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A jack-of-all-trades who excels at skills, stealth, and striking from the shadows for big sneak-attack damage.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> lockpicks and traps, talking your way out of trouble, clever positioning.</p>
+                </label>
+
+                <!-- Cleric -->
+                <label class="class-card">
+                  <input type="radio" name="class-desktop">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 9h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.3" opacity="0.5"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Cleric</span>
+                      <span class="class-tag">Divine caster · Supportive</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A devoted channel of divine power. Heal your allies, buff the party, and hold your own in a fight with armor and magic both.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> keeping your party alive, a mix of magic and melee, playing a believer.</p>
+                </label>
+
+              </div>
+            </div>
+
+            <div class="wizard-footer">
+              <button class="btn btn-secondary" type="button">&larr; Back</button>
+              <span class="footer-hint">Pick a class to continue — you can change it anytime before you finish</span>
+              <button class="btn btn-primary" type="button" id="next-d" disabled>Next: Abilities &rarr;</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MOBILE FRAME ================= -->
+      <div class="frame-col">
+        <div class="frame-label"><span class="dot"></span> Mobile · 375px</div>
+        <div class="device-frame mobile">
+          <div class="device-viewport">
+
+            <div class="app-topbar">
+              <div class="brand">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" stroke="#f0b35a" stroke-width="1.6"/></svg>
+                New Character
+              </div>
+              <a class="exit-link" href="#">Exit</a>
+            </div>
+
+            <div class="spine-wrap">
+              <div class="spine-mobile">
+                <div class="top-row">
+                  <span class="step-count">Step 2 of 6</span>
+                  <span class="step-title">Class</span>
+                </div>
+                <div class="spine-track">
+                  <span class="seg done"></span>
+                  <span class="seg current"></span>
+                  <span class="seg"></span>
+                  <span class="seg"></span>
+                  <span class="seg"></span>
+                  <span class="seg"></span>
+                </div>
+                <div class="spine-chips">
+                  <span class="spine-chip done">✓ Race</span>
+                  <span class="spine-chip current">● Class</span>
+                  <span class="spine-chip">Abilities</span>
+                  <span class="spine-chip">Skills</span>
+                  <span class="spine-chip">Gear</span>
+                  <span class="spine-chip">Details</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="wizard-body">
+              <div class="step-heading">
+                <h2>Pick your class</h2>
+                <p class="sub">This is your character's profession — it shapes how you fight, whether you cast spells, and how you'll grow. You can't pick wrong.</p>
+              </div>
+
+              <div class="help-row">
+                <button class="help-toggle" type="button" onclick="pfToggleHelp('help-m')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 16v-1.2c0-.9.6-1.4 1.3-1.9.8-.6 1.3-1.2 1.3-2.1 0-1.5-1.2-2.6-2.8-2.6-1.3 0-2.3.7-2.7 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="18.3" r="0.9" fill="currentColor"/></svg>
+                  What's a class?
+                </button>
+              </div>
+              <div class="help-panel" id="help-m">
+                Your <strong>class</strong> is your training and calling. It sets your hit points, attack skill, saves, and any spells. New here? Start with something straightforward — you can't pick wrong.
+              </div>
+
+              <div class="class-grid">
+
+                <label class="class-card">
+                  <span class="recommended-badge">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.5 4L8 13.5 3 9l6.5-.5z"/></svg>
+                    Recommended for new players
+                  </span>
+                  <input type="radio" name="class-mobile">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6.5 17.5L16 8M17 4l3 3-2 2-3-3 2-2z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 20l2.2-.6.6-2.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Fighter</span>
+                      <span class="class-tag">Martial · Straightforward</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A master of weapons and armor. Hit things hard, wear heavy armor, no spells to track.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> simple turns, strong numbers, being up front.</p>
+                </label>
+
+                <label class="class-card">
+                  <input type="radio" name="class-mobile">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Wizard</span>
+                      <span class="class-tag">Arcane caster · Bookish</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A scholar with a spellbook of options. Powerful and flexible, more planning per turn.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> puzzles, flashy effects, prepping ahead.</p>
+                </label>
+
+                <label class="class-card">
+                  <input type="radio" name="class-mobile">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12c1.5-4 4.5-7 7-7s5.5 3 7 7c-1.5 4-4.5 7-7 7s-5.5-3-7-7z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Rogue</span>
+                      <span class="class-tag">Skillful · Sneaky</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A jack-of-all-trades: skills, stealth, and big sneak-attack damage.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> lockpicks, talking your way out, clever positioning.</p>
+                </label>
+
+                <label class="class-card">
+                  <input type="radio" name="class-mobile">
+                  <span class="select-check"></span>
+                  <span class="class-card-top">
+                    <span class="class-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 9h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.3" opacity="0.5"/></svg>
+                    </span>
+                    <span class="class-name-wrap">
+                      <span class="class-name">Cleric</span>
+                      <span class="class-tag">Divine caster · Supportive</span>
+                    </span>
+                  </span>
+                  <p class="class-desc">A devoted channel of divine power — heal, buff, and hold your own in melee.</p>
+                  <p class="class-good-if"><b>Good if you like:</b> keeping your party alive, magic plus melee.</p>
+                </label>
+
+              </div>
+            </div>
+
+            <div class="wizard-footer">
+              <button class="btn btn-secondary" type="button">&larr; Back</button>
+              <button class="btn btn-primary" type="button" id="next-m" disabled>Next &rarr;</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+<script>
+  function pfToggleHelp(id) {
+    document.getElementById(id).classList.toggle('open');
+  }
+
+  document.querySelectorAll('.class-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      var name = card.querySelector('input[type="radio"]').name;
+      document.querySelectorAll('input[name="' + name + '"]').forEach(function (input) {
+        input.closest('.class-card').classList.remove('selected');
+      });
+      card.classList.add('selected');
+      card.querySelector('input[type="radio"]').checked = true;
+      var nextBtn = card.closest('.device-viewport').querySelector('.btn-primary');
+      nextBtn.disabled = false;
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Companion Sheet — Simple Mode Mockup</title>
+<style>
+  :root {
+    --pf-bg: #090d12;
+    --pf-surface: #121922;
+    --pf-surface-raised: #18212c;
+    --pf-surface-sunken: #0c1219;
+    --pf-border: #2c3a4a;
+    --pf-text: #f4f0e7;
+    --pf-muted: #aeb8c3;
+    --pf-gold: #f0b35a;
+    --pf-on-gold: #1c1407;
+    --pf-rune: #67d5ff;
+    --pf-danger: #f2616b;
+    --pf-warning: #e8a93c;
+    --pf-success: #57d9a3;
+    --pf-focus: #67d5ff;
+    --pf-radius: 0.75rem;
+    --pf-tap: 44px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--pf-bg);
+    color: var(--pf-text);
+    font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    padding: 1.5rem;
+  }
+
+  a { color: inherit; }
+
+  .note {
+    max-width: 1400px;
+    margin: 0 auto 1.5rem;
+    padding: 0.65rem 1rem;
+    border: 1px dashed var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.25rem);
+    background: color-mix(in srgb, var(--pf-warning) 8%, var(--pf-surface));
+    color: var(--pf-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .note b { color: var(--pf-warning); }
+
+  .stage {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .frame-label {
+    text-align: center;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pf-muted);
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+  }
+
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  .frame-desktop {
+    width: 900px;
+    max-width: 100%;
+    border: 1px solid var(--pf-border);
+    border-radius: 1rem;
+    background: var(--pf-bg);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7);
+    overflow: hidden;
+  }
+
+  .frame-mobile {
+    width: 375px;
+    max-width: 100%;
+    border: 8px solid #05070a;
+    border-radius: 2rem;
+    background: var(--pf-bg);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+  }
+  .frame-mobile::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90px;
+    height: 5px;
+    border-radius: 3px;
+    background: #000;
+    z-index: 5;
+  }
+
+  /* ============ App chrome ============ */
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--pf-border);
+    background: linear-gradient(180deg, var(--pf-surface-raised), var(--pf-surface));
+  }
+  .mobile .app-topbar { padding: 1rem 0.9rem 0.7rem; }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--pf-muted);
+    text-decoration: none;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.5rem;
+  }
+  .back-btn svg { width: 16px; height: 16px; }
+
+  .mode-toggle {
+    display: inline-flex;
+    border: 1px solid var(--pf-border);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--pf-surface-sunken);
+    gap: 2px;
+  }
+  .mode-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--pf-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    cursor: pointer;
+    min-height: 30px;
+  }
+  .mode-toggle button.active {
+    background: var(--pf-gold);
+    color: var(--pf-on-gold);
+  }
+
+  .edit-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--pf-gold);
+    color: var(--pf-on-gold);
+    border: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0 1rem;
+    height: var(--pf-tap);
+    border-radius: 0.6rem;
+    cursor: pointer;
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--pf-gold) 60%, transparent);
+  }
+  .edit-cta svg { width: 16px; height: 16px; }
+  .mobile .edit-cta { padding: 0 0.85rem; font-size: 0.8rem; }
+  .mobile .edit-cta span.full { display: none; }
+
+  .topbar-right { display: flex; align-items: center; gap: 0.6rem; }
+
+  /* ============ Layout ============ */
+  .sheet-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.1rem; }
+  .mobile .sheet-body { padding: 0.9rem; gap: 0.9rem; }
+
+  .desktop-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 1.1rem;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--pf-surface);
+    border: 1px solid var(--pf-border);
+    border-radius: var(--pf-radius);
+    padding: 1rem;
+  }
+
+  .card-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--pf-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.75rem;
+  }
+  .card-title .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--pf-rune);
+    box-shadow: 0 0 8px var(--pf-rune);
+  }
+
+  /* ============ Identity / infobox ============ */
+  .infobox {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    text-align: center;
+  }
+  .portrait {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: calc(var(--pf-radius) - 0.1rem);
+    border: 2px solid var(--pf-gold);
+    background:
+      radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--pf-gold) 30%, transparent), transparent 60%),
+      linear-gradient(160deg, #2a2116, #100b07 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.6rem;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6);
+  }
+  .companion-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .companion-sub {
+    font-size: 0.8rem;
+    color: var(--pf-gold);
+    font-weight: 600;
+    margin: 0.15rem 0 0;
+  }
+  .facts-dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    text-align: left;
+    margin: 0.2rem 0 0;
+  }
+  .facts-dl dt { color: var(--pf-muted); font-weight: 600; }
+  .facts-dl dd { margin: 0; text-align: right; }
+
+  .master-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-rune);
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.6rem 0.7rem;
+    text-decoration: none;
+  }
+  .master-link .icon-orb {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: color-mix(in srgb, var(--pf-rune) 18%, var(--pf-surface-sunken));
+    border: 1px solid var(--pf-rune);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: var(--pf-rune);
+    font-size: 1rem;
+  }
+  .master-link .ml-text { text-align: left; line-height: 1.25; }
+  .master-link .ml-title { font-size: 0.72rem; color: var(--pf-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .master-link .ml-name { font-weight: 700; font-size: 0.9rem; color: var(--pf-rune); }
+  .master-link .ml-chevron { margin-left: auto; color: var(--pf-muted); }
+
+  .sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--pf-success);
+    background: color-mix(in srgb, var(--pf-success) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pf-success) 40%, transparent);
+    border-radius: 999px;
+    padding: 0.3rem 0.6rem;
+    align-self: center;
+  }
+  .sync-pill .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--pf-success);
+  }
+
+  /* ============ Stat tiles ============ */
+  .tile-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+  }
+  .mobile .tile-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-tile {
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.55rem 0.3rem;
+    text-align: center;
+    position: relative;
+  }
+  .stat-tile .label {
+    font-size: 0.66rem;
+    color: var(--pf-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat-tile .score {
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-top: 0.1rem;
+  }
+  .stat-tile .mod {
+    font-size: 0.75rem;
+    color: var(--pf-gold);
+    font-weight: 700;
+  }
+  .stat-tile.boosted::after {
+    content: "▲";
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.55rem;
+    color: var(--pf-success);
+  }
+
+  .tile-footnote {
+    font-size: 0.72rem;
+    color: var(--pf-muted);
+    margin-top: 0.55rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .tile-footnote svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--pf-success); }
+
+  /* ============ Vitals row ============ */
+  .vitals-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+  }
+  .mobile .vitals-row { grid-template-columns: repeat(2, 1fr); }
+  .vital-card {
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.15rem);
+    padding: 0.7rem 0.75rem;
+  }
+  .vital-card .v-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pf-muted);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .vital-card .v-label svg { width: 13px; height: 13px; }
+  .vital-card .v-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-top: 0.15rem;
+    line-height: 1.1;
+  }
+  .vital-card .v-value small {
+    font-size: 0.85rem;
+    color: var(--pf-muted);
+    font-weight: 600;
+  }
+  .vital-card.hp .v-value { color: var(--pf-danger); }
+  .vital-card.ac .v-value { color: var(--pf-rune); }
+  .vital-card .hp-bar {
+    margin-top: 0.5rem;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--pf-surface-sunken);
+    overflow: hidden;
+  }
+  .vital-card .hp-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--pf-success), var(--pf-danger) 140%);
+    border-radius: 999px;
+  }
+
+  /* ============ Saves ============ */
+  .saves-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+  }
+  .save-tile {
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.6rem;
+    text-align: center;
+  }
+  .save-tile .s-label { font-size: 0.68rem; color: var(--pf-muted); font-weight: 700; text-transform: uppercase; }
+  .save-tile .s-value { font-size: 1.3rem; font-weight: 800; color: var(--pf-gold); margin-top: 0.1rem; }
+
+  /* ============ Attacks ============ */
+  .attack-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .attack-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+    padding: 0.6rem 0.75rem;
+  }
+  .attack-row .a-icon {
+    width: 34px; height: 34px; border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--pf-danger) 14%, var(--pf-surface-sunken));
+    border: 1px solid color-mix(in srgb, var(--pf-danger) 45%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--pf-danger);
+    flex-shrink: 0;
+    font-size: 1rem;
+  }
+  .attack-row .a-name { font-weight: 700; font-size: 0.88rem; }
+  .attack-row .a-type { font-size: 0.72rem; color: var(--pf-muted); }
+  .attack-row .a-stats { margin-left: auto; text-align: right; }
+  .attack-row .a-tohit { font-weight: 800; color: var(--pf-gold); font-size: 0.95rem; }
+  .attack-row .a-dmg { font-size: 0.75rem; color: var(--pf-muted); }
+
+  /* ============ Grants block ============ */
+  .grants-card {
+    border: 1px solid color-mix(in srgb, var(--pf-gold) 45%, var(--pf-border));
+    background:
+      linear-gradient(160deg, color-mix(in srgb, var(--pf-gold) 8%, var(--pf-surface)), var(--pf-surface));
+  }
+  .grants-card .card-title { color: var(--pf-gold); }
+  .grants-card .card-title .dot { background: var(--pf-gold); box-shadow: 0 0 8px var(--pf-gold); }
+  .grants-intro {
+    font-size: 0.8rem;
+    color: var(--pf-muted);
+    margin: -0.3rem 0 0.75rem;
+    line-height: 1.4;
+  }
+  .grants-intro b { color: var(--pf-text); }
+  .grant-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .grant-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.25rem);
+  }
+  .grant-row .g-icon {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: color-mix(in srgb, var(--pf-gold) 16%, var(--pf-surface-sunken));
+    border: 1px solid var(--pf-gold);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--pf-gold);
+    flex-shrink: 0;
+    font-size: 0.85rem;
+  }
+  .grant-row .g-text { font-size: 0.83rem; }
+  .grant-row .g-text b { color: var(--pf-gold); }
+  .grant-row .g-badge {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--pf-success);
+    background: color-mix(in srgb, var(--pf-success) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pf-success) 40%, transparent);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    white-space: nowrap;
+  }
+
+  /* ============ Special abilities ============ */
+  .special-list { display: flex; flex-direction: column; gap: 0.45rem; }
+  .special-item {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--pf-surface-raised);
+    border-left: 3px solid var(--pf-rune);
+    border-radius: 0 0.4rem 0.4rem 0;
+  }
+  .special-item b { color: var(--pf-rune); }
+
+  /* ============ Section wrapper for two-col desktop ============ */
+  .main-col { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+  .mobile .row-2 { grid-template-columns: 1fr; }
+
+  @media (max-width: 700px) {
+    .stage { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>Static mockup</b> — no interactivity, no live data. Illustrates the SIMPLE companion sheet
+  (desktop + mobile) for the S6 UX overhaul companion pillar. Familiar "Whiskers" (Cat), linked to
+  master "Elandra" (Level 5). Values are representative, not engine-computed.
+</div>
+
+<div class="stage">
+
+  <!-- ============ DESKTOP FRAME ============ -->
+  <div class="frame-wrap">
+    <div class="frame-label">Desktop — 900px</div>
+    <div class="frame-desktop">
+      <div class="app-topbar">
+        <a class="back-btn" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          Elandra
+        </a>
+        <div class="topbar-right">
+          <div class="mode-toggle">
+            <button class="active">Simple</button>
+            <button>Advanced</button>
+          </div>
+          <button class="edit-cta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            <span class="full">Edit</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <div class="desktop-grid">
+          <!-- LEFT: infobox -->
+          <div class="card infobox">
+            <div class="portrait">🐈</div>
+            <div>
+              <h1 class="companion-name">Whiskers</h1>
+              <p class="companion-sub">Cat Familiar</p>
+            </div>
+            <dl class="facts-dl">
+              <dt>Type</dt><dd>Familiar</dd>
+              <dt>Creature</dt><dd>Cat</dd>
+              <dt>Size</dt><dd>Tiny</dd>
+              <dt>Alignment</dt><dd>NN (as master)</dd>
+              <dt>Speed</dt><dd>30 ft., climb 20 ft.</dd>
+            </dl>
+            <a class="master-link" href="#">
+              <div class="icon-orb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg>
+              </div>
+              <div class="ml-text">
+                <div class="ml-title">Linked to</div>
+                <div class="ml-name">Elandra · Level 5</div>
+              </div>
+              <div class="ml-chevron">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg>
+              </div>
+            </a>
+            <div class="sync-pill"><span class="pulse"></span> Synced with master</div>
+          </div>
+
+          <!-- RIGHT: main column -->
+          <div class="main-col">
+
+            <!-- Base body stats -->
+            <div class="card">
+              <p class="card-title"><span class="dot"></span>Base Body — Tiny</p>
+              <div class="tile-grid">
+                <div class="stat-tile">
+                  <div class="label">Str</div><div class="score">3</div><div class="mod">−4</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="label">Dex</div><div class="score">15</div><div class="mod">+2</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="label">Con</div><div class="score">8</div><div class="mod">−1</div>
+                </div>
+                <div class="stat-tile boosted">
+                  <div class="label">Int</div><div class="score">8</div><div class="mod">−1</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="label">Wis</div><div class="score">12</div><div class="mod">+1</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="label">Cha</div><div class="score">7</div><div class="mod">−2</div>
+                </div>
+              </div>
+              <div class="tile-footnote">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg>
+                Int raised by master level (min 6 + master's Int bonus caps)
+              </div>
+            </div>
+
+            <!-- Vitals -->
+            <div class="card">
+              <p class="card-title"><span class="dot"></span>Vitals</p>
+              <div class="vitals-row">
+                <div class="vital-card hp">
+                  <div class="v-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>
+                    Hit Points
+                  </div>
+                  <div class="v-value">17 <small>/ 17</small></div>
+                  <div class="hp-bar"><div class="hp-bar-fill"></div></div>
+                </div>
+                <div class="vital-card ac">
+                  <div class="v-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/></svg>
+                    Armor Class
+                  </div>
+                  <div class="v-value">18</div>
+                  <div class="v-label" style="margin-top:0.25rem;font-weight:500;">touch 16 · flat 14</div>
+                </div>
+                <div class="vital-card">
+                  <div class="v-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    Init
+                  </div>
+                  <div class="v-value">+6</div>
+                </div>
+                <div class="vital-card">
+                  <div class="v-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20c4-6 8-8.5 8-13a8 8 0 10-16 0c0 4.5 4 7 8 13z"/></svg>
+                    CMD
+                  </div>
+                  <div class="v-value">11</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row-2">
+              <!-- Saves -->
+              <div class="card">
+                <p class="card-title"><span class="dot"></span>Saving Throws</p>
+                <div class="saves-row">
+                  <div class="save-tile"><div class="s-label">Fort</div><div class="s-value">+2</div></div>
+                  <div class="save-tile"><div class="s-label">Ref</div><div class="s-value">+6</div></div>
+                  <div class="save-tile"><div class="s-label">Will</div><div class="s-value">+5</div></div>
+                </div>
+                <div class="tile-footnote" style="margin-top:0.6rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg>
+                  Better of Whiskers' own save or Elandra's
+                </div>
+              </div>
+
+              <!-- Attacks -->
+              <div class="card">
+                <p class="card-title"><span class="dot"></span>Natural Attacks</p>
+                <div class="attack-list">
+                  <div class="attack-row">
+                    <div class="a-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M6 3s2 6 2 9-2 9-2 9M12 3s1 6 1 9-1 9-1 9M18 3s-2 6-2 9 2 9 2 9"/></svg>
+                    </div>
+                    <div>
+                      <div class="a-name">2 Claws</div>
+                      <div class="a-type">Melee, natural</div>
+                    </div>
+                    <div class="a-stats">
+                      <div class="a-tohit">+6</div>
+                      <div class="a-dmg">1d2−4</div>
+                    </div>
+                  </div>
+                  <div class="attack-row">
+                    <div class="a-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M4 12l8-9 8 9-8 9z"/></svg>
+                    </div>
+                    <div>
+                      <div class="a-name">Bite</div>
+                      <div class="a-type">Melee, natural</div>
+                    </div>
+                    <div class="a-stats">
+                      <div class="a-tohit">+6</div>
+                      <div class="a-dmg">1d3−4</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Special abilities (compact) -->
+            <div class="card">
+              <p class="card-title"><span class="dot"></span>Special Abilities</p>
+              <div class="special-list">
+                <div class="special-item"><b>Improved Evasion.</b> On a failed Reflex save, takes half damage; on a success, none.</div>
+                <div class="special-item"><b>Empathic Link.</b> Whiskers &amp; Elandra share emotions within 1 mile.</div>
+                <div class="special-item"><b>Speak with Master.</b> Whiskers can converse with Elandra in a limited manner.</div>
+              </div>
+            </div>
+
+            <!-- What it grants the master -->
+            <div class="card grants-card">
+              <p class="card-title"><span class="dot"></span>What Whiskers Grants Elandra</p>
+              <p class="grants-intro">
+                Familiar special abilities apply to <b>Elandra</b>, not Whiskers. These are already
+                folded into Elandra's sheet.
+              </p>
+              <div class="grant-list">
+                <div class="grant-row">
+                  <div class="g-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
+                  </div>
+                  <div class="g-text">Alertness — <b>+2 Perception</b>, <b>+2 Sense Motive</b></div>
+                  <div class="g-badge">Active</div>
+                </div>
+                <div class="grant-row">
+                  <div class="g-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M3 12s2-7 9-7 9 7 9 7-2 7-9 7-9-7-9-7z"/><path d="M3 5l18 14"/></svg>
+                  </div>
+                  <div class="g-text">Cat familiar — <b>+3 Stealth</b></div>
+                  <div class="g-badge">Active</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MOBILE FRAME ============ -->
+  <div class="frame-wrap">
+    <div class="frame-label">Mobile — 375px</div>
+    <div class="frame-mobile mobile">
+      <div class="app-topbar">
+        <a class="back-btn" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          Elandra
+        </a>
+        <div class="topbar-right">
+          <div class="mode-toggle">
+            <button class="active">Simple</button>
+            <button>Adv.</button>
+          </div>
+          <button class="edit-cta" aria-label="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <!-- infobox banner (mobile-first: portrait + facts up top, per read-view pattern) -->
+        <div class="card" style="display:flex;gap:0.8rem;align-items:center;">
+          <div class="portrait" style="width:74px;height:74px;font-size:2.1rem;flex-shrink:0;">🐈</div>
+          <div style="flex:1;min-width:0;">
+            <h1 class="companion-name" style="font-size:1.15rem;">Whiskers</h1>
+            <p class="companion-sub" style="margin-top:0.1rem;">Cat Familiar · Tiny</p>
+            <div class="sync-pill" style="margin-top:0.4rem;align-self:flex-start;"><span class="pulse"></span>Synced</div>
+          </div>
+        </div>
+
+        <a class="master-link" href="#">
+          <div class="icon-orb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg>
+          </div>
+          <div class="ml-text">
+            <div class="ml-title">Linked to</div>
+            <div class="ml-name">Elandra · Level 5</div>
+          </div>
+          <div class="ml-chevron">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </a>
+
+        <!-- Base body stats -->
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Base Body</p>
+          <div class="tile-grid">
+            <div class="stat-tile"><div class="label">Str</div><div class="score">3</div><div class="mod">−4</div></div>
+            <div class="stat-tile"><div class="label">Dex</div><div class="score">15</div><div class="mod">+2</div></div>
+            <div class="stat-tile"><div class="label">Con</div><div class="score">8</div><div class="mod">−1</div></div>
+            <div class="stat-tile boosted"><div class="label">Int</div><div class="score">8</div><div class="mod">−1</div></div>
+            <div class="stat-tile"><div class="label">Wis</div><div class="score">12</div><div class="mod">+1</div></div>
+            <div class="stat-tile"><div class="label">Cha</div><div class="score">7</div><div class="mod">−2</div></div>
+          </div>
+          <div class="tile-footnote">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg>
+            Int raised by master level
+          </div>
+        </div>
+
+        <!-- Vitals -->
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Vitals</p>
+          <div class="vitals-row">
+            <div class="vital-card hp">
+              <div class="v-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>
+                HP
+              </div>
+              <div class="v-value">17 <small>/17</small></div>
+              <div class="hp-bar"><div class="hp-bar-fill"></div></div>
+            </div>
+            <div class="vital-card ac">
+              <div class="v-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/></svg>
+                AC
+              </div>
+              <div class="v-value">18</div>
+              <div class="v-label" style="margin-top:0.2rem;font-weight:500;">t16 · ff14</div>
+            </div>
+            <div class="vital-card">
+              <div class="v-label">Init</div>
+              <div class="v-value">+6</div>
+            </div>
+            <div class="vital-card">
+              <div class="v-label">CMD</div>
+              <div class="v-value">11</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Saves -->
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Saving Throws</p>
+          <div class="saves-row">
+            <div class="save-tile"><div class="s-label">Fort</div><div class="s-value">+2</div></div>
+            <div class="save-tile"><div class="s-label">Ref</div><div class="s-value">+6</div></div>
+            <div class="save-tile"><div class="s-label">Will</div><div class="s-value">+5</div></div>
+          </div>
+        </div>
+
+        <!-- Attacks -->
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Natural Attacks</p>
+          <div class="attack-list">
+            <div class="attack-row">
+              <div class="a-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 3s2 6 2 9-2 9-2 9M12 3s1 6 1 9-1 9-1 9M18 3s-2 6-2 9 2 9 2 9"/></svg>
+              </div>
+              <div><div class="a-name">2 Claws</div><div class="a-type">Melee</div></div>
+              <div class="a-stats"><div class="a-tohit">+6</div><div class="a-dmg">1d2−4</div></div>
+            </div>
+            <div class="attack-row">
+              <div class="a-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 12l8-9 8 9-8 9z"/></svg>
+              </div>
+              <div><div class="a-name">Bite</div><div class="a-type">Melee</div></div>
+              <div class="a-stats"><div class="a-tohit">+6</div><div class="a-dmg">1d3−4</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Special abilities -->
+        <div class="card">
+          <p class="card-title"><span class="dot"></span>Special Abilities</p>
+          <div class="special-list">
+            <div class="special-item"><b>Improved Evasion.</b> Half/no damage on Reflex saves.</div>
+            <div class="special-item"><b>Empathic Link.</b> Shares emotions with Elandra (1 mi).</div>
+            <div class="special-item"><b>Speak with Master.</b> Limited conversation with Elandra.</div>
+          </div>
+        </div>
+
+        <!-- Grants -->
+        <div class="card grants-card">
+          <p class="card-title"><span class="dot"></span>Grants to Elandra</p>
+          <p class="grants-intro">Already folded into Elandra's sheet.</p>
+          <div class="grant-list">
+            <div class="grant-row">
+              <div class="g-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
+              </div>
+              <div class="g-text">Alertness — <b>+2 Perception / Sense Motive</b></div>
+            </div>
+            <div class="grant-row">
+              <div class="g-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M3 12s2-7 9-7 9 7 9 7-2 7-9 7-9-7-9-7z"/><path d="M3 5l18 14"/></svg>
+              </div>
+              <div class="g-text">Cat — <b>+3 Stealth</b></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
