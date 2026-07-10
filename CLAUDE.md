@@ -803,6 +803,43 @@ preference with reduced-motion fallbacks, desktop/mobile-aware. No new deps; gat
   browser-verified without a session — primitives verified to compile+apply + gate-green, but the taste
   wants a real look. Marketing feature-card stagger/hover-lift is an easy verifiable follow-up.
 
+**S6 UX overhaul — ALL FOUR PILLARS COMPLETE (2026-07-09, 12 commits de9cb67…89d0d0c).** Plan:
+`docs/S6_UX_OVERHAUL/` (locked handoff). Every slice gate-green + adversarially Workflow-reviewed
+(~7 panels, every confirmed finding fixed); 803→867 unit tests; NO DB migrations (all additive/Zod).
+- **P1 Companion sheets** (`de9cb67`/`68e01cf`/`057acba`): `CompanionSheet` read view + 3-way
+  `SheetViewSwitch` (server-computed default; `isCompanion` derives from the GATED vm — raw-sheet
+  reads leaked "is a companion" through the pill on privacy-hidden shares); the companion Simple
+  EDITOR layout (`EditLayout` 3-way, ClassicZone stacks, conflict-locked Advanced escape hatches);
+  the **Motion bridge** (motion@12.42.2, `components/motion/` useShouldAnimate/PfMotionConfig/tokens).
+  TWO VERIFIED MOTION GOTCHAS (in ANIMATION_SYSTEM.md): AnimatePresence EXITING children have FROZEN
+  props (interactive content = enter-only animation), and `reducedMotion="always"` does NOT gate
+  opacity (per-component useShouldAnimate branch required).
+- **P2 Modern editor** (`d5e034f`/`abd3590`/`8ffb499`): Stage 0 pure-move extraction (7,236→5,372
+  lines; 8 optional-system editors to own files); Stage 1 `<EditorCanvas>` (entrance only on panel
+  CHANGE — never first mount: no SSR opacity:0, no nav-restore double-play); Stage 2 chip-summary
+  canvas (`section-summary.tsx`; every section a live StatChip card, expand-in-place, LayoutGroup +
+  `layoutDependency` so keystrokes don't re-measure; jumpToSection focuses+scrolls the panel; W&V
+  HP fork + total-gp wealth). **Stage 3's fixed bottom command bar SUPERSEDED by ground truth** (the
+  app-level `MobileBottomNav` already owns bottom-0; the Stage-2 stack IS the mobile section index) —
+  swipe gestures + shared-element layoutId FLIP deferred (need device/session eyes).
+- **P3 Create-a-character wizard** (`b42b029`/`89c7961`/`809902f`): `metadata.custom.wizard` flag
+  (`packages/pathforge-schema/src/wizard.ts`), `/characters/new` Guided-vs-Blank, 8 real steps over
+  ONE `useCharacterEditor` (hand-off = navigation), engine-predicate Next-gates with VISIBLE hints
+  (a `title` on a disabled button is unreachable everywhere), conflict HOLDS exit-navigation,
+  exit waits for status "saved"/"offline" (plain router.push drops the debounced flag flip).
+  GOTCHAS: point-buy seeds `racial[]` from `identity.raceApplied.abilityMods` (race step runs first
+  and bakes mods into score — recomposes erased them); never force-re-enable a disabled point-buy;
+  `SaveStatusBadge` lives in its own file (importing from character-editor.tsx drags ~1.2MB).
+- **P4 Viewers design language** (`fff6133`/`89d0d0c`): shared `stat-tile.tsx`/`section-card.tsx`
+  (accent/className)/`severity-pill.tsx` (byte-identical extraction commit, then restyle);
+  `ShareHero` on `/c/[publicSlug]` (+#full-sheet anchor CTAs), AuditReport severity strip + GM
+  status pills, Combat-only accent bar, CONDITIONAL hover-lift (only when the owner-only master
+  link renders). Privacy+RSC review angles clean.
+- **Owner checklist (no local session — authed surfaces are jsdom-verified only):** companion
+  read+edit feel · editor canvas animations under the 3 data-motion states · full wizard run on
+  desktop + phone · share hero on a real slug · GM audit pills · rule on the superseded mobile
+  command bar + deferred FLIP/swipe.
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
