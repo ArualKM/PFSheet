@@ -120,10 +120,22 @@ function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** Id prefixes stamped on entries this file creates from a compendium statblock (attacks/features),
+ * so a RE-APPLY (picking a different creature in the editor) can find + remove its own prior output
+ * without touching anything the player added by hand — an unprefixed manual attack/feature can never
+ * collide with these. `applyFamiliarMasterBenefit`'s "Master benefit" feature shares the same feature
+ * prefix so it, too, is replaced rather than duplicated on re-pick. */
+const STATBLOCK_ATTACK_ID_PREFIX = "cstat_atk_";
+const STATBLOCK_FEATURE_ID_PREFIX = "cstat_feat_";
+
 /**
- * Autofill a freshly-created companion sheet from a compendium statblock row (mutates the sheet).
- * Never discards source text: the full starting statistics + advancement prose are preserved as
- * features so nothing the compendium said is lost.
+ * Autofill a companion sheet from a compendium statblock row (mutates the sheet). Never discards
+ * source text: the full starting statistics + advancement prose are preserved as features so nothing
+ * the compendium said is lost. Idempotent-by-replacement: previously statblock-derived attacks/
+ * features (tagged via the id prefixes above) are removed before the new ones are added, so calling
+ * this again with a DIFFERENT row (the editor's "Change statblock" flow) swaps the creature instead of
+ * stacking two statblocks' worth of attacks. At CREATE time the sheet starts empty, so this is a no-op
+ * there — behavior-preserving for the existing create flow.
  */
 export function applyCompanionStatblock(sheet: PathForgeCharacterV1, row: CompanionStatblockRow): void {
   const scores = parseAbilityScores(row.ability_scores ?? row.starting_stats);
@@ -151,9 +163,10 @@ export function applyCompanionStatblock(sheet: PathForgeCharacterV1, row: Compan
     ];
   }
 
+  sheet.combat.attacks = sheet.combat.attacks.filter((a) => !a.id.startsWith(STATBLOCK_ATTACK_ID_PREFIX));
   for (const atk of parseAttacks(row.attack ?? "")) {
     const entry: AttackEntry = {
-      id: newId("atk"),
+      id: newId(STATBLOCK_ATTACK_ID_PREFIX.slice(0, -1)),
       name: atk.name,
       attackType: "natural",
       damageFormula: atk.damage,
@@ -172,9 +185,12 @@ export function applyCompanionStatblock(sheet: PathForgeCharacterV1, row: Compan
   // source text so nothing is silently discarded ("import never silently discards data").
   if (row.attack) featureTexts.push({ name: "Attacks (source)", description: row.attack });
   if (row.granted_ability) featureTexts.push({ name: "Master benefit", description: row.granted_ability });
+  if (featureTexts.length > 0) {
+    sheet.features.list = sheet.features.list.filter((f) => !f.id.startsWith(STATBLOCK_FEATURE_ID_PREFIX));
+  }
   for (const f of featureTexts) {
     sheet.features.list.push({
-      id: newId("feat"),
+      id: newId(STATBLOCK_FEATURE_ID_PREFIX.slice(0, -1)),
       name: f.name,
       category: "racial_trait",
       description: f.description,
@@ -268,10 +284,12 @@ export function parseMasterBenefit(text: string | null | undefined): {
 }
 
 /**
- * Give a freshly-created familiar sheet a real creature body from {@link familiarBaseBody} — abilities,
- * size, speed, and natural attacks (natural armor is left to the engine's master-level adjustment; Int
- * is the animal's base and the engine raises it to the master-level table). familiar_compendium ships
- * no statblock, so without this a familiar is an all-10s Medium shell.
+ * Give a familiar sheet a real creature body from {@link familiarBaseBody} — abilities, size, speed,
+ * and natural attacks (natural armor is left to the engine's master-level adjustment; Int is the
+ * animal's base and the engine raises it to the master-level table). familiar_compendium ships no
+ * statblock, so without this a familiar is an all-10s Medium shell. Idempotent-by-replacement like
+ * {@link applyCompanionStatblock}: re-picking a different familiar swaps the body instead of piling
+ * attacks/features from the old creature onto the new one; a no-op at CREATE time (empty sheet).
  */
 export function applyFamiliarBaseBody(sheet: PathForgeCharacterV1, slug: string | null | undefined): void {
   const body = familiarBaseBody(slug);
@@ -281,9 +299,10 @@ export function applyFamiliarBaseBody(sheet: PathForgeCharacterV1, slug: string 
   }
   sheet.identity.size = body.size;
   sheet.combat.speed.base = body.speed;
+  sheet.combat.attacks = sheet.combat.attacks.filter((a) => !a.id.startsWith(STATBLOCK_ATTACK_ID_PREFIX));
   for (const atk of body.attacks) {
     const entry: AttackEntry = {
-      id: newId("atk"),
+      id: newId(STATBLOCK_ATTACK_ID_PREFIX.slice(0, -1)),
       name: atk.name,
       attackType: "natural",
       damageFormula: atk.damage,
@@ -293,15 +312,48 @@ export function applyFamiliarBaseBody(sheet: PathForgeCharacterV1, slug: string 
     };
     sheet.combat.attacks.push(entry);
   }
+  sheet.features.list = sheet.features.list.filter(
+    (f) => !(f.id.startsWith(STATBLOCK_FEATURE_ID_PREFIX) && f.name === "Special qualities"),
+  );
   if (body.specialQualities) {
     sheet.features.list.push({
-      id: newId("feat"),
+      id: newId(STATBLOCK_FEATURE_ID_PREFIX.slice(0, -1)),
       name: "Special qualities",
       category: "racial_trait",
       description: body.specialQualities,
       automation: [],
     });
   }
+}
+
+/**
+ * Parse a familiar's `granted_ability` prose into the structured MASTER benefit and push (replacing
+ * any prior one) a human-readable "Master benefit" feature. Extracted from createCompanionAction so
+ * the editor's re-pick flow gets identical parsing. Only text matching "Master gains …" is a real
+ * benefit — an improved familiar's `granted_ability` instead stores its alignment/caster-level
+ * REQUIREMENT ("Lawful evil | 7th"), which is not a benefit, so nothing is parsed or pushed for it
+ * (matches the original create-flow behavior exactly). The prior "Master benefit" feature is always
+ * cleared first, even when the new row has no benefit — re-picking from a benefit-granting familiar to
+ * an improved one must not leave a stale benefit on the sheet. Returns the structured effects (for
+ * `companion.masterBenefit`), or undefined when the row has no parseable benefit.
+ */
+export function applyFamiliarMasterBenefit(
+  sheet: PathForgeCharacterV1,
+  grantedAbility: string | null | undefined,
+): { effects: MasterBenefitEffect[]; rawText?: string } | undefined {
+  sheet.features.list = sheet.features.list.filter(
+    (f) => !(f.id.startsWith(STATBLOCK_FEATURE_ID_PREFIX) && f.name === "Master benefit"),
+  );
+  if (!grantedAbility || !/master gains/i.test(grantedAbility)) return undefined;
+  const parsed = parseMasterBenefit(grantedAbility);
+  sheet.features.list.push({
+    id: newId(STATBLOCK_FEATURE_ID_PREFIX.slice(0, -1)),
+    name: "Master benefit",
+    category: "racial_trait",
+    description: stripBenefitCitation(grantedAbility),
+    automation: [],
+  });
+  return parsed.effects.length || parsed.rawText ? parsed : undefined;
 }
 
 /**

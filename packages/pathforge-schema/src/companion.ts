@@ -68,6 +68,9 @@ export const companionBlockSchema = z.object({
   type: z.enum(COMPANION_TYPES).optional(),
   /** Compendium slug this companion was autofilled from (animal_companion/familiar compendium). */
   compendiumId: z.string().optional(),
+  /** The applied creature's display name, independent of identity.race (which the player may
+   * hand-edit afterwards) — drives the editor's "current statblock" chip. Additive/optional. */
+  statblockName: z.string().optional(),
   /** Familiar archetype name (Mauler, Sage, …) — swaps some standard granted abilities. */
   archetype: z.string().optional(),
   /** Apply the master-linked rules in the engine (familiars only for now). */

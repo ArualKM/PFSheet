@@ -12,15 +12,8 @@ import {
 import { computeCharacter, type ComputedCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  applyCompanionStatblock,
-  applyFamiliarBaseBody,
-  buildMasterCache,
-  masterCacheEquals,
-  parseMasterBenefit,
-  stripBenefitCitation,
-  type CompanionStatblockRow,
-} from "@/lib/character/companion-sync";
+import { buildMasterCache, masterCacheEquals } from "@/lib/character/companion-sync";
+import { applyCompanionStatblock, type CompanionCompendiumRow } from "@/lib/character/companion-statblock";
 import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
 import type { Database } from "@/lib/supabase/types";
 
@@ -183,11 +176,12 @@ export async function createCompanionAction(
   const sheet = createDefaultCharacter({ name: finalName, playerName: userDisplayName(user) });
   const isFamiliar = companionType === "familiar";
 
-  // Compendium autofill. Familiars and animal companions differ: an animal-companion row carries a
-  // full statblock, but familiar_compendium stores only the master benefit (no body). So a familiar
-  // gets its base creature body from the hardcoded catalog, and the row's granted_ability becomes the
-  // MASTER benefit (structured + preserved). Failure to find the row is non-fatal.
-  let masterBenefit: ReturnType<typeof parseMasterBenefit> | undefined;
+  // Compendium autofill — the same statblock→sheet apply the in-editor "Change statblock" picker uses
+  // (`lib/character/companion-statblock.ts`), so the two paths can never drift. It sets identity.race,
+  // the base body (ability scores/size/speed/attacks — from the row directly for animal_companion/
+  // mount, or the hardcoded familiar-body catalog for familiars, since familiar_compendium ships no
+  // statblock), companion.compendiumId, and — for familiars — companion.masterBenefit parsed from
+  // granted_ability. Failure to find the row is non-fatal (falls through to a blank companion sheet).
   if (options?.compendiumTable && options.compendiumSlug) {
     const { data: row } = await supabase
       .from(options.compendiumTable)
@@ -195,33 +189,17 @@ export async function createCompanionAction(
       .eq("slug", options.compendiumSlug)
       .maybeSingle();
     if (row) {
-      if (options.compendiumTable === "familiar_compendium") {
-        applyFamiliarBaseBody(sheet, options.compendiumSlug);
-        const granted = (row as { granted_ability?: string | null }).granted_ability ?? null;
-        // Normal familiars store the master benefit here ("Master gains a +3 bonus on …"). IMPROVED
-        // familiars instead store their alignment + caster-level REQUIREMENT ("Lawful evil | 7th"),
-        // which is not a benefit — skip it so the master doesn't get a bogus "Master benefit" entry.
-        if (granted && /master gains/i.test(granted)) {
-          const parsed = parseMasterBenefit(granted);
-          if (parsed.effects.length || parsed.rawText) masterBenefit = parsed;
-          sheet.features.list.push({
-            id: `feat_${randomBytes(4).toString("hex")}`,
-            name: "Master benefit",
-            category: "racial_trait",
-            description: stripBenefitCitation(granted),
-            automation: [],
-          });
-        }
-      } else {
-        applyCompanionStatblock(sheet, row as unknown as CompanionStatblockRow);
-      }
+      applyCompanionStatblock(sheet, row as unknown as CompanionCompendiumRow, companionType as CompanionType);
     }
   }
 
-  // The companion block: rules-side linkage. The master cache is seeded from the parent's sheet
-  // so a familiar computes correctly from the first render.
+  // The companion block: rules-side linkage. Merges onto whatever the statblock apply above already
+  // set (compendiumId, masterBenefit) — archetype/syncEnabled/the master cache are create-only
+  // concerns the picker never touches. The master cache is seeded from the parent's sheet so a
+  // familiar computes correctly from the first render.
   const parentParsed = safeParseCharacter(parent.sheet_data);
   sheet.companion = {
+    ...sheet.companion,
     type: companionType as CompanionType,
     compendiumId: options?.compendiumSlug,
     archetype: options?.archetype?.trim() || undefined,
@@ -229,7 +207,6 @@ export async function createCompanionAction(
     master: parentParsed.ok
       ? buildMasterCache(parentId, parentParsed.character, computeCharacter(parentParsed.character))
       : undefined,
-    masterBenefit: masterBenefit ? { effects: masterBenefit.effects, rawText: masterBenefit.rawText } : undefined,
   };
 
   const computed = computeCharacter(sheet);

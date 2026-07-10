@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Loader2, PawPrint, Search, X } from "lucide-react";
 import { FAMILIAR_ARCHETYPES } from "@pathforge/schema";
 import { createCompanionAction } from "@/lib/actions/characters";
+import { STATBLOCK_SOURCES } from "@/lib/character/companion-statblock";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,13 +21,6 @@ const TYPES: { value: string; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 const LABEL = Object.fromEntries(TYPES.map((t) => [t.value, t.label]));
-
-/** Which compendium backs the statblock search for a companion type (absent = no statblocks). */
-const STATBLOCK_TABLE: Record<string, { table: "animal_companion_compendium" | "familiar_compendium"; rpc: string; hint: string } | undefined> = {
-  animal_companion: { table: "animal_companion_compendium", rpc: "search_animal_companion_compendium", hint: "Wolf, roc, big cat…" },
-  mount: { table: "animal_companion_compendium", rpc: "search_animal_companion_compendium", hint: "Horse, wolf…" },
-  familiar: { table: "familiar_compendium", rpc: "search_familiar_compendium", hint: "Cat, owl, thrush…" },
-};
 
 export type CompanionRow = { id: string; name: string; companion_type: string | null };
 
@@ -47,7 +41,7 @@ export function CompanionsCard({ parentId, companions }: { parentId: string; com
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const statblockCfg = STATBLOCK_TABLE[type];
+  const statblockCfg = STATBLOCK_SOURCES[type];
   const isFamiliar = type === "familiar";
 
   const create = () => {

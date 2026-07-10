@@ -63,6 +63,7 @@ import {
   type PointBuyState,
   COMPANION_TYPES,
   FAMILIAR_ARCHETYPES,
+  type CompanionType,
   type PrivacyLevel,
   DEFAULT_FORMULAS,
   readWizardMeta,
@@ -80,6 +81,8 @@ import { SpellcastingEditor } from "./spellcasting-editor";
 import { ClassCompendiumPicker } from "./class-compendium-picker";
 import { ArchetypePicker } from "./archetype-picker";
 import { RacePicker } from "./race-picker";
+import { CompanionStatblockPicker } from "./companion-statblock-picker";
+import { STATBLOCK_SOURCES } from "@/lib/character/companion-statblock";
 import { createClient } from "@/lib/supabase/client";
 import { buildFeatureRows } from "@/lib/character/class-compendium";
 import { threeppFeaturesFromProgression } from "@/lib/character/threepp-class-adapter";
@@ -722,37 +725,7 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
           onSelectSection={jumpToSection}
         />
 
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          {section.items.length > 1 ? (
-            <div role="tablist" aria-label={`${section.label} panels`} className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
-              {section.items.map((i, idx) => (
-                <button
-                  key={i.key}
-                  type="button"
-                  role="tab"
-                  id={`subtab-${i.key}`}
-                  aria-selected={i.key === sub.key}
-                  aria-controls="editor-panel"
-                  tabIndex={i.key === sub.key ? 0 : -1}
-                  onClick={() => setActiveSub(i.key)}
-                  onKeyDown={(e) => onSubKeyDown(e, idx)}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
-                    i.key === sub.key
-                      ? "bg-surface-raised text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {i.label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <h2 id={`panel-heading-${section.key}`} className="px-1 text-sm font-semibold text-foreground">
-              {section.items[0]!.label}
-            </h2>
-          )}
+        <div className="mb-4">
           <EditorControls
             ed={ed}
             advanced={advanced}
@@ -762,6 +735,7 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
             layouts={layouts}
           />
         </div>
+
 
         {ed.conflict && (
           <div className="mb-3">
@@ -777,15 +751,51 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
         {/* Stage 2 (S6 Pillar 2): the canvas is now a vertical stack over every section — the
             active section renders Stage 1's exact animated tabpanel, every other section collapses
             to a live chip-summary card. Tapping a summary card reuses the SAME setState pair the
-            rail's onClick uses (character-editor.tsx ~611-614), so a jump behaves identically
-            whether it started from the rail or from a collapsed card below the fold. */}
+            rail's onClick uses, so a jump behaves identically whether it started from the rail or
+            from a collapsed card below the fold. The sub-tab tablist rides in the ACTIVE CARD's
+            header (subTabs slot) — pinned to the page top it sat 10 cards away from a low section
+            like Optional, reading as "the feature didn't ship" (owner-reported). */}
         <EditorCanvas
           ed={ed}
           sections={sections}
           activeSection={activeSection}
           activeSub={activeSub}
           panelLabelId={panelLabelId}
+          headingId={`panel-heading-${section.key}`}
+          headingLabel={section.items.length > 1 ? section.label : sub.label}
           onSelectSection={jumpToSection}
+          subTabs={
+            section.items.length > 1 ? (
+              <div
+                role="tablist"
+                aria-label={`${section.label} panels`}
+                className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1"
+              >
+                {section.items.map((i, idx) => (
+                  <button
+                    key={i.key}
+                    type="button"
+                    role="tab"
+                    id={`subtab-${i.key}`}
+                    aria-selected={i.key === sub.key}
+                    aria-controls="editor-panel"
+                    tabIndex={i.key === sub.key ? 0 : -1}
+                    onClick={() => setActiveSub(i.key)}
+                    onKeyDown={(e) => onSubKeyDown(e, idx)}
+                    className={cn(
+                      "min-h-11 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:min-h-0",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold",
+                      i.key === sub.key
+                        ? "bg-surface-raised text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {i.label}
+                  </button>
+                ))}
+              </div>
+            ) : undefined
+          }
         >
           {sub.render()}
         </EditorCanvas>
@@ -1983,6 +1993,27 @@ function CompanionEditor({ ed }: { ed: EditorApi }) {
           </label>
         )}
       </div>
+
+      {/* The compendium statblock IS a creature companion's "race" — the PC race browser under
+          Identity & Details is the wrong tool for it (cohorts are the exception: they're humanoid
+          PCs with class levels, so they keep using that race browser). */}
+      {STATBLOCK_SOURCES[comp.type ?? ""] ? (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">
+            For a creature companion, the compendium statblock <em>is</em> its race — pick one below
+            to autofill ability scores, size, speed, and attacks (rather than Identity &amp; Details&rsquo;
+            race browser).
+          </p>
+          <CompanionStatblockPicker ed={ed} type={comp.type as CompanionType} />
+        </div>
+      ) : (
+        comp.type === "cohort" && (
+          <p className="text-xs text-muted-foreground">
+            Cohorts are humanoid PCs with class levels — set their race under Identity &amp; Details →
+            Browse races, same as any player character.
+          </p>
+        )
+      )}
 
       {comp.master && (
         <div className="rounded-lg border border-border bg-surface-raised p-3">

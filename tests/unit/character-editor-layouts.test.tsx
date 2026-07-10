@@ -157,6 +157,34 @@ describe("CharacterEditor — Modern editor canvas (S6 Pillar 2 Stage 2 chip sum
       (_content, element) => element?.tagName === "SPAN" && element?.textContent === text,
     );
 
+  it("the sub-tab tablist rides inside the ACTIVE section card, next to the panel it switches", async () => {
+    const base = createDefaultCharacter({ name: "Subtab Test" });
+    render(<CharacterEditor characterId="sc0" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Core (multi-item) is active: its tablist and the tabpanel share the SAME Card — a switcher
+    // pinned to the page top sat ~10 cards away from a low section like Optional (owner-reported).
+    const tablist = screen.getByRole("tablist", { name: /core panels/i });
+    const panel = document.getElementById("editor-panel")!;
+    expect(panel.parentElement!.contains(tablist)).toBe(true);
+
+    // Switching to a SINGLE-item section removes the tablist; the card header's heading names the
+    // tabpanel (aria-labelledby=panel-heading-<key>).
+    fireEvent.click(screen.getByRole("button", { name: /^open skills$/i }));
+    expect(screen.queryByRole("tablist", { name: /panels/i })).not.toBeInTheDocument();
+    expect(document.getElementById("editor-panel")!.getAttribute("aria-labelledby")).toBe("panel-heading-skills");
+    expect(document.getElementById("panel-heading-skills")).toBeInTheDocument();
+
+    // The heading shows the ITEM label, not the coarse section label — "Buffs" section's panel is
+    // "Buff center" (a review caught the section-label regression; skills was the one section
+    // where the two coincide, so assert on one where they DIFFER).
+    fireEvent.click(screen.getByRole("button", { name: /^open buffs$/i }));
+    expect(document.getElementById("panel-heading-buffs")!.textContent).toBe("Buff center");
+    expect(document.getElementById("editor-panel")!.getAttribute("aria-labelledby")).toBe("panel-heading-buffs");
+  });
+
   it("inactive sections render a live chip-summary card; the active section renders none", async () => {
     const base = createDefaultCharacter({ name: "Summary Test" });
     render(<CharacterEditor characterId="sc1" initial={base} initialVersion={1} />);

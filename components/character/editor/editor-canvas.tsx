@@ -60,6 +60,9 @@ export function EditorCanvas({
   activeSection,
   activeSub,
   panelLabelId,
+  headingId,
+  headingLabel,
+  subTabs,
   onSelectSection,
   children,
 }: {
@@ -68,6 +71,16 @@ export function EditorCanvas({
   activeSection: string;
   activeSub: string;
   panelLabelId: string;
+  /** id stamped on the active card's header label — the tabpanel's aria-labelledby target for
+   *  single-item sections (multi-item sections point at the active subtab inside the card). */
+  headingId?: string;
+  /** The header's visible text. Single-item sections pass the ITEM label ("Buff center", "Inventory
+   *  & wealth") — the coarse section label here regressed both the copy and the tabpanel's
+   *  accessible name (review finding). Falls back to the section label. */
+  headingLabel?: string;
+  /** The section's sub-tab tablist, rendered INSIDE the active card's header — pinned to the page
+   *  top it sits many cards away from a low-in-the-stack section (owner-reported disorientation). */
+  subTabs?: ReactNode;
   onSelectSection: (sectionKey: string, subKey: string) => void;
   children: ReactNode;
 }) {
@@ -97,6 +110,9 @@ export function EditorCanvas({
               section={activeMeta ?? section}
               panelKey={panelKey}
               panelLabelId={panelLabelId}
+              headingId={headingId}
+              headingLabel={headingLabel}
+              subTabs={subTabs}
               shouldAnimate={shouldAnimate}
               animateEntrance={shouldAnimate && hasChanged}
               layoutDependency={activeSection}
@@ -127,6 +143,9 @@ function ActiveSectionCard({
   section,
   panelKey,
   panelLabelId,
+  headingId,
+  headingLabel,
+  subTabs,
   shouldAnimate,
   animateEntrance,
   layoutDependency,
@@ -136,6 +155,9 @@ function ActiveSectionCard({
   section: EditorCanvasSection;
   panelKey: string;
   panelLabelId: string;
+  headingId?: string;
+  headingLabel?: string;
+  subTabs?: ReactNode;
   shouldAnimate: boolean;
   animateEntrance: boolean;
   layoutDependency: string;
@@ -147,11 +169,20 @@ function ActiveSectionCard({
   return (
     <motion.div layout={shouldAnimate} layoutDependency={layoutDependency} transition={pfSpringSoft}>
       <Card>
-        {/* Inert header (NOT a button): same px-4 py-3 min-h-11 geometry as SummaryCard's button, so
-            a double-click's second hit lands here instead of a freshly-mounted form control. */}
-        <div className="flex min-h-11 items-center gap-3 border-b border-border/60 px-4 py-3">
-          <Icon className="size-4 shrink-0 text-gold" />
-          <span className="font-medium text-foreground">{section.label}</span>
+        {/* Inert header (NOT a button): min-h-11 + py-3 sit on the SAME box as SummaryCard's button
+            so the geometry matches (padding nested OUTSIDE a min-h row inflated single-item headers
+            to ~68px on mobile — review finding). A double-click's second hit lands here (or at
+            worst on a sub-tab — idempotent for the first tab) instead of a form control. The
+            sub-tab tablist rides here too — next to the content it switches, not pinned at the page
+            top many cards away. (Tablist sits OUTSIDE the role="tabpanel" CardContent, per ARIA.) */}
+        <div className="border-b border-border/60 px-4">
+          <div className="flex min-h-11 items-center gap-3 py-3">
+            <Icon className="size-4 shrink-0 text-gold" />
+            <h2 id={headingId} className="m-0 text-sm font-medium text-foreground">
+              {headingLabel ?? section.label}
+            </h2>
+          </div>
+          {subTabs && <div className="pb-3">{subTabs}</div>}
         </div>
         <CardContent
           id="editor-panel"
