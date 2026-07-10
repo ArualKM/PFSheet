@@ -44,5 +44,6 @@ export * from "./familiar-archetypes";
 export * from "./meta";
 export * from "./default-formulas";
 export * from "./character";
+export * from "./wizard";
 export * from "./factory";
 export * from "./validate";

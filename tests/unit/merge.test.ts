@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter, parseCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
+import {
+  createDefaultCharacter,
+  parseCharacter,
+  readWizardMeta,
+  writeWizardMeta,
+  type PathForgeCharacterV1,
+} from "@pathforge/schema";
 import { threeWayMerge, applyConflictChoices } from "@/lib/character/merge";
 
 /** A base sheet + two independently-edited clones (the desktop/mobile scenario). */
@@ -165,5 +171,45 @@ describe("threeWayMerge", () => {
     expect(reparsed.identity.race).toBe("Aasimar");
     expect(reparsed.abilities.primary.str.score).toBe(16);
     expect(reparsed.feats.list.map((f) => f.name).sort()).toEqual(["Dodge", "Power Attack"]);
+  });
+
+  // S6 Pillar 3 §3a: metadata.custom.wizard is a plain leaf value inside the free-form
+  // `metadata.custom` bag — the merge needs no special-casing, but that's worth locking since the
+  // whole point of putting it there (vs. a typed top-level field) was "the existing merge already
+  // treats it fine." Also locks the "never forced active" invariant from the doc's risk list: an
+  // imported/legacy character has no wizard key at all, and a clean merge must not fabricate one.
+  describe("metadata.custom.wizard", () => {
+    it("round-trips as a leaf: a disjoint step advance on one side merges cleanly", () => {
+      const [base, mine, theirs] = forked();
+      for (const c of [base, mine, theirs]) {
+        writeWizardMeta(c, { active: true, step: "welcome", startedAt: "2026-07-09T00:00:00.000Z" });
+      }
+      writeWizardMeta(theirs, { step: "race" }); // only theirs advanced past base
+
+      const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+      expect(conflicts).toHaveLength(0);
+      expect(readWizardMeta(merged)).toMatchObject({ active: true, step: "race" });
+    });
+
+    it("the same field changed differently on both sides is a real conflict (defaults to mine)", () => {
+      const [base, mine, theirs] = forked();
+      for (const c of [base, mine, theirs]) {
+        writeWizardMeta(c, { active: true, step: "welcome", startedAt: "2026-07-09T00:00:00.000Z" });
+      }
+      writeWizardMeta(mine, { step: "class" });
+      writeWizardMeta(theirs, { step: "race" });
+
+      const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+      expect(conflicts.some((c) => c.path === "metadata.custom.wizard.step")).toBe(true);
+      expect(readWizardMeta(merged)?.step).toBe("class");
+    });
+
+    it("an imported/legacy character with no wizard key merges cleanly and stays wizard-absent", () => {
+      const [base, mine, theirs] = forked();
+      mine.identity.name = "Renamed";
+      const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+      expect(conflicts).toHaveLength(0);
+      expect(readWizardMeta(merged)).toBeNull();
+    });
   });
 });

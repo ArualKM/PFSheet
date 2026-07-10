@@ -5,14 +5,9 @@ import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import {
-  Check,
-  CircleAlert,
   Search,
   X,
   Star,
-  Loader2,
-  Cloud,
-  CloudOff,
   Undo2,
   Plus,
   Trash2,
@@ -73,7 +68,7 @@ import {
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures, unapplyArchetype } from "@pathforge/rules-pf1e";
 import type { ComputedValue, CompendiumFeatureRow } from "@pathforge/rules-pf1e";
-import { useCharacterEditor, type SaveStatus } from "./use-character-editor";
+import { useCharacterEditor } from "./use-character-editor";
 import { ConflictResolver } from "./conflict-resolver";
 import { PortraitImage } from "../portrait-image";
 import { NumberField, TextField, TextAreaField, SelectField } from "./fields";
@@ -112,6 +107,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useShouldAnimate } from "@/components/motion/use-should-animate";
 import { pfDur, pfEase } from "@/components/motion/tokens";
 import { EditorCanvas } from "./editor-canvas";
+import { SaveStatusBadge } from "./save-status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -5357,27 +5353,3 @@ function FormulaBreakdown({ label, cv }: { label: string; cv: ComputedValue }) {
   );
 }
 
-const STATUS_META: Record<SaveStatus, { label: string; icon: typeof Check; className: string }> = {
-  saved: { label: "Saved", icon: Check, className: "text-success" },
-  unsaved: { label: "Unsaved", icon: Cloud, className: "text-muted-foreground" },
-  saving: { label: "Saving…", icon: Loader2, className: "text-rune" },
-  error: { label: "Save failed", icon: CircleAlert, className: "text-danger" },
-  conflict: { label: "Edit conflict", icon: CircleAlert, className: "text-gold" },
-  offline: { label: "Offline — will sync", icon: CloudOff, className: "text-muted-foreground" },
-};
-
-function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string | null }) {
-  const meta = STATUS_META[status];
-  const Icon = meta.icon;
-  return (
-    <span
-      className={cn("inline-flex items-center gap-1.5 text-xs font-medium", meta.className)}
-      title={error ?? undefined}
-      role="status"
-      aria-live="polite"
-    >
-      <Icon className={cn("size-3.5", status === "saving" && "animate-spin")} />
-      {meta.label}
-    </span>
-  );
-}

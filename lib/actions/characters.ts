@@ -3,7 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
-import { createDefaultCharacter, safeParseCharacter, type PathForgeCharacterV1 } from "@pathforge/schema";
+import {
+  createDefaultCharacter,
+  safeParseCharacter,
+  writeWizardMeta,
+  type PathForgeCharacterV1,
+} from "@pathforge/schema";
 import { computeCharacter, type ComputedCharacter } from "@pathforge/rules-pf1e";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -56,28 +61,37 @@ type Json = Database["public"]["Tables"]["characters"]["Insert"]["sheet_data"];
 
 export type CreateCharacterState = { error?: string };
 
-export async function createCharacterAction(
-  _prev: CreateCharacterState,
-  formData: FormData,
-): Promise<CreateCharacterState> {
-  const { supabase, user } = await authedClient();
-  const name = ((formData.get("name") as string | null) ?? "").trim() || "New Character";
-  const displayName = userDisplayName(user);
+type ActionUser = { id: string; email?: string; user_metadata?: Record<string, unknown> };
 
+/**
+ * Shared body of "create a fresh blank character row" — a `createDefaultCharacter()` sheet, an
+ * owner profile backstop, and the insert. Used by both `createCharacterAction` (the existing
+ * blank-sheet flow) and `createWizardCharacterAction` (S6 Pillar 3 §4.1) so the two paths can never
+ * drift; they differ only in whether `metadata.custom.wizard` is stamped before insert and which
+ * route they redirect into.
+ */
+async function createBlankCharacterRow(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: ActionUser,
+  options: { name: string; playerName: string; wizard?: boolean },
+): Promise<{ id?: string; error?: string }> {
   // Backstop: ensure the owner has a profile row (the FK target), in case the
   // signup trigger ever fails to create one.
   await supabase
     .from("profiles")
-    .upsert({ id: user.id, display_name: displayName }, { onConflict: "id", ignoreDuplicates: true });
+    .upsert({ id: user.id, display_name: options.playerName }, { onConflict: "id", ignoreDuplicates: true });
 
-  const sheet = createDefaultCharacter({ name, playerName: displayName });
+  const sheet = createDefaultCharacter({ name: options.name, playerName: options.playerName });
+  if (options.wizard) {
+    writeWizardMeta(sheet, { active: true, step: "welcome", startedAt: new Date().toISOString() });
+  }
   const computed = computeCharacter(sheet);
 
   const { data, error } = await supabase
     .from("characters")
     .insert({
       owner_id: user.id,
-      name,
+      name: options.name,
       system_key: "pf1e",
       schema_version: sheet.schemaVersion,
       sheet_data: sheet as unknown as Json,
@@ -90,8 +104,45 @@ export async function createCharacterAction(
   if (error || !data) {
     return { error: error?.message ?? "Could not create character." };
   }
+  return { id: data.id };
+}
 
-  redirect(`/characters/${data.id}`);
+export async function createCharacterAction(
+  _prev: CreateCharacterState,
+  formData: FormData,
+): Promise<CreateCharacterState> {
+  const { supabase, user } = await authedClient();
+  const name = ((formData.get("name") as string | null) ?? "").trim() || "New Character";
+  const displayName = userDisplayName(user);
+
+  const result = await createBlankCharacterRow(supabase, user, { name, playerName: displayName });
+  if (result.error || !result.id) {
+    return { error: result.error ?? "Could not create character." };
+  }
+
+  redirect(`/characters/${result.id}`);
+}
+
+/**
+ * S6 Pillar 3 (`docs/S6_UX_OVERHAUL/03_CHARACTER_WIZARD.md` §4.1) — same name-collection + blank-sheet
+ * creation as `createCharacterAction`, but the fresh sheet is stamped with an active
+ * `metadata.custom.wizard` flag before insert, and the redirect lands in the guided wizard instead
+ * of the read view.
+ */
+export async function createWizardCharacterAction(
+  _prev: CreateCharacterState,
+  formData: FormData,
+): Promise<CreateCharacterState> {
+  const { supabase, user } = await authedClient();
+  const name = ((formData.get("name") as string | null) ?? "").trim() || "New Character";
+  const displayName = userDisplayName(user);
+
+  const result = await createBlankCharacterRow(supabase, user, { name, playerName: displayName, wizard: true });
+  if (result.error || !result.id) {
+    return { error: result.error ?? "Could not create character." };
+  }
+
+  redirect(`/characters/${result.id}/wizard`);
 }
 
 const COMPANION_TYPES = ["animal_companion", "familiar", "eidolon", "cohort", "mount", "other"] as const;
