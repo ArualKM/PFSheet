@@ -65,6 +65,7 @@ import {
   FAMILIAR_ARCHETYPES,
   type PrivacyLevel,
   DEFAULT_FORMULAS,
+  readWizardMeta,
 } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuySpent, STANDARD_CONDITIONS, grantClassFeatures, unapplyArchetype } from "@pathforge/rules-pf1e";
 import type { ComputedValue, CompendiumFeatureRow } from "@pathforge/rules-pf1e";
@@ -383,6 +384,7 @@ export function CharacterEditor({
   if (editLayout === "classic") {
     return (
       <div key="classic" id="edit-layout-classic" tabIndex={-1} className="pf-view-fade outline-none">
+        <WizardResumeBanner ed={ed} characterId={characterId} />
         <ClassicEditorLayout
           ed={ed}
           characterId={characterId}
@@ -400,6 +402,7 @@ export function CharacterEditor({
   if (editLayout === "companion" && isCompanionChar) {
     return (
       <div key="companion" id="edit-layout-companion" tabIndex={-1} className="pf-view-fade outline-none">
+        <WizardResumeBanner ed={ed} characterId={characterId} />
         <CompanionSimpleLayout
           ed={ed}
           characterId={characterId}
@@ -414,6 +417,7 @@ export function CharacterEditor({
   }
   return (
     <div key="modern" id="edit-layout-modern" tabIndex={-1} className="pf-view-fade outline-none">
+      <WizardResumeBanner ed={ed} characterId={characterId} />
       <ModernEditorLayout
         ed={ed}
         characterId={characterId}
@@ -423,6 +427,38 @@ export function CharacterEditor({
         onSwitchLayout={setEditLayout}
         layouts={editLayouts}
       />
+    </div>
+  );
+}
+
+/**
+ * S6 Pillar 3 §4.4 (Phase 4) — the "curious new player who wandered into /edit directly" affordance.
+ * A player who abandoned the wizard mid-flow (closed the tab, clicked a stale link, navigated here
+ * from the characters list) isn't forced back in — but they get a small, dismissible reminder that
+ * guided setup is unfinished, rather than the flag being silently ignored forever. Rendered once per
+ * layout branch (Classic/Companion/Modern each `return` their own tree — see the invariant comment
+ * above) so it always shows regardless of which layout the player lands on.
+ */
+function WizardResumeBanner({ ed, characterId }: { ed: EditorApi; characterId: string }) {
+  const [dismissed, setDismissed] = useState(false);
+  const wizard = readWizardMeta(ed.draft);
+  if (!wizard?.active || dismissed) return null;
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-gold/40 bg-gold/5 px-4 py-2.5">
+      <p className="min-w-0 flex-1 text-sm text-foreground">
+        <span className="font-semibold">Finish guided setup</span> — you left the wizard partway.{" "}
+        <Link href={`/characters/${characterId}/wizard`} className="text-gold underline-offset-2 hover:underline">
+          Resume the wizard
+        </Link>
+      </p>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss guided-setup reminder"
+        className="flex size-8 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-surface-raised hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 }

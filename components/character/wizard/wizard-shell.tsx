@@ -14,6 +14,12 @@ import type { CharacterEditorApi, SaveStatus } from "../editor/use-character-edi
 import { SaveStatusBadge } from "../editor/save-status-badge";
 import { ConflictResolver } from "../editor/conflict-resolver";
 import { WelcomeStep } from "./steps/welcome-step";
+import { RaceStep, canAdvanceRace } from "./steps/race-step";
+import { ClassStep, canAdvanceClass } from "./steps/class-step";
+import { AbilitiesStep, canAdvanceAbilities } from "./steps/abilities-step";
+import { SkillsStep } from "./steps/skills-step";
+import { GearStep } from "./steps/gear-step";
+import { DetailsStep } from "./steps/details-step";
 import { HandoffStep } from "./steps/handoff-step";
 
 /**
@@ -55,30 +61,37 @@ type WizardStepDef = {
   help: string;
   /** Whether "Skip this step" is offered — not the welcome/done bookends. */
   skippable: boolean;
+  /** Optional Next gate — disables Next (never Skip) until the step's pick is coherent, using the
+   *  same engine predicates the editors use (doc §7: never invent new ones). */
+  canAdvance?: (ed: CharacterEditorApi) => boolean;
   render: (props: WizardStepProps) => ReactNode;
 };
 
-function PlaceholderStepPanel({ label, help }: { label: string; help: string }) {
-  return (
-    <div className="space-y-3 rounded-xl border border-dashed border-border/70 bg-surface-sunken/40 p-6 text-center">
-      <h2 className="text-lg font-semibold text-foreground">{label}</h2>
-      <p className="text-sm font-medium text-foreground">This step is coming right up — skip ahead for now.</p>
-      <p className="mx-auto max-w-prose text-sm text-muted-foreground">{help}</p>
-    </div>
-  );
-}
+const STEP_RENDER: Record<WizardStepKey, (props: WizardStepProps) => ReactNode> = {
+  welcome: ({ ed, characterId }) => <WelcomeStep ed={ed} characterId={characterId} />,
+  race: ({ ed, characterId }) => <RaceStep ed={ed} characterId={characterId} />,
+  class: ({ ed, characterId }) => <ClassStep ed={ed} characterId={characterId} />,
+  abilities: ({ ed, characterId }) => <AbilitiesStep ed={ed} characterId={characterId} />,
+  skills: ({ ed, characterId }) => <SkillsStep ed={ed} characterId={characterId} />,
+  gear: ({ ed, characterId }) => <GearStep ed={ed} characterId={characterId} />,
+  details: ({ ed, characterId }) => <DetailsStep ed={ed} characterId={characterId} />,
+  done: ({ ed, characterId }) => <HandoffStep ed={ed} characterId={characterId} />,
+};
+
+// Next-gates per doc §4.3 — only where the sheet would otherwise be nonsensical; Skip always works.
+const STEP_GATES: Partial<Record<WizardStepKey, (ed: CharacterEditorApi) => boolean>> = {
+  race: canAdvanceRace,
+  class: canAdvanceClass,
+  abilities: canAdvanceAbilities,
+};
 
 const STEPS: WizardStepDef[] = WIZARD_STEP_KEYS.map((key) => ({
   key,
   label: STEP_LABELS[key],
   help: STEP_HELP[key],
   skippable: key !== "welcome" && key !== "done",
-  render:
-    key === "welcome"
-      ? ({ ed, characterId }) => <WelcomeStep ed={ed} characterId={characterId} />
-      : key === "done"
-        ? ({ ed, characterId }) => <HandoffStep ed={ed} characterId={characterId} />
-        : () => <PlaceholderStepPanel label={STEP_LABELS[key]} help={STEP_HELP[key]} />,
+  canAdvance: STEP_GATES[key],
+  render: STEP_RENDER[key],
 }));
 
 export function WizardShell({
@@ -159,6 +172,8 @@ export function WizardShell({
             isLast={isLast}
             skippable={current.skippable}
             locked={ed.status === "conflict"}
+            gateSatisfied={current.canAdvance ? current.canAdvance(ed) : true}
+            gateHint={current.canAdvance ? current.help : undefined}
             onBack={() => goTo(stepIndex - 1)}
             onSkip={() => goTo(stepIndex + 1)}
             onNext={() => goTo(stepIndex + 1)}
@@ -174,6 +189,8 @@ function WizardFooter({
   isLast,
   skippable,
   locked,
+  gateSatisfied,
+  gateHint,
   onBack,
   onSkip,
   onNext,
@@ -183,6 +200,9 @@ function WizardFooter({
   skippable: boolean;
   /** True while a sync conflict is open — navigation waits for the resolver, like the editor's pill. */
   locked: boolean;
+  /** The step's Next-gate result (true when the step has no gate). Skip is NEVER gated. */
+  gateSatisfied: boolean;
+  gateHint?: string;
   onBack: () => void;
   onSkip: () => void;
   onNext: () => void;
@@ -212,9 +232,14 @@ function WizardFooter({
             Skip this step
           </Button>
         )}
-        {/* No per-step gate exists yet in this slice (every wrapped step is a placeholder) — Next is
-            always enabled. A future step (e.g. Class) plugs a `canAdvance(ed)` predicate in here. */}
-        <Button type="button" onClick={onNext} disabled={locked} title={lockTitle} className="min-h-11">
+        {/* Gated steps disable Next (never Skip) until the pick is coherent — the title says why. */}
+        <Button
+          type="button"
+          onClick={onNext}
+          disabled={locked || !gateSatisfied}
+          title={lockTitle ?? (!gateSatisfied ? gateHint : undefined)}
+          className="min-h-11"
+        >
           Next <ChevronRight className="size-4" />
         </Button>
       </div>

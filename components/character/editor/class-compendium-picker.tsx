@@ -65,7 +65,18 @@ const firstNum = (s: string) => s.match(/[+-]?\d+/)?.[0] ?? s;
  * converts the latter, so the SAME parseProgression/accordion/applyCompendiumClass path applies them; the
  * adapter maps columns and synthesizes name-only feature grants from the "Special" column.
  */
-export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+export function ClassCompendiumPicker({
+  ed,
+  onClose,
+  baseOnly,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  /** S6 Pillar 3 (wizard §4.3) — new players shouldn't see Prestige (it needs prerequisites they
+   * don't have yet): hides the Base/Prestige Segmented and pins `mode` at "base". Additive/optional
+   * — default undefined preserves today's Base+Prestige behavior everywhere else. */
+  baseOnly?: boolean;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
   const [q, setQ] = useState("");
@@ -277,17 +288,19 @@ export function ClassCompendiumPicker({ ed, onClose }: { ed: CharacterEditorApi;
     <PickerShell icon={<GraduationCap />} title="Class compendium" onClose={onClose}>
       {!selected ? (
         <>
-          <div className="mb-2">
-            <Segmented
-              ariaLabel="Class type"
-              value={mode}
-              onChange={changeMode}
-              options={[
-                { value: "base", label: "Base & core" },
-                { value: "prestige", label: "Prestige" },
-              ]}
-            />
-          </div>
+          {!baseOnly && (
+            <div className="mb-2">
+              <Segmented
+                ariaLabel="Class type"
+                value={mode}
+                onChange={changeMode}
+                options={[
+                  { value: "base", label: "Base & core" },
+                  { value: "prestige", label: "Prestige" },
+                ]}
+              />
+            </div>
+          )}
           <PickerSearch
             autoFocus
             value={q}

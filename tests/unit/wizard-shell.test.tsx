@@ -136,7 +136,7 @@ describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(screen.getByRole("heading", { name: /^race$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^choose a race$/i })).toBeInTheDocument();
 
     await settle();
     expect(saveMock).toHaveBeenCalled();
@@ -150,11 +150,11 @@ describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(screen.getByRole("heading", { name: /^race$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^choose a race$/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
     expect(screen.getByRole("heading", { name: /let.?s build your character/i })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /^race$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^choose a race$/i })).not.toBeInTheDocument();
   });
 
   it("Skip this step advances without a different persisted shape than Next (no gate exists yet)", async () => {
@@ -167,7 +167,7 @@ describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)
     expect(screen.queryByRole("button", { name: /^skip this step$/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^skip this step$/i }));
-    expect(screen.getByRole("heading", { name: /^class$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^choose a class$/i })).toBeInTheDocument();
 
     await settle();
     expect(lastSavedWizardMeta()).toMatchObject({ step: "class" });
