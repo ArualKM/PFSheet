@@ -43,10 +43,18 @@ export function RacePicker({
   ed,
   onClose,
   initialQuery,
+  autoFocusSearch = true,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
   initialQuery?: string;
+  /** Wizard §4.3 adversarial-review fix (finding A): the quick-pick chips re-key `<RacePicker>` to
+   * force a clean remount with a new `initialQuery`, which — via this component's own hardcoded
+   * `autoFocus` on its search input — popped the mobile keyboard unprompted on every chip tap (and
+   * on every plain step-entry mount). Optional + defaults to `true` so every existing call site
+   * (the editor's Races section) keeps today's autofocus-on-open behavior unchanged; the wizard race
+   * step is the only caller that passes `false`. */
+  autoFocusSearch?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState(initialQuery ?? "");
@@ -213,7 +221,7 @@ export function RacePicker({
     <PickerShell icon={<User />} title="Races" onClose={onClose}>
       {!selected ? (
         <>
-          <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label="Search races" placeholder="Search races — e.g. Dwarves, Tiefling, Aasimar…" />
+          <PickerSearch autoFocus={autoFocusSearch} value={q} onChange={setQ} loading={loading} label="Search races" placeholder="Search races — e.g. Dwarves, Tiefling, Aasimar…" />
           <PickerError message={error} />
           <PickerList
             isEmpty={rows.length === 0 && tppRows.length === 0 && !loading}

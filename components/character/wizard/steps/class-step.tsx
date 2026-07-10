@@ -36,7 +36,8 @@ export function ClassStep({ ed }: { ed: CharacterEditorApi; characterId: string 
         {" — search for any of these below."}
       </p>
 
-      <ClassCompendiumPicker ed={ed} onClose={() => {}} baseOnly />
+      {/* autoFocusSearch off: entering a wizard step must not pop the mobile keyboard unprompted. */}
+      <ClassCompendiumPicker ed={ed} onClose={() => {}} baseOnly autoFocusSearch={false} />
     </div>
   );
 }

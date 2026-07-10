@@ -32,15 +32,22 @@ const RECOMMENDED_ARRAY = [15, 14, 13, 12, 10, 8];
 const SECONDARY_PRIORITY: AbilityKey[] = ["con", "dex", "wis", "int", "cha", "str"];
 
 /** Mirrors `character-editor.tsx`'s `makeDefaultPointBuy` (not imported from there — that file is
- * ~5,400 lines and must never be pulled into the wizard bundle): seed allocations from the
- * character's current scores (pre-racial, clamped 7-18), racial at 0. */
-function makeDefaultPointBuy(ed: CharacterEditorApi): PointBuyState {
+ * ~5,400 lines and must never be pulled into the wizard bundle), with the wizard-order fix: the
+ * Race step runs BEFORE this one and `applyRace` bakes racial mods directly into `score` (recording
+ * them on `identity.raceApplied.abilityMods`), so the seed must split score into
+ * pre-racial allocation + `racial[key]` — seeding racial at 0 made every later recompose
+ * (`composeAbilityScore(base, racial, 0)`) silently ERASE the racial mods (a confirmed review
+ * finding: a Dwarf's +2 Con vanished on the first field edit). Draft-shaped param so it can run
+ * inside `ed.update`'s mutator. */
+function makeDefaultPointBuy(draft: CharacterEditorApi["draft"]): PointBuyState {
   const allocations: Record<string, number> = {};
   const racial: Record<string, number> = {};
+  const raceMods = draft.identity.raceApplied?.abilityMods ?? {};
   for (const key of ABILITY_KEYS) {
-    const cur = ed.draft.abilities.primary[key]?.score ?? 10;
-    allocations[key] = Math.min(18, Math.max(7, cur));
-    racial[key] = 0;
+    const cur = draft.abilities.primary[key]?.score ?? 10;
+    const mod = raceMods[key] ?? 0;
+    racial[key] = mod;
+    allocations[key] = Math.min(18, Math.max(7, cur - mod));
   }
   return { enabled: true, done: false, budget: 15, system: "standard", minScore: 7, maxScore: 18, allocations, racial };
 }
@@ -82,15 +89,16 @@ function allocationsOf(pb: PointBuyState | undefined): Record<string, number> {
  * simpler for a first-time, linear flow.
  */
 export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
-  // Guarded step-entry effect (§4.3: "on step entry ... if not already set"). The wizard shell
-  // remounts each step's panel on navigation, so this runs once per visit to this step — but it
-  // NEVER resets an already-enabled block, so a Back-then-forward revisit keeps whatever the player
-  // already allocated.
+  // Guarded step-entry effect (§4.3: "on step entry ... if not already set"): seed point-buy ONLY
+  // when the character has never had a point-buy block at all. A block that EXISTS but is disabled
+  // means the player deliberately switched to manual scores (possibly hand-typing rolled/homebrew
+  // values in the full editor) — force-re-enabling it here would surface STALE allocations and the
+  // next edit would silently overwrite their real scores (a confirmed review finding). Manual mode
+  // renders below with an explicit opt-in instead.
   useEffect(() => {
-    if (ed.draft.abilities.pointBuy?.enabled) return;
+    if (ed.draft.abilities.pointBuy) return;
     ed.update((c) => {
-      if (c.abilities.pointBuy) c.abilities.pointBuy.enabled = true;
-      else c.abilities.pointBuy = makeDefaultPointBuy(ed);
+      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(c);
     });
     // Deliberately run once on mount only — see the guard above for why re-running is safe but
     // unnecessary (a fresh `ed` identity every render would otherwise refire this every keystroke).
@@ -98,11 +106,12 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
   }, []);
 
   const pb = ed.draft.abilities.pointBuy;
+  const pointBuyOn = pb?.enabled ?? false;
   const keyAbility = keyAbilityFor(ed);
 
   const setAllocation = (key: AbilityKey, raw: number) =>
     ed.update((c) => {
-      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(ed);
+      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(c);
       const p = c.abilities.pointBuy;
       const v = Math.min(p.maxScore, Math.max(p.minScore, raw));
       p.allocations[key] = v;
@@ -111,12 +120,26 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
       c.abilities.primary[key].pointBuyBase = v;
     });
 
+  // Manual mode: write the score directly — the same shape as the full editor's plain
+  // AbilitiesEditor field (score only; no allocations/pointBuyBase provenance).
+  const setScoreDirect = (key: AbilityKey, v: number) =>
+    ed.update((c) => {
+      c.abilities.primary[key].score = v;
+    });
+
+  // Explicit opt-in back INTO point buy from manual mode: reseed the whole block from the CURRENT
+  // scores (+ raceApplied mods), discarding any stale pre-manual allocations.
+  const enablePointBuy = () =>
+    ed.update((c) => {
+      c.abilities.pointBuy = makeDefaultPointBuy(c);
+    });
+
   // "sets the six baseScores in ONE ed.update" — a single mutation writing all six allocations +
   // composed scores together, not six separate calls.
   const applyRecommended = () => {
     const assignment = recommendedAssignment(keyAbility);
     ed.update((c) => {
-      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(ed);
+      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(c);
       const p = c.abilities.pointBuy;
       for (const key of ABILITY_KEYS) {
         const base = assignment[key]!;
@@ -145,7 +168,7 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
         </p>
       </div>
 
-      {pb && (
+      {pointBuyOn && pb ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-sunken/60 px-3 py-2 text-sm" aria-live="polite">
           <span className="text-muted-foreground">
             Spent <span className="tnum font-semibold text-foreground">{spent}</span> / {pb.budget}
@@ -155,28 +178,45 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
             Use a recommended array
           </Button>
         </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-sunken/60 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">
+            Point Buy is off for this character — scores are set directly (rolled or homebrew values
+            stay exactly as typed).
+          </span>
+          <Button type="button" size="sm" variant="secondary" className="ml-auto min-h-9" onClick={enablePointBuy}>
+            Use Point Buy instead
+          </Button>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         {ABILITY_KEYS.map((key) => (
           <div key={key} className="rounded-lg border border-border p-3">
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-foreground">{ABILITY_NAMES[key]}</span>
-              {key === keyAbility && <Badge variant="gold">Key</Badge>}
-            </div>
+            {key === keyAbility && (
+              <div className="mb-1 flex justify-end">
+                <Badge variant="gold">Key</Badge>
+              </div>
+            )}
+            {/* The ability NAME is the field's label — six inputs all labeled "Score" gave every
+                field the same accessible name (a confirmed review finding). */}
             <NumberField
-              label="Score"
-              value={pb?.allocations[key] ?? ed.draft.abilities.primary[key]?.score ?? 10}
-              min={pb?.minScore ?? 7}
-              max={pb?.maxScore ?? 18}
-              onChange={(v) => setAllocation(key, v)}
+              label={ABILITY_NAMES[key]}
+              value={
+                pointBuyOn
+                  ? (pb?.allocations[key] ?? 10)
+                  : (ed.draft.abilities.primary[key]?.score ?? 10)
+              }
+              min={pointBuyOn ? (pb?.minScore ?? 7) : 0}
+              max={pointBuyOn ? (pb?.maxScore ?? 18) : undefined}
+              onChange={(v) => (pointBuyOn ? setAllocation(key, v) : setScoreDirect(key, v))}
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">{ABILITY_HELP[key]}</p>
           </div>
         ))}
       </div>
 
-      {over && (
+      {pointBuyOn && over && (
         <p className="text-xs text-danger">
           {!allValid ? "Some scores are outside the point-buy range." : "Over budget — lower a score before moving on."}
         </p>

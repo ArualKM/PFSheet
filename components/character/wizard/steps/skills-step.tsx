@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { NumberField } from "../../editor/fields";
+import { CollapsibleGroup } from "../../collapsible-group";
 import type { CharacterEditorApi } from "../../editor/use-character-editor";
 
 /**
@@ -11,10 +13,20 @@ import type { CharacterEditorApi } from "../../editor/use-character-editor";
  * pillar's other steps). Option (a) from the task: a compact wizard-native ranks editor built from
  * the same schema + the same `ed.update` write shape `SkillsEditor` uses
  * (`c.skills.list[i].ranks = n`), just without its class-skill/ability-override/misc-bonus/add-skill
- * chrome. Class skills are sorted first since they're what a new player should prioritize (a class
- * skill gets +3 once trained). There's no engine-exposed overall skill-point budget to show (only
- * the optional Background Skills variant has one) — ranks-spent + the level-based per-skill cap
- * (§4.3 mirrors `SkillsEditor`'s own "max {totalLevel}/skill" copy) is the honest substitute.
+ * chrome. There's no engine-exposed overall skill-point budget to show (only the optional
+ * Background Skills variant has one) — ranks-spent + the level-based per-skill cap (§4.3 mirrors
+ * `SkillsEditor`'s own "max {totalLevel}/skill" copy) is the honest substitute.
+ *
+ * Adversarial-review fix (finding C): the 30+ skill rows used to live in one nested
+ * `overflow-y-auto` box — this is a wizard step (the page itself scrolls), not a chrome-heavy
+ * editor panel. Reworked onto the codebase's own long-list primitive, `<CollapsibleGroup>`
+ * (`components/character/collapsible-group.tsx`): a "Class skills" group (open by default — the
+ * ones a new player should prioritize, a class skill gets +3 once trained) and an "Other skills"
+ * group (collapsed by default, count badge). The Race/Class steps come BEFORE this one but are both
+ * skippable, so a real player can land here with zero class skills marked — in that case there's
+ * nothing to prioritize, so the (now sole) "Other skills" group defaults OPEN instead of hiding the
+ * entire step behind a collapsed header; the "Class skills" group itself is omitted rather than
+ * rendered empty.
  */
 export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
   const totalLevel = ed.draft.identity.totalLevel || 1;
@@ -27,10 +39,33 @@ export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string
       if (t) t.ranks = n;
     });
 
-  // Sort class skills first (a copy, keeping each row's ORIGINAL index for ed.update).
-  const rows = skills
-    .map((s, i) => ({ s, i }))
-    .sort((a, b) => Number(!!b.s.classSkill) - Number(!!a.s.classSkill) || a.s.label.localeCompare(b.s.label));
+  // Split by classSkill (each row keeps its ORIGINAL index for ed.update), sorted alphabetically
+  // within each group.
+  const indexed = skills.map((s, i) => ({ s, i }));
+  const byLabel = (a: (typeof indexed)[number], b: (typeof indexed)[number]) => a.s.label.localeCompare(b.s.label);
+  const classSkills = indexed.filter(({ s }) => !!s.classSkill).sort(byLabel);
+  const otherSkills = indexed.filter(({ s }) => !s.classSkill).sort(byLabel);
+
+  const renderRow = ({ s, i }: (typeof indexed)[number]): ReactNode => {
+    const total = ed.computed.skills[s.key]?.value ?? 0;
+    const label = s.specialty ? `${s.label} (${s.specialty})` : s.label;
+    return (
+      <div key={s.id} className="flex items-center gap-3 border-b border-border/40 py-2 last:border-b-0">
+        <NumberField
+          label={label}
+          value={s.ranks}
+          min={0}
+          max={totalLevel}
+          onChange={(n) => setRanks(i, n)}
+          hint={`${s.ability.toUpperCase()}${s.classSkill ? " · class skill" : ""}`}
+          className="min-w-0 flex-1"
+        />
+        <span className="tnum w-10 shrink-0 pt-5 text-right text-sm font-semibold text-gold">
+          {total >= 0 ? `+${total}` : total}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-6">
@@ -47,30 +82,19 @@ export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string
         {totalLevel} rank{totalLevel === 1 ? "" : "s"} per skill at level {totalLevel || 1}
       </p>
 
-      <div className="max-h-[28rem] space-y-1 overflow-y-auto rounded-lg border border-border/70 p-2">
-        {rows.map(({ s, i }) => {
-          const total = ed.computed.skills[s.key]?.value ?? 0;
-          const label = s.specialty ? `${s.label} (${s.specialty})` : s.label;
-          return (
-            <div
-              key={s.id}
-              className="flex items-center gap-3 border-b border-border/40 py-2 last:border-b-0"
-            >
-              <NumberField
-                label={label}
-                value={s.ranks}
-                min={0}
-                max={totalLevel}
-                onChange={(n) => setRanks(i, n)}
-                hint={`${s.ability.toUpperCase()}${s.classSkill ? " · class skill" : ""}`}
-                className="min-w-0 flex-1"
-              />
-              <span className="tnum w-10 shrink-0 pt-5 text-right text-sm font-semibold text-gold">
-                {total >= 0 ? `+${total}` : total}
-              </span>
-            </div>
-          );
-        })}
+      <div className="space-y-2">
+        {classSkills.length > 0 && (
+          <CollapsibleGroup title="Class skills" count={classSkills.length} defaultOpen>
+            <div className="space-y-1">{classSkills.map(renderRow)}</div>
+          </CollapsibleGroup>
+        )}
+        <CollapsibleGroup
+          title="Other skills"
+          count={otherSkills.length}
+          defaultOpen={classSkills.length === 0}
+        >
+          <div className="space-y-1">{otherSkills.map(renderRow)}</div>
+        </CollapsibleGroup>
       </div>
     </div>
   );

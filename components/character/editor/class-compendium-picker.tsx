@@ -69,6 +69,7 @@ export function ClassCompendiumPicker({
   ed,
   onClose,
   baseOnly,
+  autoFocusSearch = true,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
@@ -76,6 +77,10 @@ export function ClassCompendiumPicker({
    * don't have yet): hides the Base/Prestige Segmented and pins `mode` at "base". Additive/optional
    * — default undefined preserves today's Base+Prestige behavior everywhere else. */
   baseOnly?: boolean;
+  /** Wizard §4.3 adversarial-review fix (finding A) — same optional autofocus escape hatch as
+   * `RacePicker.autoFocusSearch`. Defaults to `true` so every existing call site (the editor's
+   * Classes section) keeps today's autofocus-on-open behavior unchanged. */
+  autoFocusSearch?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
@@ -302,7 +307,7 @@ export function ClassCompendiumPicker({
             </div>
           )}
           <PickerSearch
-            autoFocus
+            autoFocus={autoFocusSearch}
             value={q}
             onChange={setQ}
             loading={loading}

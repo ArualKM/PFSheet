@@ -85,6 +85,15 @@ const STEP_GATES: Partial<Record<WizardStepKey, (ed: CharacterEditorApi) => bool
   abilities: canAdvanceAbilities,
 };
 
+// ACTIONABLE copy for a failed gate — rendered as VISIBLE text next to the disabled Next button
+// (a `title` tooltip never reaches anyone: `disabled:pointer-events-none` suppresses hover, and
+// touch/screen-reader users have no hover at all — a confirmed review finding).
+const STEP_GATE_HINTS: Partial<Record<WizardStepKey, string>> = {
+  race: "Apply a race to continue — or Skip if you'd rather decide later.",
+  class: "Add a class to continue — search above, pick one, then Apply. Or Skip for now.",
+  abilities: "You're over the point-buy budget — lower a score to continue, or Skip.",
+};
+
 const STEPS: WizardStepDef[] = WIZARD_STEP_KEYS.map((key) => ({
   key,
   label: STEP_LABELS[key],
@@ -173,7 +182,7 @@ export function WizardShell({
             skippable={current.skippable}
             locked={ed.status === "conflict"}
             gateSatisfied={current.canAdvance ? current.canAdvance(ed) : true}
-            gateHint={current.canAdvance ? current.help : undefined}
+            gateHint={STEP_GATE_HINTS[current.key]}
             onBack={() => goTo(stepIndex - 1)}
             onSkip={() => goTo(stepIndex + 1)}
             onNext={() => goTo(stepIndex + 1)}
@@ -222,26 +231,35 @@ function WizardFooter({
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-      <Button type="button" variant="secondary" onClick={onBack} disabled={isFirst || locked} title={lockTitle} className="min-h-11">
-        <ChevronLeft className="size-4" /> Back
-      </Button>
-      <div className="flex items-center gap-2">
-        {skippable && (
-          <Button type="button" variant="ghost" onClick={onSkip} disabled={locked} title={lockTitle} className="min-h-11">
-            Skip this step
-          </Button>
-        )}
-        {/* Gated steps disable Next (never Skip) until the pick is coherent — the title says why. */}
-        <Button
-          type="button"
-          onClick={onNext}
-          disabled={locked || !gateSatisfied}
-          title={lockTitle ?? (!gateSatisfied ? gateHint : undefined)}
-          className="min-h-11"
-        >
-          Next <ChevronRight className="size-4" />
+    <div className="space-y-2 border-t border-border pt-4">
+      {/* VISIBLE gate explanation — a title tooltip is unreachable on a disabled button (CSS
+          pointer-events:none) and doesn't exist for touch/SR users at all. aria-live so the hint is
+          announced when it appears; the Next button points at it via aria-describedby. */}
+      {!locked && !gateSatisfied && gateHint && (
+        <p id="wizard-gate-hint" aria-live="polite" className="text-xs font-medium text-warning">
+          {gateHint}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button type="button" variant="secondary" onClick={onBack} disabled={isFirst || locked} title={lockTitle} className="min-h-11">
+          <ChevronLeft className="size-4" /> Back
         </Button>
+        <div className="flex items-center gap-2">
+          {skippable && (
+            <Button type="button" variant="ghost" onClick={onSkip} disabled={locked} title={lockTitle} className="min-h-11">
+              Skip this step
+            </Button>
+          )}
+          <Button
+            type="button"
+            onClick={onNext}
+            disabled={locked || !gateSatisfied}
+            aria-describedby={!locked && !gateSatisfied && gateHint ? "wizard-gate-hint" : undefined}
+            className="min-h-11"
+          >
+            Next <ChevronRight className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -292,6 +292,65 @@ describe("wizard steps — race / class / abilities (S6 Pillar 3, slice W2)", ()
       expect(primary.cha.score).toBe(8);
     });
 
+    it("preserves racial ability mods through the recommended array (Dwarf +2 Con survives)", async () => {
+      let latestEd: CharacterEditorApi | undefined;
+      const c = fixture();
+      // As applyRace leaves the sheet: mods baked directly into score + recorded on raceApplied.
+      c.identity.raceApplied = { name: "Dwarf", abilityMods: { con: 2, wis: 2, cha: -2 } };
+      c.abilities.primary.con.score = 12;
+      c.abilities.primary.wis.score = 12;
+      c.abilities.primary.cha.score = 8;
+      render(
+        <Host initial={c} onEd={(ed) => (latestEd = ed)}>
+          {(ed) => <AbilitiesStep ed={ed} characterId="c1" />}
+        </Host>,
+      );
+      await settle();
+
+      fireEvent.click(screen.getByRole("button", { name: /use a recommended array/i }));
+      await settle();
+
+      // No class → STR claims 15; the racial mods ride ON TOP of the assigned bases
+      // (con 14+2=16, wis 12+2=14, cha 8−2=6) instead of being silently erased.
+      const primary = latestEd!.draft.abilities.primary;
+      expect(primary.str.score).toBe(15);
+      expect(primary.con.score).toBe(16);
+      expect(primary.wis.score).toBe(14);
+      expect(primary.cha.score).toBe(6);
+    });
+
+    it("never force-re-enables a deliberately disabled point-buy block (manual scores stay put)", async () => {
+      let latestEd: CharacterEditorApi | undefined;
+      const c = fixture();
+      // The full editor's "Switch to manual": block present, disabled, with stale allocations;
+      // the player then hand-typed a rolled 20.
+      c.abilities.pointBuy = {
+        enabled: false,
+        done: false,
+        budget: 15,
+        system: "standard",
+        minScore: 7,
+        maxScore: 18,
+        allocations: { str: 14, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        racial: {},
+      };
+      c.abilities.primary.str.score = 20;
+      render(
+        <Host initial={c} onEd={(ed) => (latestEd = ed)}>
+          {(ed) => <AbilitiesStep ed={ed} characterId="c1" />}
+        </Host>,
+      );
+      await settle();
+
+      // The step-entry effect must NOT flip the block back on...
+      expect(latestEd!.draft.abilities.pointBuy?.enabled).toBe(false);
+      // ...the field shows (and edits) the REAL score, not the stale allocation...
+      expect(screen.getByLabelText("Strength")).toHaveValue(20);
+      // ...and the manual-mode strip offers the explicit opt-in instead.
+      expect(screen.getByRole("button", { name: /use point buy instead/i })).toBeInTheDocument();
+      expect(canAdvanceAbilities(latestEd!)).toBe(true);
+    });
+
     it("biases the recommended array to the chosen class's casting ability", async () => {
       let latestEd: CharacterEditorApi | undefined;
       const c = fixture();
@@ -320,7 +379,9 @@ describe("wizard steps — race / class / abilities (S6 Pillar 3, slice W2)", ()
       await settle();
       expect(canAdvanceAbilities(latestEd!)).toBe(true);
 
-      const [strInput] = screen.getAllByLabelText("Score");
+      // Each field is labeled by its ability NAME (a review fix — six identical "Score" labels
+      // gave every input the same accessible name).
+      const strInput = screen.getByLabelText("Strength");
       fireEvent.change(strInput!, { target: { value: "30" } });
       await settle();
 
