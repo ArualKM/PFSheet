@@ -111,6 +111,7 @@ import { MilestoneLevelingEditor } from "./milestone-leveling-editor";
 import { AnimatePresence, motion } from "motion/react";
 import { useShouldAnimate } from "@/components/motion/use-should-animate";
 import { pfDur, pfEase } from "@/components/motion/tokens";
+import { EditorCanvas } from "./editor-canvas";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -728,24 +729,11 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
           </div>
         )}
 
-        <Card>
-          <CardContent
-            id="editor-panel"
-            role="tabpanel"
-            tabIndex={0}
-            aria-labelledby={panelLabelId}
-            className="p-5"
-          >
-            {/* While a conflict is open, lock the fields so an edit can't race the resolution
-                (which is keyed to the snapshot shown in the banner). Resolve first, then edit. */}
-            <fieldset
-              disabled={ed.status === "conflict"}
-              className={cn("m-0 min-w-0 border-0 p-0", ed.status === "conflict" && "opacity-60")}
-            >
-              {sub.render()}
-            </fieldset>
-          </CardContent>
-        </Card>
+        {/* Stage 1 (S6 Pillar 2): the panel swap is now a Motion fade+rise entrance keyed on the
+            active section/sub — same markup/a11y/conflict-lock as before, moved into EditorCanvas. */}
+        <EditorCanvas ed={ed} panelKey={`${section.key}-${sub.key}`} panelLabelId={panelLabelId}>
+          {sub.render()}
+        </EditorCanvas>
       </div>
     </div>
   );
