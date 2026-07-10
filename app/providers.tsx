@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import { ThemeProvider } from "next-themes";
+import { PfMotionConfig } from "@/components/motion/pf-motion-config";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -12,7 +13,7 @@ export function Providers({ children }: { children: ReactNode }) {
       enableSystem={false}
       disableTransitionOnChange
     >
-      {children}
+      <PfMotionConfig>{children}</PfMotionConfig>
     </ThemeProvider>
   );
 }

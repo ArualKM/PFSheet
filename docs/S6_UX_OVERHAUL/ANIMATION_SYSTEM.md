@@ -199,6 +199,24 @@ relying solely on `MotionConfig` (e.g. `transition={shouldAnimate ? spring : { d
 **Always verify with the browser, don't assume the library's default is airtight** — the whole
 point of this bridge is that `data-motion="off"` must be a hard guarantee, not "usually true."
 
+> **VERIFIED (2026-07-09, motion-dom@12.42.2 source):** it is NOT airtight — the inverse of the
+> guess above. `reducedMotion="always"` force-instants only `positionalKeys`
+> (width/height/top/left/…) **plus transforms** (x/y/scale/rotate/…); **non-positional values —
+> notably `opacity` — keep their full transition.** So the §3.1/§3.2 example patterns (which mix
+> `opacity` with `x`/`height`) would still visibly fade under `data-motion="off"` if they relied
+> on `<PfMotionConfig>` alone. RULE: every Motion component that animates `opacity` (or any other
+> non-positional value) must ALSO branch on `useShouldAnimate()` per-component — render plain DOM
+> or force `transition={{ duration: 0 }}` when it returns false. `ClassicZone`'s `animated` branch
+> (character-editor.tsx) is the reference implementation.
+
+**AnimatePresence exit + frozen props (2026-07-09, learned in Pillar 1):** an exiting child is
+rendered from a **cached element with frozen props** — state changes (e.g. `disabled={!open}`)
+never reach it, so an exit-animated form region stays interactive for the whole exit duration
+(Tab lands inside the visually-collapsing content and can mutate fields). Until a pattern with
+owned focus management exists (Pillar 2), prefer **enter-only** animation for interactive
+content: omit `exit` so AnimatePresence unmounts synchronously, keeping `initial={false}` for
+first-mount suppression.
+
 ### Per-component fallback pattern
 
 For any component that can't rely solely on `<PfMotionConfig>` (e.g. it needs different variants

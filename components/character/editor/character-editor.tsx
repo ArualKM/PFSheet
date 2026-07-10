@@ -142,6 +142,9 @@ import { BackgroundOccupationEditor } from "./background-occupation-editor";
 import { DrawbackPicker } from "./drawback-picker";
 import { EntryPicker } from "./entry-picker";
 import { ClassOptionsPicker } from "./class-options-picker";
+import { AnimatePresence, motion } from "motion/react";
+import { useShouldAnimate } from "@/components/motion/use-should-animate";
+import { pfDur, pfEase } from "@/components/motion/tokens";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1373,6 +1376,7 @@ function CompanionSimpleLayout({ ed, characterId, sections, advanced, onToggleAd
       locked={locked}
       open={openZones[z.key] ?? z.defaultOpen}
       onToggle={() => setOpenZones((p) => ({ ...p, [z.key]: !(p[z.key] ?? z.defaultOpen) }))}
+      animated
     >
       {z.body}
     </ClassicZone>
@@ -1473,6 +1477,7 @@ function ClassicZone({
   locked,
   open,
   onToggle,
+  animated,
   children,
 }: {
   zoneKey: string;
@@ -1486,9 +1491,16 @@ function ClassicZone({
   locked: boolean;
   open: boolean;
   onToggle: () => void;
+  /** Opt-in Motion expand/collapse (docs/S6_UX_OVERHAUL/ANIMATION_SYSTEM.md §3.1). Default false =
+   *  byte-identical plain conditional render, unchanged from before Motion landed. Only
+   *  CompanionSimpleLayout passes this — ClassicEditorLayout's zones stay untouched (per
+   *  docs/S6_UX_OVERHAUL/02_MODERN_EDITOR.md). */
+  animated?: boolean;
   children: ReactNode;
 }) {
   const panelId = useId();
+  const shouldAnimate = useShouldAnimate();
+  const fieldsetClassName = cn("m-0 min-w-0 border-0 px-4 pb-6 pt-1 sm:px-5", locked && "opacity-60");
   return (
     <section
       id={`classic-zone-${zoneKey}`}
@@ -1516,14 +1528,35 @@ function ClassicZone({
           />
         </button>
       </h2>
-      {open && (
-        <fieldset
-          id={panelId}
-          disabled={locked}
-          className={cn("m-0 min-w-0 border-0 px-4 pb-6 pt-1 sm:px-5", locked && "opacity-60")}
-        >
-          {children}
-        </fieldset>
+      {animated && shouldAnimate ? (
+        // ENTER-only animation, deliberately: no `exit` prop, so AnimatePresence unmounts a closing
+        // body synchronously — identical to the plain branch. An exit animation would keep the
+        // fieldset mounted AND interactive for ~240ms with props FROZEN from its last open render
+        // (AnimatePresence renders exiting children from a cached element, so `disabled={!open}`
+        // can never reach it) — a Tab right after collapsing would land inside the shrinking zone
+        // and could still mutate its fields. A safe exit needs owned focus management (Pillar 2).
+        // AnimatePresence stays for `initial={false}` (zones open on first mount must not replay
+        // the entrance).
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="body"
+              initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+              animate={{ height: "auto", opacity: 1, transitionEnd: { overflow: "visible" } }}
+              transition={{ duration: pfDur, ease: pfEase }}
+            >
+              <fieldset id={panelId} disabled={locked} className={fieldsetClassName}>
+                {children}
+              </fieldset>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        open && (
+          <fieldset id={panelId} disabled={locked} className={fieldsetClassName}>
+            {children}
+          </fieldset>
+        )
       )}
     </section>
   );
