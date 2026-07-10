@@ -139,7 +139,7 @@ export function CharacterDashboard({
             )}
           </SectionCard>
 
-          <SectionCard title="Combat" icon={Swords}>
+          <SectionCard title="Combat" icon={Swords} accent>
             <div className="mb-3 grid grid-cols-3 gap-2">
               <MiniStat label="BAB" value={formatModifier(vm.fullAttack.bab)} subtle />
               <MiniStat label="CMB" value={formatModifier(vm.vitals.cmb)} subtle />
@@ -576,8 +576,15 @@ export function CharacterDashboard({
               </span>
             </SectionCard>
           )}
+          {/* Hover-lift ONLY when the master <Link> actually renders (owner/editor view — §15 keeps
+              master.characterId owner-only). For GM/public viewers the card has zero interactive
+              content, and a lifting card that goes nowhere is a lying affordance (review finding). */}
           {vm.companion && (
-            <SectionCard title="Companion" icon={Sparkles}>
+            <SectionCard
+              title="Companion"
+              icon={Sparkles}
+              className={vm.companion.master?.characterId ? "pf-hover-lift" : undefined}
+            >
               <div className="space-y-1.5 text-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold capitalize text-gold">

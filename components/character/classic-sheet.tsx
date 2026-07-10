@@ -514,6 +514,10 @@ function Zone({ title, icon: Icon, right, children }: { title: string; icon?: Ic
     <section className="border-t border-border p-4 first:border-t-0">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-lg text-foreground">
+          {/* Gold-dot section-title convention (mirrors `viewer.html` `.card-title .dot` /
+              `SectionCard`'s gold-icon heading) — same "this app has a visual signature" cue as
+              Modern, purely a heading decoration, no density/layout change. */}
+          <span className="size-1.5 shrink-0 rounded-full bg-gold shadow-[0_0_8px_var(--pf-gold)]" aria-hidden="true" />
           {Icon && <Icon className="size-4 text-gold" />}
           {title}
         </h2>

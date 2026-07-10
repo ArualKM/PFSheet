@@ -6,6 +6,7 @@ import { Heart, Shield, Swords, Sparkles, ScrollText } from "@/components/ui/gam
 import type { CharacterViewModel } from "@/lib/character/view-model";
 import { formatFamiliarEffect, titleCaseKey } from "@/lib/character/familiar-format";
 import { Card, CardContent } from "@/components/ui/card";
+import { SectionCard } from "./section-card";
 import { cn, formatModifier } from "@/lib/utils";
 
 /**
@@ -68,28 +69,28 @@ export function CompanionSheet({ vm, actions }: { vm: CharacterViewModel; action
 
           <SectionCard title="Vitals" icon={Heart}>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <StatTile
+              <CompanionStatTile
                 label="Hit Points"
                 accent="danger"
                 value={`${vm.vitals.hp.current}/${vm.vitals.hp.max}`}
                 sub={vm.vitals.hp.status !== "ok" ? vm.vitals.hp.status.toUpperCase() : undefined}
               />
-              <StatTile
+              <CompanionStatTile
                 label="Armor Class"
                 accent="rune"
                 value={vm.vitals.ac.total}
                 sub={`Touch ${vm.vitals.ac.touch} · FF ${vm.vitals.ac.flatFooted}`}
               />
-              <StatTile label="Initiative" value={formatModifier(vm.vitals.initiative)} />
-              <StatTile label="CMD" value={vm.vitals.cmd} />
+              <CompanionStatTile label="Initiative" value={formatModifier(vm.vitals.initiative)} />
+              <CompanionStatTile label="CMD" value={vm.vitals.cmd} />
             </div>
           </SectionCard>
 
           <SectionCard title="Saving Throws" icon={Shield}>
             <div className="grid grid-cols-3 gap-2">
-              <StatTile label="Fort" accent="gold" value={formatModifier(vm.vitals.saves.fortitude)} />
-              <StatTile label="Ref" accent="gold" value={formatModifier(vm.vitals.saves.reflex)} />
-              <StatTile label="Will" accent="gold" value={formatModifier(vm.vitals.saves.will)} />
+              <CompanionStatTile label="Fort" accent="gold" value={formatModifier(vm.vitals.saves.fortitude)} />
+              <CompanionStatTile label="Ref" accent="gold" value={formatModifier(vm.vitals.saves.reflex)} />
+              <CompanionStatTile label="Will" accent="gold" value={formatModifier(vm.vitals.saves.will)} />
             </div>
             {companion?.synced && (
               <p className="mt-2 text-xs text-muted-foreground">
@@ -298,7 +299,14 @@ function MasterLinkPanel({ vm }: { vm: CharacterViewModel }) {
   );
 }
 
-function StatTile({
+/**
+ * Companion-only CENTERED stat tile — deliberately NOT the shared `StatTile` from `stat-tile.tsx`
+ * (which requires an `icon` and left-aligns its label row for a bento grid). The companion sheet's
+ * Vitals/Saving-Throws tiles are icon-less and center-aligned (per `companion-sheet.html`), a
+ * genuinely different look, not a drifted copy — kept as its own component and renamed for clarity
+ * per S6 Pillar 4 slice V2 (`docs/S6_UX_OVERHAUL/04_VIEWERS_DESIGN_LANGUAGE.md` §3.5).
+ */
+function CompanionStatTile({
   label,
   value,
   sub,
@@ -317,39 +325,6 @@ function StatTile({
         <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
         <div className={cn("tnum text-xl font-semibold sm:text-2xl", accentClass)}>{value}</div>
         {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SectionCard({
-  title,
-  icon: Icon,
-  children,
-  className,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: ReactNode;
-  className?: string;
-}) {
-  // A <section> named by its heading is a region landmark — screen-reader users can jump between
-  // sheet sections, and the heading is programmatically associated with its content. The heading
-  // text stays muted-foreground on every card (accent color lives on the icon/border only — a gold
-  // heading on the gold-tinted grants card fails WCAG AA on the parchment theme).
-  const headingId = `companion-sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  return (
-    <Card className={className}>
-      <CardContent className="p-4 sm:p-5">
-        <section aria-labelledby={headingId}>
-          <h2
-            id={headingId}
-            className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            <Icon className="size-4 text-gold" /> {title}
-          </h2>
-          {children}
-        </section>
       </CardContent>
     </Card>
   );

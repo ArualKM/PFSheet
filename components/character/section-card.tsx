@@ -10,6 +10,7 @@ export function SectionCard({
   title,
   icon: Icon,
   accent,
+  className,
   children,
 }: {
   title: string;
@@ -21,13 +22,21 @@ export function SectionCard({
    * e.g. the read-view's Combat card. Restyling call sites to use it is a later slice.
    */
   accent?: boolean;
+  /**
+   * Additive passthrough onto the underlying `<Card>` (S6 Pillar 4 slice V2 — lets call sites
+   * layer their own tint/hover treatment, e.g. `companion-sheet.tsx`'s gold-tinted "Grants to
+   * Master" card or the dashboard's `pf-hover-lift` on clickable cards, without a bespoke
+   * SectionCard fork). Merged after `accent`'s border classes via `cn`, so a caller-supplied
+   * className can still win on conflicting utilities.
+   */
+  className?: string;
   children: ReactNode;
 }) {
   // A <section> named by its heading is a region landmark — screen-reader users can jump
   // between sheet sections, and the heading is programmatically associated with its content.
   const headingId = `sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <Card className={cn(accent && "border-l-2 border-l-gold")}>
+    <Card className={cn(accent && "border-l-2 border-l-gold", className)}>
       <CardContent className="p-5">
         <section aria-labelledby={headingId}>
           <h2

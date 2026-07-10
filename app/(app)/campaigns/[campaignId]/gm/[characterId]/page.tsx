@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, AlertTriangle, Lock, GitCompare } from "lucide-react";
+import { ArrowLeft, Lock, GitCompare } from "lucide-react";
 import { safeParseCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { requireUser } from "@/lib/auth/session";
@@ -17,9 +17,21 @@ import { DiffView } from "@/components/character/diff-view";
 import { AuditReport } from "@/components/campaign/audit-report";
 import { GmReviewPanel } from "@/components/campaign/gm-review-panel";
 import { CommentControls } from "@/components/campaign/comment-controls";
+import { SeverityPill, type SeverityTone } from "@/components/character/severity-pill";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+/** Maps `reviewStatusMeta`'s Badge-oriented variant onto the pill vocabulary's tone set — same
+ * data, same computation, purely a different renderer (S6 Pillar 4 §3.4). "default" (unreviewed)
+ * has no strong-signal pill tone, so it falls back to the neutral "info" tone. */
+const STATUS_PILL_TONE: Record<string, SeverityTone> = {
+  success: "success",
+  warning: "warning",
+  danger: "danger",
+  rune: "info",
+  default: "info",
+};
 
 export const metadata: Metadata = { title: "Character review" };
 
@@ -166,20 +178,20 @@ export default async function GmCharacterReviewPage({
             {ownerName}&rsquo;s character · <span className="inline-flex items-center gap-1"><Lock className="size-3" /> read-only review</span>
           </p>
         </div>
-        <Badge variant={statusMeta.variant} title={statusMeta.hint}>
-          {statusMeta.label}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <SeverityPill
+            tone={STATUS_PILL_TONE[statusMeta.variant] ?? "info"}
+            label={statusMeta.label}
+            title={statusMeta.hint}
+          />
+          {changedSinceApproval && (
+            <SeverityPill
+              tone="warning"
+              label={`Changed since approval${approvedAt ? ` (approved ${formatDate(approvedAt)})` : ""} — re-review recommended`}
+            />
+          )}
+        </div>
       </div>
-
-      {changedSinceApproval && (
-        <Card className="mb-4 border-warning/40 bg-warning/5">
-          <CardContent className="flex items-center gap-2 p-4 text-sm text-foreground">
-            <AlertTriangle className="size-4 shrink-0 text-warning" />
-            This sheet changed after it was approved{approvedAt ? ` on ${formatDate(approvedAt)}` : ""}.
-            Re-review is recommended.
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within, cleanup } from "@testing-library/react";
 import { createDefaultCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
@@ -74,5 +74,64 @@ describe("CharacterDashboard", () => {
     // Buffs are hidden from anonymous viewers; the privacy note appears instead.
     expect(screen.queryByText("Haste")).not.toBeInTheDocument();
     expect(screen.getByText(/hidden by the owner/i)).toBeInTheDocument();
+  });
+
+  it("accent-bars the Combat card only (S6 Pillar 4 slice V2)", () => {
+    const c = richCharacter();
+    const vm = buildCharacterViewModel(c, computeCharacter(c), "owner", "public");
+    render(<CharacterDashboard vm={vm} />);
+
+    const combatRegion = screen.getByRole("region", { name: /combat/i });
+    // section -> CardContent div -> Card div (same structure SectionCard's own tests assert).
+    const combatCard = combatRegion.parentElement?.parentElement;
+    expect(combatCard).toHaveClass("border-l-2");
+    expect(combatCard).toHaveClass("border-l-gold");
+
+    // Other SectionCards must NOT be accented — the emphasis signal is Combat-only (§3.1).
+    const abilitiesRegion = screen.getByRole("region", { name: /ability scores/i });
+    const abilitiesCard = abilitiesRegion.parentElement?.parentElement;
+    expect(abilitiesCard).not.toHaveClass("border-l-gold");
+
+    // BAB/CMB/CMD appear ONCE each (the MiniStat grid) — the review killed a chip row that
+    // duplicated the same three values back-to-back in the same card.
+    expect(within(combatRegion).getAllByText("BAB")).toHaveLength(1);
+    expect(within(combatRegion).getAllByText("CMB")).toHaveLength(1);
+    expect(within(combatRegion).getAllByText("CMD")).toHaveLength(1);
+  });
+
+  it("applies pf-hover-lift to the Companion card ONLY when the master link renders (owner view)", () => {
+    const c = richCharacter();
+    c.companion = {
+      type: "familiar",
+      archetype: undefined,
+      syncEnabled: true,
+      master: {
+        characterId: "m1",
+        name: "Elandra",
+        level: 5,
+        bab: 3,
+        hpMax: 40,
+        saves: { fortitude: 4, reflex: 4, will: 5 },
+        skillRanks: {},
+      },
+    };
+    const vm = buildCharacterViewModel(c, computeCharacter(c), "owner", "public");
+    render(<CharacterDashboard vm={vm} />);
+
+    const companionRegion = screen.getByRole("region", { name: /companion/i });
+    const companionCard = companionRegion.parentElement?.parentElement;
+    expect(companionCard).toHaveClass("pf-hover-lift");
+    // The master-link Link is a real descendant — the hover affordance matches real behavior.
+    expect(within(companionRegion).getByRole("link", { name: /elandra/i })).toBeInTheDocument();
+
+    // A PUBLIC viewer never gets master.characterId (§15) — no link renders, so the card must NOT
+    // lift (a lifting card with nothing clickable is a lying affordance; review finding).
+    cleanup();
+    const publicVm = buildCharacterViewModel(c, computeCharacter(c), "public", "public");
+    render(<CharacterDashboard vm={publicVm} />);
+    const publicRegion = screen.getByRole("region", { name: /companion/i });
+    const publicCard = publicRegion.parentElement?.parentElement;
+    expect(publicCard).not.toHaveClass("pf-hover-lift");
+    expect(within(publicRegion).queryByRole("link")).not.toBeInTheDocument();
   });
 });

@@ -22,13 +22,17 @@ export function SeverityPill({
   tone,
   label,
   count,
+  title,
 }: {
   tone: SeverityTone;
   label: string;
   count?: number;
+  /** Optional explanatory hover text — Badge call sites this replaces carried `title` hints
+   *  (e.g. reviewStatusMeta.hint); dropping them silently was a review finding. */
+  title?: string;
 }) {
   return (
-    <Badge variant={TONE_VARIANT[tone]}>
+    <Badge variant={TONE_VARIANT[tone]} title={title}>
       {label}
       {count != null && <span className="tnum font-extrabold">{count}</span>}
     </Badge>

@@ -3,6 +3,7 @@ import { Sparkles, Flag, EyeOff } from "@/components/ui/game-icons";
 import type { CharacterAudit } from "@/lib/character/audit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SeverityPill } from "@/components/character/severity-pill";
 
 /**
  * Presentational GM audit summary (§10). Pure render of a {@link CharacterAudit}:
@@ -12,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 export function AuditReport({ audit }: { audit: CharacterAudit }) {
   const warnings = audit.warnings.filter((w) => w.severity === "warning");
   const infos = audit.warnings.filter((w) => w.severity === "info");
+  const flaggedCount = audit.flaggedEntries.length;
+  const allClean = warnings.length === 0 && infos.length === 0 && flaggedCount === 0;
 
   return (
     <Card>
@@ -21,6 +24,34 @@ export function AuditReport({ audit }: { audit: CharacterAudit }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* At-a-glance severity strip (S6 Pillar 4 §3.4) — additive, above the existing prose
+            detail below (which stays as the drill-down). Counts come straight off the same
+            `audit` prop the detail sections already render from, no new audit-engine work. */}
+        <div className="flex flex-wrap gap-2" aria-label="Audit summary">
+          {allClean ? (
+            // An unqualified "Clean" would overclaim when privacy-hidden sections were never
+            // audited at all (review finding) — say what was actually checked.
+            <SeverityPill
+              tone="success"
+              label={audit.hiddenSections.length > 0 ? "Clean (audited sections)" : "Clean"}
+            />
+          ) : (
+            <>
+              {warnings.length > 0 && <SeverityPill tone="danger" label="Warnings" count={warnings.length} />}
+              {infos.length > 0 && <SeverityPill tone="info" label="Notes" count={infos.length} />}
+              {flaggedCount > 0 && <SeverityPill tone="warning" label="Flagged" count={flaggedCount} />}
+            </>
+          )}
+          {audit.hiddenSections.length > 0 && (
+            <SeverityPill
+              tone="info"
+              label="Hidden"
+              count={audit.hiddenSections.length}
+              title={`Not audited (player privacy): ${audit.hiddenSections.join(", ")}`}
+            />
+          )}
+        </div>
+
         {audit.hiddenSections.length > 0 && (
           <p className="flex items-start gap-2 rounded-lg border border-border bg-surface-raised/40 px-3 py-2 text-xs text-muted-foreground">
             <EyeOff className="mt-0.5 size-3.5 shrink-0" />

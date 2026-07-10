@@ -8,6 +8,7 @@ import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
 import { ClassicSheet } from "@/components/character/classic-sheet";
 import { CompanionSheet } from "@/components/character/companion-sheet";
+import { ShareHero } from "@/components/character/share-hero";
 import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { Button } from "@/components/ui/button";
 
@@ -106,13 +107,17 @@ export default async function PublicSharePage({
         </span>
       </header>
 
-      <SheetViewSwitch
-        characterId={data.id}
-        modern={<CharacterDashboard vm={vm} />}
-        classic={<ClassicSheet vm={vm} />}
-        companion={isCompanion ? <CompanionSheet vm={vm} /> : undefined}
-        defaultView={isCompanion ? "companion" : undefined}
-      />
+      <ShareHero vm={vm} />
+
+      <div id="full-sheet" className="mt-6 scroll-mt-20">
+        <SheetViewSwitch
+          characterId={data.id}
+          modern={<CharacterDashboard vm={vm} />}
+          classic={<ClassicSheet vm={vm} />}
+          companion={isCompanion ? <CompanionSheet vm={vm} /> : undefined}
+          defaultView={isCompanion ? "companion" : undefined}
+        />
+      </div>
 
       <footer className="mt-10 border-t border-border/60 pt-6 text-center">
         <p className="text-sm text-muted-foreground">
