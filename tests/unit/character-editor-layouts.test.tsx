@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, cleanup, within } from "@testing-library/react";
 import { createDefaultCharacter } from "@pathforge/schema";
+import { computeCharacter } from "@pathforge/rules-pf1e";
+import { formatModifier } from "@/lib/utils";
 
 // The full CharacterEditor mounts every sub-editor in classic mode; jsdom lacks a couple of
 // browser APIs some of that chrome touches.
@@ -132,6 +134,115 @@ describe("CharacterEditor — Modern ⇄ Classic layout switch", () => {
     expect(screen.getByRole("navigation", { name: /jump to sheet section/i })).toBeInTheDocument();
     const classicPill = screen.getByRole("button", { name: /^classic$/i });
     expect(classicPill).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("CharacterEditor — Modern editor canvas (S6 Pillar 2 Stage 2 chip summaries)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    saveMock.mockReset().mockResolvedValue({ ok: true, version: 2 });
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  // Summary-card buttons are accessibly named "Open <label>" (aria-label — without it the name
+  // would concatenate the entire live chip row; a Stage 2 review finding). Chip assertions match a
+  // chip SPAN's deep textContent ("<LABEL><value>") — filtering to spans keeps a single-chip card
+  // from also matching the chip row's wrapper div with the same textContent.
+  const chipIn = (card: HTMLElement, text: string) =>
+    within(card).getByText(
+      (_content, element) => element?.tagName === "SPAN" && element?.textContent === text,
+    );
+
+  it("inactive sections render a live chip-summary card; the active section renders none", async () => {
+    const base = createDefaultCharacter({ name: "Summary Test" });
+    render(<CharacterEditor characterId="sc1" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // "Core" is the default active section — it renders the full tabpanel (with an inert header,
+    // not a button), so there is no "Open Core" summary button.
+    expect(screen.queryByRole("button", { name: /^open core$/i })).not.toBeInTheDocument();
+
+    // Every other top-level section collapses to a summary-card button.
+    expect(screen.getByRole("button", { name: /^open defenses$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^open attacks$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^open skills$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^open equipment$/i })).toBeInTheDocument();
+  });
+
+  it("clicking a collapsed section's summary card expands it in place and moves focus to the panel", async () => {
+    const base = createDefaultCharacter({ name: "Expand Test" });
+    render(<CharacterEditor characterId="sc2" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^open skills$/i }));
+
+    // The Skills editor is now the active tabpanel (its desktop table has a "Skill" column).
+    expect(screen.getByRole("columnheader", { name: "Skill" })).toBeInTheDocument();
+    // Skills is the active section now, so it no longer renders its OWN summary card...
+    expect(screen.queryByRole("button", { name: /^open skills$/i })).not.toBeInTheDocument();
+    // ...while Core (now inactive) has grown one.
+    expect(screen.getByRole("button", { name: /^open core$/i })).toBeInTheDocument();
+
+    // The jump moves focus to the tabpanel (a review finding: the clicked summary card unmounts,
+    // which would otherwise drop keyboard/SR focus to <body>). The focus call rides an rAF.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(document.activeElement?.id).toBe("editor-panel");
+  });
+
+  it("the defenses summary card shows the LIVE computed AC/Fort values", async () => {
+    const base = createDefaultCharacter({ name: "AC Test" });
+    const computed = computeCharacter(base);
+    render(<CharacterEditor characterId="sc3" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const defensesCard = screen.getByRole("button", { name: /^open defenses$/i });
+    expect(chipIn(defensesCard, `AC${computed.summary.ac}`)).toBeInTheDocument();
+    expect(chipIn(defensesCard, `Fort${formatModifier(computed.summary.fortitude)}`)).toBeInTheDocument();
+  });
+
+  it("the core chip shows Vigor/Wounds (not the frozen classic HP) when Wounds & Vigor is enabled", async () => {
+    const base = createDefaultCharacter({ name: "WV Test" });
+    base.rules.variants.woundsVigor = true;
+    const wv = computeCharacter(base).summary.woundsVigor!;
+    render(<CharacterEditor characterId="sc4" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Collapse Core by activating another section, then read Core's summary card.
+    fireEvent.click(screen.getByRole("button", { name: /^open defenses$/i }));
+    const coreCard = screen.getByRole("button", { name: /^open core$/i });
+    expect(chipIn(coreCard, `Vigor${wv.vigor.current}/${wv.vigor.max}`)).toBeInTheDocument();
+    expect(chipIn(coreCard, `Wounds${wv.wound.current}/${wv.wound.max}`)).toBeInTheDocument();
+    // The classic HP chip must NOT render — summary.hp is the untouched 0/0 classic pool here.
+    expect(within(coreCard).queryByText(
+      (_content, element) => element?.tagName === "SPAN" && /^HP\d/.test(element?.textContent ?? ""),
+    )).not.toBeInTheDocument();
+  });
+
+  it("the equipment chip shows converted TOTAL wealth, not just the gp coin count", async () => {
+    const base = createDefaultCharacter({ name: "Wealth Test" });
+    base.wealth.pp = 100; // worth 1000 gp — a gp-coins-only read would show 0
+    base.wealth.gp = 0;
+    render(<CharacterEditor characterId="sc5" initial={base} initialVersion={1} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const equipCard = screen.getByRole("button", { name: /^open equipment$/i });
+    expect(chipIn(equipCard, "GP≈1000")).toBeInTheDocument();
   });
 });
 

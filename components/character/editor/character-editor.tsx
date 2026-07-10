@@ -522,6 +522,25 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
   // breakpoint), not the raw stored key which may be stale or in a hidden rail.
   const panelLabelId = section.items.length > 1 ? `subtab-${sub.key}` : `panel-heading-${section.key}`;
 
+  // User-initiated section jump (rail CLICK, mobile navigator, a canvas summary card): the active
+  // panel now lives at its stack position (Stage 2), which can be off-screen — move focus to the
+  // tabpanel and bring it into view. NOT used by the rail's arrow-key nav (ARIA tabs keep focus on
+  // the tab) or the mount-time localStorage restore (must not steal focus on load). The rAF waits
+  // for the switched panel to mount; block:"nearest" scrolls minimally (the layout spring may still
+  // be settling — close is good enough, and instant beats fighting the animation).
+  const jumpToSection = (sectionKey: string, subKey: string) => {
+    setActiveSection(sectionKey);
+    setActiveSub(subKey);
+    // setTimeout(0), not rAF: both run after React's commit (the panel exists), but jsdom's rAF
+    // doesn't ride the test suite's fake timers.
+    setTimeout(() => {
+      const el = document.getElementById("editor-panel");
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.scrollIntoView?.({ block: "nearest" }); // optional-call: jsdom has no scrollIntoView
+    }, 0);
+  };
+
   // Roving-tabindex arrow-key movement for the two tablists.
   const onSectionKeyDown = (e: KeyboardEvent<HTMLButtonElement>, idx: number) => {
     const n = sections.length;
@@ -608,10 +627,7 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
                   aria-selected={active}
                   aria-controls="editor-panel"
                   tabIndex={active ? 0 : -1}
-                  onClick={() => {
-                    setActiveSection(s.key);
-                    setActiveSub(s.items[0]!.key);
-                  }}
+                  onClick={() => jumpToSection(s.key, s.items[0]!.key)}
                   onKeyDown={(e) => onSectionKeyDown(e, idx)}
                   aria-describedby={sectionTip?.key === s.key ? "pf-section-tooltip" : undefined}
                   onMouseEnter={(e) => showSectionTip(e, s.key, s.label)}
@@ -671,10 +687,7 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
           sections={sections}
           activeSection={activeSection}
           activeSub={activeSub}
-          onSelectSection={(sKey, subKey) => {
-            setActiveSection(sKey);
-            setActiveSub(subKey);
-          }}
+          onSelectSection={jumpToSection}
         />
 
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -729,9 +742,19 @@ function ModernEditorLayout({ ed, characterId, sections, advanced, onToggleAdvan
           </div>
         )}
 
-        {/* Stage 1 (S6 Pillar 2): the panel swap is now a Motion fade+rise entrance keyed on the
-            active section/sub — same markup/a11y/conflict-lock as before, moved into EditorCanvas. */}
-        <EditorCanvas ed={ed} panelKey={`${section.key}-${sub.key}`} panelLabelId={panelLabelId}>
+        {/* Stage 2 (S6 Pillar 2): the canvas is now a vertical stack over every section — the
+            active section renders Stage 1's exact animated tabpanel, every other section collapses
+            to a live chip-summary card. Tapping a summary card reuses the SAME setState pair the
+            rail's onClick uses (character-editor.tsx ~611-614), so a jump behaves identically
+            whether it started from the rail or from a collapsed card below the fold. */}
+        <EditorCanvas
+          ed={ed}
+          sections={sections}
+          activeSection={activeSection}
+          activeSub={activeSub}
+          panelLabelId={panelLabelId}
+          onSelectSection={jumpToSection}
+        >
           {sub.render()}
         </EditorCanvas>
       </div>
