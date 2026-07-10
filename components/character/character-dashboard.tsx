@@ -33,6 +33,8 @@ import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
 import { groupTalentsByCategory } from "@/lib/character/sphere-talents";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
+import { StatTile, MiniStat } from "./stat-tile";
+import { SectionCard, DefenseRow } from "./section-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatModifier } from "@/lib/utils";
@@ -1487,34 +1489,6 @@ function InfoBox({ vm, variant = "sidebar" }: { vm: CharacterViewModel; variant?
   );
 }
 
-function StatTile({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-  sub?: string;
-  accent?: "gold" | "rune" | "danger";
-}) {
-  const accentClass =
-    accent === "gold" ? "text-gold" : accent === "rune" ? "text-rune" : accent === "danger" ? "text-danger" : "text-foreground";
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          <Icon className="size-3.5" /> {label}
-        </div>
-        <div className={cn("tnum text-2xl font-semibold", accentClass)}>{value}</div>
-        {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
-      </CardContent>
-    </Card>
-  );
-}
-
 function DefensesCard({
   saves,
   defenses,
@@ -1569,59 +1543,3 @@ function DefensesCard({
   );
 }
 
-function DefenseRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-2">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm text-foreground">{value}</span>
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: ReactNode;
-}) {
-  // A <section> named by its heading is a region landmark — screen-reader users can jump
-  // between sheet sections, and the heading is programmatically associated with its content.
-  const headingId = `sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <section aria-labelledby={headingId}>
-          <h2
-            id={headingId}
-            className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            <Icon className="size-4 text-gold" /> {title}
-          </h2>
-          {children}
-        </section>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MiniStat({
-  label,
-  value,
-  subtle,
-}: {
-  label: string;
-  value: string | number;
-  subtle?: boolean;
-}) {
-  return (
-    <div className={cn("rounded-lg border border-border p-3 text-center", subtle ? "bg-transparent" : "bg-surface-raised")}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="tnum text-xl font-semibold text-foreground">{value}</div>
-    </div>
-  );
-}
