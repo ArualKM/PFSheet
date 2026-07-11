@@ -1,6 +1,6 @@
 "use client";
 
-import { readWizardMeta, type PathForgeCharacterV1 } from "@pathforge/schema";
+import { readWizardMeta, resumeStepFor, type PathForgeCharacterV1 } from "@pathforge/schema";
 import { useCharacterEditor } from "../editor/use-character-editor";
 import { WizardShell } from "./wizard-shell";
 
@@ -20,11 +20,14 @@ export function CharacterWizard({
   initialVersion: number;
 }) {
   const ed = useCharacterEditor(characterId, initial, initialVersion);
+  // resumeStepFor, not the raw stored step: a v1-order checkpoint resuming by key would skip the
+  // v2-inserted Systems/Abilities steps forever (the shell only walks forward — review finding).
+  const meta = readWizardMeta(initial);
   return (
     <WizardShell
       ed={ed}
       characterId={characterId}
-      initialStep={readWizardMeta(initial)?.step ?? "welcome"}
+      initialStep={meta ? resumeStepFor(meta) : "welcome"}
     />
   );
 }

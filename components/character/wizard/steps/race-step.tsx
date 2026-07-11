@@ -26,7 +26,6 @@ export function RaceStep({ ed }: { ed: CharacterEditorApi; characterId: string }
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-6">
       <div className="space-y-1.5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-rune">Step 2</p>
         <h2 className="text-xl font-bold text-foreground sm:text-2xl">Choose a race</h2>
         <p className="max-w-prose text-sm text-muted-foreground">
           Your race affects your ability scores, size, and speed. You can skip this and pick one

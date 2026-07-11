@@ -69,6 +69,12 @@ export function HandoffStep({ ed, characterId }: { ed: CharacterEditorApi; chara
           <StatChip label="Ref" value={formatModifier(summary.reflex)} />
           <StatChip label="Will" value={formatModifier(summary.will)} />
           <StatChip label="BAB" value={formatModifier(summary.bab)} />
+          {/* The owner's step list ends with "saving throws, initiative, and attack values" — all
+              engine-computed, so they review HERE rather than getting a manual step. */}
+          <StatChip label="Init" value={formatModifier(summary.initiative)} tone="rune" />
+          {ed.computed.attacks.length > 0 && (
+            <StatChip label="Attacks" value={ed.computed.attacks.length} />
+          )}
         </div>
       </div>
 

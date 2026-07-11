@@ -14,40 +14,49 @@ import type { CharacterEditorApi, SaveStatus } from "../editor/use-character-edi
 import { SaveStatusBadge } from "../editor/save-status-badge";
 import { ConflictResolver } from "../editor/conflict-resolver";
 import { WelcomeStep } from "./steps/welcome-step";
+import { SystemsStep } from "./steps/systems-step";
 import { RaceStep, canAdvanceRace } from "./steps/race-step";
 import { ClassStep, canAdvanceClass } from "./steps/class-step";
 import { AbilitiesStep, canAdvanceAbilities } from "./steps/abilities-step";
 import { SkillsStep } from "./steps/skills-step";
+import { FeatsStep } from "./steps/feats-step";
+import { HpStep } from "./steps/hp-step";
 import { GearStep } from "./steps/gear-step";
 import { DetailsStep } from "./steps/details-step";
 import { HandoffStep } from "./steps/handoff-step";
 
 /**
- * S6 Pillar 3 §4.2 step shell. This slice (W1) ships the spine + navigation + TWO real steps
- * (welcome, done/handoff); the six middle steps render an honest placeholder panel so the flow is
- * walkable end-to-end and the next slice can drop each real step's panel in without touching this
- * file's navigation/spine/animation machinery.
+ * S6 Pillar 3 §4.2 step shell. Wizard v2 (owner-requested, 2026-07-10) runs eleven steps in the
+ * order defined by WIZARD_STEP_KEYS: systems early (gestalt/background-skills reshape later
+ * steps), abilities BEFORE race (racial mods then ride RacePicker's pointBuy mirror instead of
+ * being baked into the baseline), and feats/HP between skills and gear. Saving throws, initiative,
+ * and attack values are engine-computed — they review on the Finish card, not a manual step.
  */
 
 const STEP_LABELS: Record<WizardStepKey, string> = {
   welcome: "Welcome",
+  systems: "Systems",
+  abilities: "Abilities",
   race: "Race",
   class: "Class",
-  abilities: "Abilities",
   skills: "Skills",
+  feats: "Feats & Traits",
+  hp: "Hit Points",
   gear: "Gear",
   details: "Details",
   done: "Finish",
 };
 
-// §4.3's one-line inline help per step — used by the placeholder panel for the six steps this
-// slice doesn't build yet (welcome/done render their own bespoke content instead).
+// §4.3's one-line inline help per step (welcome/done render their own bespoke content instead).
 const STEP_HELP: Record<WizardStepKey, string> = {
   welcome: "A quick tour before you start picking.",
+  systems: "Optional rules your table plays with — these tailor the later steps.",
+  abilities: "Ability scores govern nearly every roll your character makes.",
   race: "Race affects your ability scores, size, and speed.",
   class: "Your class is your role in the party — it sets HP, attack, and spells.",
-  abilities: "Ability scores govern nearly every roll your character makes.",
   skills: 'Skills you’re trained in ("class skills") get a +3 bonus once you put a rank in them.',
+  feats: "Feats and traits are the picks that make your build yours.",
+  hp: "Your starting hit points — computed from class, level, and Constitution.",
   gear: "A rough starting-gold suggestion for your class, plus the full inventory editor.",
   details: "Flavor — alignment, deity, backstory. Come back to this anytime.",
   done: "Everything you picked is saved. Head into the full editor for the rest.",
@@ -69,10 +78,13 @@ type WizardStepDef = {
 
 const STEP_RENDER: Record<WizardStepKey, (props: WizardStepProps) => ReactNode> = {
   welcome: ({ ed, characterId }) => <WelcomeStep ed={ed} characterId={characterId} />,
+  systems: ({ ed, characterId }) => <SystemsStep ed={ed} characterId={characterId} />,
+  abilities: ({ ed, characterId }) => <AbilitiesStep ed={ed} characterId={characterId} />,
   race: ({ ed, characterId }) => <RaceStep ed={ed} characterId={characterId} />,
   class: ({ ed, characterId }) => <ClassStep ed={ed} characterId={characterId} />,
-  abilities: ({ ed, characterId }) => <AbilitiesStep ed={ed} characterId={characterId} />,
   skills: ({ ed, characterId }) => <SkillsStep ed={ed} characterId={characterId} />,
+  feats: ({ ed, characterId }) => <FeatsStep ed={ed} characterId={characterId} />,
+  hp: ({ ed, characterId }) => <HpStep ed={ed} characterId={characterId} />,
   gear: ({ ed, characterId }) => <GearStep ed={ed} characterId={characterId} />,
   details: ({ ed, characterId }) => <DetailsStep ed={ed} characterId={characterId} />,
   done: ({ ed, characterId }) => <HandoffStep ed={ed} characterId={characterId} />,

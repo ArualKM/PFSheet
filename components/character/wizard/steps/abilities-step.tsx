@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ABILITY_KEYS, resolveClassPreset, type AbilityKey, type PointBuyState } from "@pathforge/schema";
 import { composeAbilityScore, pointBuyCost, pointBuyRemaining, pointBuySpent } from "@pathforge/rules-pf1e";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NumberField } from "../../editor/fields";
+import { Segmented } from "../../editor/picker-shell";
 import type { CharacterEditorApi } from "../../editor/use-character-editor";
 
 const ABILITY_NAMES: Record<AbilityKey, string> = {
@@ -25,6 +26,16 @@ const ABILITY_HELP: Record<AbilityKey, string> = {
   wis: "Will saves and Perception.",
   cha: "Social skills, and spellcasting for some classes.",
 };
+
+/** Point-buy budget presets (PF1e "point buy systems" table naming) + the bounds for Custom. */
+const BUDGET_PRESETS: { value: number; label: string }[] = [
+  { value: 10, label: "Low" },
+  { value: 15, label: "Standard" },
+  { value: 20, label: "High" },
+  { value: 25, label: "Epic" },
+];
+const CUSTOM_BUDGET_MIN = 5;
+const CUSTOM_BUDGET_MAX = 60;
 
 const RECOMMENDED_ARRAY = [15, 14, 13, 12, 10, 8];
 /** Secondary bias order once the class's key ability has claimed the top score — a generic,
@@ -109,6 +120,34 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
   const pointBuyOn = pb?.enabled ?? false;
   const keyAbility = keyAbilityFor(ed);
 
+  // Local UI-only flag: whether the "Custom" segment is showing. STICKY (a review finding): it
+  // initializes true when the sheet ARRIVES with a non-preset budget, and flips true via
+  // adjust-state-during-render if the budget ever goes non-preset without an explicit segment
+  // click — otherwise editing the custom field's value down THROUGH a preset number (22 → 20)
+  // would unmount the focused field mid-keystroke and silently light up the preset button.
+  const budget = pb?.budget ?? 15;
+  const isPresetBudget = BUDGET_PRESETS.some((p) => p.value === budget);
+  const [customBudgetMode, setCustomBudgetMode] = useState(!isPresetBudget);
+  if (!customBudgetMode && !isPresetBudget) setCustomBudgetMode(true);
+  const budgetSegmentValue = customBudgetMode ? "custom" : String(budget);
+
+  // Never touches `allocations` — only `pb.budget` (and seeds the block first if it doesn't exist
+  // yet, same guard every other setter here uses).
+  const setBudget = (v: number) =>
+    ed.update((c) => {
+      if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(c);
+      const p = c.abilities.pointBuy;
+      p.budget = Math.min(CUSTOM_BUDGET_MAX, Math.max(CUSTOM_BUDGET_MIN, v));
+    });
+  const onBudgetSegmentChange = (v: string) => {
+    if (v === "custom") {
+      setCustomBudgetMode(true);
+      return;
+    }
+    setCustomBudgetMode(false);
+    setBudget(Number(v));
+  };
+
   const setAllocation = (key: AbilityKey, raw: number) =>
     ed.update((c) => {
       if (!c.abilities.pointBuy) c.abilities.pointBuy = makeDefaultPointBuy(c);
@@ -160,7 +199,6 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
   return (
     <div className="space-y-5 rounded-xl border border-border bg-card p-6">
       <div className="space-y-1.5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-rune">Step 4</p>
         <h2 className="text-xl font-bold text-foreground sm:text-2xl">Set your ability scores</h2>
         <p className="max-w-prose text-sm text-muted-foreground">
           Ability scores govern nearly every roll your character makes. Point Buy spends a shared
@@ -169,14 +207,38 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
       </div>
 
       {pointBuyOn && pb ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-sunken/60 px-3 py-2 text-sm" aria-live="polite">
-          <span className="text-muted-foreground">
-            Spent <span className="tnum font-semibold text-foreground">{spent}</span> / {pb.budget}
-          </span>
-          <Badge variant={over ? "danger" : remaining === 0 ? "success" : "gold"}>{remaining} remaining</Badge>
-          <Button type="button" size="sm" variant="secondary" className="ml-auto min-h-9" onClick={applyRecommended}>
-            Use a recommended array
-          </Button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Budget</span>
+            <Segmented
+              value={budgetSegmentValue}
+              onChange={onBudgetSegmentChange}
+              ariaLabel="Point-buy budget preset"
+              options={[
+                ...BUDGET_PRESETS.map((p) => ({ value: String(p.value), label: `${p.label} (${p.value})` })),
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+            {budgetSegmentValue === "custom" && (
+              <NumberField
+                label="Custom budget"
+                value={budget}
+                min={CUSTOM_BUDGET_MIN}
+                max={CUSTOM_BUDGET_MAX}
+                onChange={setBudget}
+                className="w-32"
+              />
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-sunken/60 px-3 py-2 text-sm" aria-live="polite">
+            <span className="text-muted-foreground">
+              Spent <span className="tnum font-semibold text-foreground">{spent}</span> / {pb.budget}
+            </span>
+            <Badge variant={over ? "danger" : remaining === 0 ? "success" : "gold"}>{remaining} remaining</Badge>
+            <Button type="button" size="sm" variant="secondary" className="ml-auto min-h-9" onClick={applyRecommended}>
+              Use a recommended array
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-sunken/60 px-3 py-2 text-sm">
@@ -219,6 +281,14 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
       {pointBuyOn && over && (
         <p className="text-xs text-danger">
           {!allValid ? "Some scores are outside the point-buy range." : "Over budget — lower a score before moving on."}
+        </p>
+      )}
+      {/* A nudge, not a gate — canAdvanceAbilities only blocks going OVER budget; most tables expect
+          every point spent, so an amber (not red) hint calls it out without stopping Next. */}
+      {pointBuyOn && !over && remaining > 0 && (
+        <p className="text-xs font-medium text-warning" aria-live="polite">
+          You still have {remaining} point{remaining === 1 ? "" : "s"} to spend — most tables expect all
+          points used.
         </p>
       )}
     </div>

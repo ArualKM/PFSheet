@@ -36,7 +36,17 @@ let browseCache: DrawbackRow[] | null = null;
 
 type CategoryFilter = "all" | "flaw" | "major_drawback";
 
-export function DrawbackPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+export function DrawbackPicker({
+  ed,
+  onClose,
+  autoFocusSearch = true,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  /** Suppress the search input's autofocus (the wizard steps opt out). Defaults to true so every
+   * existing call site is unaffected. */
+  autoFocusSearch?: boolean;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<DrawbackRow[]>(() => browseCache ?? []);
@@ -112,7 +122,7 @@ export function DrawbackPicker({ ed, onClose }: { ed: CharacterEditorApi; onClos
   return (
     <PickerShell icon={<ScrollText />} title="Drawbacks & flaws" onClose={onClose}>
       <PickerSearch
-        autoFocus
+        autoFocus={autoFocusSearch}
         value={q}
         onChange={setQ}
         loading={loading}

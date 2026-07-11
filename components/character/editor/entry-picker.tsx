@@ -47,6 +47,7 @@ export function EntryPicker({
   onClose,
   limit = 40,
   secondary,
+  autoFocusSearch = true,
 }: {
   title: string;
   /** Header icon (defaults to a scroll). */
@@ -63,6 +64,9 @@ export function EntryPicker({
   limit?: number;
   /** Gated secondary compendium (3pp union) — omit to search the primary RPC only. */
   secondary?: EntryPickerSecondary;
+  /** Suppress the search input's autofocus (the wizard steps opt out). Defaults to true so every
+   * existing call site is unaffected. */
+  autoFocusSearch?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
@@ -110,7 +114,7 @@ export function EntryPicker({
 
   return (
     <PickerShell icon={icon ?? <ScrollText />} title={title} onClose={onClose}>
-      <PickerSearch autoFocus value={q} onChange={setQ} loading={loading} label={`Search ${title}`} placeholder={placeholder} />
+      <PickerSearch autoFocus={autoFocusSearch} value={q} onChange={setQ} loading={loading} label={`Search ${title}`} placeholder={placeholder} />
       <PickerError message={error} />
       <PickerList
         isEmpty={rows.length === 0 && visibleSecondary.length === 0 && !loading}

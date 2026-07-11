@@ -1,8 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { isBackgroundSkill, isModuleKeyEnabled } from "@pathforge/schema";
 import { NumberField } from "../../editor/fields";
 import { CollapsibleGroup } from "../../collapsible-group";
+import { cn } from "@/lib/utils";
 import type { CharacterEditorApi } from "../../editor/use-character-editor";
 
 /**
@@ -27,16 +29,28 @@ import type { CharacterEditorApi } from "../../editor/use-character-editor";
  * nothing to prioritize, so the (now sole) "Other skills" group defaults OPEN instead of hiding the
  * entire step behind a collapsed header; the "Class skills" group itself is omitted rather than
  * rendered empty.
+ *
+ * Background Skills variant (when enabled, per §18/`isModuleKeyEnabled`): each qualifying skill
+ * (`isBackgroundSkill`) gets a second, separate ranks field — mirrors `SkillsEditor`'s own
+ * `backgroundRanks` write (`t.backgroundRanks = val > 0 ? val : undefined`) and its budget readout
+ * (`ed.computed.summary.backgroundSkills`), not reimplemented math. Off (the default): unchanged.
  */
 export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
   const totalLevel = ed.draft.identity.totalLevel || 1;
   const skills = ed.draft.skills.list;
   const ranksSpent = skills.reduce((sum, s) => sum + (s.ranks ?? 0), 0);
+  const bgEnabled = isModuleKeyEnabled(ed.draft, "background_skills");
+  const bgBudget = ed.computed.summary.backgroundSkills;
 
   const setRanks = (i: number, n: number) =>
     ed.update((c) => {
       const t = c.skills.list[i];
       if (t) t.ranks = n;
+    });
+  const setBgRanks = (i: number, n: number) =>
+    ed.update((c) => {
+      const t = c.skills.list[i];
+      if (t) t.backgroundRanks = n > 0 ? n : undefined;
     });
 
   // Split by classSkill (each row keeps its ORIGINAL index for ed.update), sorted alphabetically
@@ -49,18 +63,30 @@ export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string
   const renderRow = ({ s, i }: (typeof indexed)[number]): ReactNode => {
     const total = ed.computed.skills[s.key]?.value ?? 0;
     const label = s.specialty ? `${s.label} (${s.specialty})` : s.label;
+    const showBg = bgEnabled && isBackgroundSkill(s);
     return (
-      <div key={s.id} className="flex items-center gap-3 border-b border-border/40 py-2 last:border-b-0">
+      <div key={s.id} className="flex flex-wrap items-end gap-3 border-b border-border/40 py-2 last:border-b-0">
         <NumberField
           label={label}
           value={s.ranks}
           min={0}
           max={totalLevel}
           onChange={(n) => setRanks(i, n)}
-          hint={`${s.ability.toUpperCase()}${s.classSkill ? " · class skill" : ""}`}
+          hint={`${s.ability.toUpperCase()}${s.classSkill ? " · class skill" : ""}${bgEnabled ? " · adventuring ranks" : ""}`}
           className="min-w-0 flex-1"
         />
-        <span className="tnum w-10 shrink-0 pt-5 text-right text-sm font-semibold text-gold">
+        {showBg && (
+          <NumberField
+            label={`${label} background ranks`}
+            value={s.backgroundRanks ?? 0}
+            min={0}
+            max={totalLevel}
+            onChange={(n) => setBgRanks(i, n)}
+            hint="Background ranks"
+            className="w-28 shrink-0"
+          />
+        )}
+        <span className="tnum w-10 shrink-0 pb-1.5 text-right text-sm font-semibold text-gold">
           {total >= 0 ? `+${total}` : total}
         </span>
       </div>
@@ -74,12 +100,27 @@ export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string
         <p className="max-w-prose text-sm text-muted-foreground">
           Skills you&rsquo;re trained in (&ldquo;class skills&rdquo;, listed first) get a +3 bonus once you
           put a rank in them. This step is optional — you can leave every rank at 0 and fill these in later.
+          {bgEnabled &&
+            " Background Skills is on, so a few skills below also get a separate Background-ranks budget."}
         </p>
       </div>
 
       <p className="text-xs text-muted-foreground">
         Ranks spent: <span className="tnum font-semibold text-foreground">{ranksSpent}</span> · max{" "}
         {totalLevel} rank{totalLevel === 1 ? "" : "s"} per skill at level {totalLevel || 1}
+        {bgEnabled && bgBudget && (
+          <>
+            {" · "}Background:{" "}
+            <span
+              className={cn(
+                "tnum font-semibold",
+                bgBudget.spent > bgBudget.budget ? "text-danger" : "text-foreground",
+              )}
+            >
+              {bgBudget.spent}/{bgBudget.budget}
+            </span>
+          </>
+        )}
       </p>
 
       <div className="space-y-2">

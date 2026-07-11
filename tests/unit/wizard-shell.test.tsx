@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, cleanup } from "@testing-library/react";
-import { createDefaultCharacter, writeWizardMeta, type PathForgeCharacterV1 } from "@pathforge/schema";
+import {
+  createDefaultCharacter,
+  writeWizardMeta,
+  resumeStepFor,
+  WIZARD_ORDER_VERSION,
+  type PathForgeCharacterV1,
+  type WizardMeta,
+} from "@pathforge/schema";
 
 // CharacterWizard reuses SaveStatusBadge from character-editor.tsx (and the same
 // useCharacterEditor hook), which pulls in the same editor chrome CharacterEditor does; jsdom lacks
@@ -108,6 +115,33 @@ function lastSavedWizardMeta() {
     | undefined;
 }
 
+describe("wizard v2 resume — v1-order checkpoints must not skip the inserted steps", () => {
+  const meta = (step: WizardMeta["step"], order?: number): WizardMeta => ({
+    active: true,
+    step,
+    startedAt: "2026-07-09T00:00:00.000Z",
+    ...(order != null ? { order } : {}),
+  });
+
+  it("a v1 checkpoint (no order stamp) mid-flow resumes at Systems; bookends stay put", () => {
+    // v1's order was welcome→race→class→abilities→…; Systems (and often Abilities) now sit
+    // BEFORE every non-bookend v1 position, and the shell only walks forward (review finding).
+    expect(resumeStepFor(meta("race"))).toBe("systems");
+    expect(resumeStepFor(meta("class"))).toBe("systems");
+    expect(resumeStepFor(meta("skills"))).toBe("systems");
+    expect(resumeStepFor(meta("welcome"))).toBe("welcome");
+    expect(resumeStepFor(meta("done"))).toBe("done");
+  });
+
+  it("a current-order checkpoint resumes literally, and every write re-stamps the order", () => {
+    expect(resumeStepFor(meta("class", WIZARD_ORDER_VERSION))).toBe("class");
+    const c = createDefaultCharacter({ name: "Stamp" });
+    const written = writeWizardMeta(c, { step: "hp" });
+    expect(written.order).toBe(WIZARD_ORDER_VERSION);
+    expect(resumeStepFor(written)).toBe("hp");
+  });
+});
+
 describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -129,18 +163,19 @@ describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)
     expect(screen.getByRole("button", { name: /skip to the blank editor/i })).toBeInTheDocument();
   });
 
-  it("Next advances to the Race placeholder and persists metadata.custom.wizard.step='race'", async () => {
+  it("Next advances to the Systems step and persists metadata.custom.wizard.step='systems'", async () => {
     render(<CharacterWizard characterId="w2" initial={fixture()} initialVersion={1} />);
     await act(async () => {
       await Promise.resolve();
     });
 
+    // Wizard v2 order: welcome → systems ("what does your game use?") → abilities → race → …
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(screen.getByRole("heading", { name: /^choose a race$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /what does your game use/i })).toBeInTheDocument();
 
     await settle();
     expect(saveMock).toHaveBeenCalled();
-    expect(lastSavedWizardMeta()).toMatchObject({ active: true, step: "race" });
+    expect(lastSavedWizardMeta()).toMatchObject({ active: true, step: "systems" });
   });
 
   it("Back returns to the previous step", async () => {
@@ -150,27 +185,28 @@ describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    expect(screen.getByRole("heading", { name: /^choose a race$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /what does your game use/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
     expect(screen.getByRole("heading", { name: /let.?s build your character/i })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /^choose a race$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /what does your game use/i })).not.toBeInTheDocument();
   });
 
-  it("Skip this step advances without a different persisted shape than Next (no gate exists yet)", async () => {
+  it("Skip this step advances without a different persisted shape than Next", async () => {
     render(<CharacterWizard characterId="w3b" initial={fixture()} initialVersion={1} />);
     await act(async () => {
       await Promise.resolve();
     });
 
-    // Welcome has no "Skip this step" button (it's a bookend step); advance to Race first.
+    // Welcome has no "Skip this step" button (it's a bookend step); advance to Systems first.
     expect(screen.queryByRole("button", { name: /^skip this step$/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^skip this step$/i }));
-    expect(screen.getByRole("heading", { name: /^choose a class$/i })).toBeInTheDocument();
+    // Systems → Abilities under the v2 order.
+    expect(screen.getByRole("heading", { name: /set your ability scores/i })).toBeInTheDocument();
 
     await settle();
-    expect(lastSavedWizardMeta()).toMatchObject({ step: "class" });
+    expect(lastSavedWizardMeta()).toMatchObject({ step: "abilities" });
   });
 
   it("the welcome escape hatch sets wizard.active=false and navigates to the full editor", async () => {

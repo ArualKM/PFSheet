@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Items / Inventory Overhaul — Slot Map Mockup</title>
+<style>
+  :root {
+    --pf-bg: #090d12;
+    --pf-surface: #121922;
+    --pf-surface-raised: #18212c;
+    --pf-surface-sunken: #0c1219;
+    --pf-border: #2c3a4a;
+    --pf-text: #f4f0e7;
+    --pf-muted: #aeb8c3;
+    --pf-gold: #f0b35a;
+    --pf-on-gold: #1c1407;
+    --pf-rune: #67d5ff;
+    --pf-danger: #f2616b;
+    --pf-warning: #e8a93c;
+    --pf-success: #57d9a3;
+    --pf-focus: #67d5ff;
+    --pf-radius: 0.75rem;
+    --pf-tap: 44px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--pf-bg);
+    color: var(--pf-text);
+    font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding: 1.5rem; }
+  a { color: inherit; }
+
+  .note {
+    max-width: 1400px;
+    margin: 0 auto 1.5rem;
+    padding: 0.65rem 1rem;
+    border: 1px dashed var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.25rem);
+    background: color-mix(in srgb, var(--pf-warning) 8%, var(--pf-surface));
+    color: var(--pf-muted);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .note b { color: var(--pf-warning); }
+
+  .stage {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .frame-label {
+    text-align: center;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pf-muted);
+    margin-bottom: 0.6rem;
+    font-weight: 600;
+  }
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; }
+
+  .frame-desktop {
+    width: 980px;
+    max-width: 100%;
+    border: 1px solid var(--pf-border);
+    border-radius: 1rem;
+    background: var(--pf-bg);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7);
+    overflow: hidden;
+  }
+  .frame-mobile {
+    width: 375px;
+    max-width: 100%;
+    border: 8px solid #05070a;
+    border-radius: 2rem;
+    background: var(--pf-bg);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+  }
+  .frame-mobile::before {
+    content: "";
+    position: absolute;
+    top: 6px; left: 50%;
+    transform: translateX(-50%);
+    width: 90px; height: 5px;
+    border-radius: 3px;
+    background: #000;
+    z-index: 5;
+  }
+
+  /* ============ App chrome ============ */
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--pf-border);
+    background: linear-gradient(180deg, var(--pf-surface-raised), var(--pf-surface));
+  }
+  .mobile .app-topbar { padding: 1rem 0.9rem 0.7rem; }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.82rem; color: var(--pf-muted); text-decoration: none;
+    padding: 0.35rem 0.5rem; border-radius: 0.5rem;
+  }
+  .back-btn svg { width: 16px; height: 16px; }
+  .topbar-title { font-size: 0.92rem; font-weight: 700; }
+  .topbar-right { display: flex; align-items: center; gap: 0.6rem; }
+  .edit-cta {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--pf-gold); color: var(--pf-on-gold);
+    border: none; font-weight: 700; font-size: 0.85rem;
+    padding: 0 1rem; height: var(--pf-tap); border-radius: 0.6rem;
+    cursor: pointer;
+    box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--pf-gold) 60%, transparent);
+  }
+  .mobile .edit-cta { padding: 0 0.75rem; font-size: 0.78rem; height: 38px; }
+
+  /* ============ Layout ============ */
+  .sheet-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1.1rem; }
+  .mobile .sheet-body { padding: 0.85rem; gap: 0.85rem; }
+
+  .desktop-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--pf-surface);
+    border: 1px solid var(--pf-border);
+    border-radius: var(--pf-radius);
+    padding: 1rem;
+  }
+  .card-title {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--pf-muted); display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.75rem;
+  }
+  .card-title .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pf-rune); box-shadow: 0 0 8px var(--pf-rune); }
+  .card-title.gold .dot { background: var(--pf-gold); box-shadow: 0 0 8px var(--pf-gold); }
+  .card-sub { font-size: 0.72rem; color: var(--pf-muted); margin: -0.4rem 0 0.75rem; line-height: 1.4; }
+
+  /* ============ Paper-doll (desktop) ============ */
+  /* Deliberately narrower than its card: the silhouette occupies the CENTER ~42% of the card's
+     width so the flanking callout pills (anchored near the doll's left/right edge, growing
+     further outward) have genuine room to sit inside the card's padding box without overflowing
+     into the page margin — see the plan doc's "own best-effort interpretation" note. */
+  .doll-stage {
+    position: relative;
+    width: 42%;
+    aspect-ratio: 300 / 460;
+    margin: 0 auto;
+  }
+  .doll-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .doll-svg .silhouette { fill: var(--pf-surface-sunken); stroke: var(--pf-border); stroke-width: 2; }
+
+  .slot-dot {
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--pf-surface-sunken);
+    border: 2px solid var(--pf-border);
+    z-index: 3;
+  }
+  .slot-dot.occupied { background: var(--pf-gold); border-color: var(--pf-gold); box-shadow: 0 0 10px color-mix(in srgb, var(--pf-gold) 70%, transparent); }
+  .slot-dot.tattoo::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 2px solid var(--pf-rune);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--pf-rune) 60%, transparent);
+  }
+  .slot-dot.conflict { background: var(--pf-danger); border-color: var(--pf-danger); box-shadow: 0 0 10px color-mix(in srgb, var(--pf-danger) 70%, transparent); }
+
+  .slot-pill {
+    position: absolute;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    max-width: 96px;
+    background: var(--pf-surface-raised);
+    border: 1px solid var(--pf-border);
+    border-radius: 0.6rem;
+    padding: 0.25rem 0.5rem;
+    white-space: normal;
+    z-index: 4;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .slot-pill:hover { border-color: var(--pf-gold); }
+  .slot-pill.right { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .slot-pill.left { border-top-right-radius: 4px; border-bottom-right-radius: 4px; text-align: right; }
+  .slot-pill .p-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pf-muted); font-weight: 700; line-height: 1.2; }
+  .slot-pill .p-item { font-size: 0.72rem; font-weight: 600; color: var(--pf-text); line-height: 1.25; }
+  .slot-pill.empty .p-item { color: var(--pf-muted); font-weight: 500; font-style: italic; }
+  .slot-pill.occupied .p-item { color: var(--pf-gold); }
+  .slot-pill.conflict { border-color: var(--pf-danger); background: color-mix(in srgb, var(--pf-danger) 10%, var(--pf-surface-raised)); }
+  .slot-pill.conflict .p-item { color: var(--pf-danger); }
+
+  /* connector nub */
+  .slot-nub { position: absolute; height: 1.5px; background: var(--pf-border); z-index: 2; }
+
+  /* ============ Warning banner ============ */
+  .warn-banner {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid color-mix(in srgb, var(--pf-warning) 45%, var(--pf-border));
+    background: color-mix(in srgb, var(--pf-warning) 10%, var(--pf-surface));
+    border-radius: calc(var(--pf-radius) - 0.2rem);
+  }
+  .warn-banner svg { width: 18px; height: 18px; color: var(--pf-warning); flex-shrink: 0; margin-top: 1px; }
+  .warn-banner .w-title { font-size: 0.78rem; font-weight: 700; color: var(--pf-warning); margin: 0 0 0.15rem; }
+  .warn-banner .w-text { font-size: 0.78rem; color: var(--pf-muted); line-height: 1.4; margin: 0; }
+  .warn-banner .w-text b { color: var(--pf-text); font-weight: 600; }
+
+  /* ============ Item card (EntryCard chip+disclosure language) ============ */
+  .item-card { border: 1px solid var(--pf-border); border-radius: calc(var(--pf-radius) - 0.15rem); background: var(--pf-surface); overflow: hidden; }
+  .item-card.expanded { border-color: color-mix(in srgb, var(--pf-gold) 45%, var(--pf-border)); }
+  .item-head {
+    display: flex; align-items: center; gap: 0.65rem;
+    padding: 0.7rem 0.85rem;
+  }
+  .item-icon {
+    width: 34px; height: 34px; border-radius: 0.55rem; flex-shrink: 0;
+    background: color-mix(in srgb, var(--pf-gold) 14%, var(--pf-surface-sunken));
+    border: 1px solid color-mix(in srgb, var(--pf-gold) 45%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--pf-gold); font-size: 1rem;
+  }
+  .item-head.rune .item-icon { background: color-mix(in srgb, var(--pf-rune) 14%, var(--pf-surface-sunken)); border-color: color-mix(in srgb, var(--pf-rune) 45%, transparent); color: var(--pf-rune); }
+  .item-titles { min-width: 0; flex: 1; }
+  .item-name { font-weight: 700; font-size: 0.9rem; margin: 0; }
+  .item-meta { font-size: 0.72rem; color: var(--pf-muted); margin: 0.05rem 0 0; }
+  .item-chevron {
+    width: 30px; height: 30px; border-radius: 0.5rem;
+    border: 1px solid var(--pf-border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--pf-muted); flex-shrink: 0; cursor: pointer;
+  }
+  .item-card.expanded .item-chevron { color: var(--pf-gold); border-color: color-mix(in srgb, var(--pf-gold) 45%, var(--pf-border)); transform: rotate(180deg); }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0 0.85rem 0.75rem; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: var(--pf-surface-sunken); border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.35rem);
+    padding: 0.2rem 0.5rem; font-size: 0.7rem; color: var(--pf-muted);
+  }
+  .chip b { color: var(--pf-text); font-weight: 700; }
+  .chip.gold { border-color: color-mix(in srgb, var(--pf-gold) 40%, var(--pf-border)); }
+  .chip.gold b { color: var(--pf-gold); }
+  .chip.rune { border-color: color-mix(in srgb, var(--pf-rune) 40%, var(--pf-border)); }
+  .chip.rune b { color: var(--pf-rune); }
+  .chip.danger { border-color: color-mix(in srgb, var(--pf-danger) 45%, var(--pf-border)); color: var(--pf-danger); }
+  .chip.danger b { color: var(--pf-danger); }
+
+  .item-body { border-top: 1px solid var(--pf-border); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.85rem; }
+  .statblock-dl { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.75rem; font-size: 0.78rem; }
+  .statblock-dl dt { color: var(--pf-muted); font-weight: 600; }
+  .statblock-dl dd { margin: 0; color: var(--pf-text); }
+  .statblock-desc { font-size: 0.8rem; line-height: 1.55; color: var(--pf-text); margin: 0; }
+  .statblock-desc.construction { color: var(--pf-muted); }
+
+  .field-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--pf-muted); margin: 0 0 0.35rem; }
+  .automation-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: var(--pf-surface-sunken); border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.3rem);
+    padding: 0.45rem 0.6rem; font-size: 0.76rem;
+  }
+  .automation-row .a-val { font-weight: 800; color: var(--pf-success); }
+  .automation-row .a-target { color: var(--pf-text); font-weight: 600; }
+  .automation-row .a-cond { margin-left: auto; color: var(--pf-muted); font-size: 0.7rem; font-style: italic; }
+
+  .other-items-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  /* ============ Armor / Shield / Held row ============ */
+  .track-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+  .mobile .track-row { grid-template-columns: 1fr; }
+  .track-tile {
+    background: var(--pf-surface-raised); border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.2rem); padding: 0.6rem 0.7rem;
+  }
+  .track-tile .t-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pf-muted); font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+  .track-tile .t-value { font-size: 0.85rem; font-weight: 700; margin-top: 0.25rem; }
+  .track-tile .t-value.empty { color: var(--pf-muted); font-style: italic; font-weight: 500; }
+  .track-tile .t-sub { font-size: 0.72rem; color: var(--pf-gold); margin-top: 0.1rem; }
+  .hands-bar { margin-top: 0.4rem; height: 5px; border-radius: 999px; background: var(--pf-surface-sunken); overflow: hidden; }
+  .hands-bar-fill { height: 100%; width: 50%; background: var(--pf-gold); border-radius: 999px; }
+
+  /* ============ Mobile compact doll + slot list ============ */
+  .doll-strip {
+    display: flex; align-items: center; gap: 0.9rem;
+    background: var(--pf-surface-raised); border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.2rem); padding: 0.75rem 0.85rem;
+  }
+  .doll-mini { position: relative; width: 60px; height: 92px; flex-shrink: 0; }
+  .doll-mini svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .doll-mini .mini-dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; transform: translate(-50%,-50%); background: var(--pf-surface-sunken); border: 1.5px solid var(--pf-border); }
+  .doll-mini .mini-dot.occupied { background: var(--pf-gold); border-color: var(--pf-gold); }
+  .doll-mini .mini-dot.conflict { background: var(--pf-danger); border-color: var(--pf-danger); }
+  .doll-strip-text { font-size: 0.78rem; color: var(--pf-muted); line-height: 1.5; }
+  .doll-strip-text b { color: var(--pf-text); }
+  .doll-strip-text .count-gold { color: var(--pf-gold); font-weight: 700; }
+
+  .slot-list { display: flex; flex-direction: column; gap: 0.45rem; }
+  .slot-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    min-height: var(--pf-tap);
+    background: var(--pf-surface); border: 1px solid var(--pf-border);
+    border-radius: calc(var(--pf-radius) - 0.25rem);
+    padding: 0.5rem 0.7rem;
+  }
+  .slot-row.conflict { border-color: color-mix(in srgb, var(--pf-danger) 55%, var(--pf-border)); background: color-mix(in srgb, var(--pf-danger) 6%, var(--pf-surface)); }
+  .slot-row .sr-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pf-surface-sunken); border: 2px solid var(--pf-border); flex-shrink: 0; }
+  .slot-row .sr-dot.occupied { background: var(--pf-gold); border-color: var(--pf-gold); }
+  .slot-row .sr-dot.conflict { background: var(--pf-danger); border-color: var(--pf-danger); }
+  .slot-row .sr-text { min-width: 0; flex: 1; }
+  .slot-row .sr-slot { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pf-muted); font-weight: 700; }
+  .slot-row .sr-item { font-size: 0.84rem; font-weight: 600; color: var(--pf-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-row .sr-item.empty { color: var(--pf-muted); font-style: italic; font-weight: 500; }
+  .slot-row .sr-tattoo { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.65rem; color: var(--pf-rune); font-weight: 700; margin-left: 0.4rem; }
+  .slot-row .sr-chevron { color: var(--pf-muted); flex-shrink: 0; }
+  .slot-row.expanded { flex-wrap: wrap; align-items: flex-start; padding-bottom: 0.75rem; }
+  .slot-row.expanded .sr-detail { flex-basis: 100%; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--pf-border); }
+
+  .section-divider {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--pf-muted); font-weight: 700; margin: 0.2rem 0 -0.1rem;
+  }
+  .section-divider .rule { flex: 1; height: 1px; background: var(--pf-border); }
+
+  @media (max-width: 700px) {
+    .stage { gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <b>Static mockup</b> — no interactivity, no live data. Illustrates the paper-doll slot map
+  (desktop) and the mobile slot-list variant for the Items / Inventory Overhaul plan
+  (<code>docs/ITEMS_OVERHAUL/MASTER_PLAN.md</code>). Silhouette + callout layout is this plan's
+  best-effort interpretation — no reference image was available to this pass; redline freely.
+  Loadout is illustrative (Anise, human fighter): gold dot = occupied slot, muted = empty,
+  rune-blue ring = a tattoo sharing that body region, red = a slot conflict. Values shown are
+  representative, not engine-computed.
+</div>
+
+<div class="stage">
+
+  <!-- ============ DESKTOP FRAME ============ -->
+  <div class="frame-wrap">
+    <div class="frame-label">Desktop — 980px</div>
+    <div class="frame-desktop">
+      <div class="app-topbar">
+        <a class="back-btn" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          Anise
+        </a>
+        <div class="topbar-title">Inventory &amp; Equipment</div>
+        <div class="topbar-right">
+          <button class="edit-cta">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            Edit
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <div class="desktop-grid">
+
+          <!-- LEFT: paper doll + armor/shield/held -->
+          <div style="display:flex; flex-direction:column; gap:0.9rem;">
+            <div class="card">
+              <div class="card-title gold"><span class="dot"></span> Body slots</div>
+              <div class="doll-stage">
+                <svg class="doll-svg" viewBox="0 0 300 460" aria-hidden="true">
+                  <!-- simple humanoid silhouette icon, not anatomy -->
+                  <circle class="silhouette" cx="150" cy="42" r="27"/>
+                  <path class="silhouette" d="M108 85 h84 l6 30 v95 h-96 v-95 z"/>
+                  <rect class="silhouette" x="78" y="90" width="20" height="165" rx="10"/>
+                  <rect class="silhouette" x="202" y="90" width="20" height="165" rx="10"/>
+                  <rect class="silhouette" x="118" y="205" width="28" height="220" rx="12"/>
+                  <rect class="silhouette" x="154" y="205" width="28" height="220" rx="12"/>
+                  <ellipse class="silhouette" cx="88" cy="258" rx="13" ry="10"/>
+                  <ellipse class="silhouette" cx="212" cy="258" rx="13" ry="10"/>
+                  <ellipse class="silhouette" cx="132" cy="435" rx="16" ry="9"/>
+                  <ellipse class="silhouette" cx="168" cy="435" rx="16" ry="9"/>
+                </svg>
+
+                <!-- connector nubs (all coordinates are % of the 300x460 viewBox, matching the SVG
+                     1:1 via aspect-ratio on .doll-stage — never hardcode raw px here) -->
+                <div class="slot-nub" style="left:56.67%; top:4.78%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:20.00%; top:8.70%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:56.67%; top:11.30%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:20.00%; top:16.96%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:56.67%; top:20.00%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:20.00%; top:27.83%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:56.67%; top:36.52%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:6.67%; top:35.87%; width:23.33%;"></div>
+                <div class="slot-nub" style="left:70.67%; top:53.26%; width:21.00%;"></div>
+                <div class="slot-nub" style="left:21.67%; top:44.78%; width:28.33%;"></div>
+                <div class="slot-nub" style="left:6.67%; top:56.09%; width:22.67%;"></div>
+                <div class="slot-nub" style="left:70.67%; top:56.96%; width:21.00%;"></div>
+                <div class="slot-nub" style="left:50.00%; top:94.57%; width:23.33%;"></div>
+
+                <!-- slot dots -->
+                <div class="slot-dot" style="left:56.67%; top:4.78%;"></div>
+                <div class="slot-dot occupied" style="left:43.33%; top:8.70%;"></div>
+                <div class="slot-dot occupied" style="left:56.67%; top:11.30%;"></div>
+                <div class="slot-dot conflict" style="left:43.33%; top:16.96%;"></div>
+                <div class="slot-dot occupied" style="left:56.67%; top:20.00%;"></div>
+                <div class="slot-dot occupied" style="left:43.33%; top:27.83%;"></div>
+                <div class="slot-dot" style="left:56.67%; top:36.52%;"></div>
+                <div class="slot-dot occupied" style="left:30.00%; top:35.87%;"></div>
+                <div class="slot-dot occupied" style="left:70.67%; top:53.26%;"></div>
+                <div class="slot-dot occupied tattoo" style="left:50.00%; top:44.78%;"></div>
+                <div class="slot-dot occupied" style="left:29.33%; top:56.09%;"></div>
+                <div class="slot-dot occupied" style="left:70.67%; top:56.96%;"></div>
+                <div class="slot-dot occupied" style="left:50.00%; top:94.57%;"></div>
+
+                <!-- callout pills -->
+                <div class="slot-pill right empty" style="left:80.00%; top:4.78%;">
+                  <span class="p-label">Head</span><span class="p-item">Empty</span>
+                </div>
+                <div class="slot-pill left occupied" style="left:20.00%; top:8.70%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Headband</span><span class="p-item">Headband of Alluring Charisma +2</span>
+                </div>
+                <div class="slot-pill right occupied" style="left:80.00%; top:11.30%;">
+                  <span class="p-label">Eyes</span><span class="p-item">Lenses of Detection</span>
+                </div>
+                <div class="slot-pill left conflict" style="left:20.00%; top:16.96%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Neck — conflict</span><span class="p-item">Amulet of Natural Armor +1</span>
+                </div>
+                <div class="slot-pill right occupied" style="left:80.00%; top:20.00%;">
+                  <span class="p-label">Shoulders</span><span class="p-item">Cloak of Resistance +2</span>
+                </div>
+                <div class="slot-pill left occupied" style="left:20.00%; top:27.83%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Chest</span><span class="p-item">Vest of Escape</span>
+                </div>
+                <div class="slot-pill right empty" style="left:80.00%; top:36.52%;">
+                  <span class="p-label">Body</span><span class="p-item">Empty</span>
+                </div>
+                <div class="slot-pill left occupied" style="left:6.67%; top:35.87%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Wrist</span><span class="p-item">Bracers of Armor +3</span>
+                </div>
+                <div class="slot-pill right occupied" style="left:91.67%; top:53.26%;">
+                  <span class="p-label">Hands</span><span class="p-item">Gloves of Storing</span>
+                </div>
+                <div class="slot-pill left occupied" style="left:21.67%; top:44.78%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Belt <span style="color:var(--pf-rune)">+ Tattoo</span></span><span class="p-item">Belt of Tumbling</span>
+                </div>
+                <div class="slot-pill left occupied" style="left:6.67%; top:56.09%; transform:translate(-100%,-50%);">
+                  <span class="p-label">Ring (left)</span><span class="p-item">Ring of Protection +1</span>
+                </div>
+                <div class="slot-pill right occupied" style="left:91.67%; top:56.96%;">
+                  <span class="p-label">Ring (right)</span><span class="p-item">Ring of Feather Falling</span>
+                </div>
+                <div class="slot-pill right occupied" style="left:73.33%; top:94.57%;">
+                  <span class="p-label">Feet</span><span class="p-item">Boots of Elvenkind</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title"><span class="dot"></span> Worn &amp; held</div>
+              <div class="track-row" style="grid-template-columns:1fr;">
+                <div class="track-tile">
+                  <div class="t-label">Armor</div>
+                  <div class="t-value">Mithral Chain Shirt +1</div>
+                </div>
+                <div class="track-tile">
+                  <div class="t-label">Shield</div>
+                  <div class="t-value empty">None equipped</div>
+                </div>
+                <div class="track-tile">
+                  <div class="t-label">
+                    <span>Held (hands)</span>
+                    <span class="t-sub" style="margin-top:0;">1 / 2</span>
+                  </div>
+                  <div class="t-value">Rapier +1 <span class="t-sub">→ +9 to hit, 1d6+3, 18–20/×2</span></div>
+                  <div class="hands-bar"><div class="hands-bar-fill"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT: warnings + expanded example item + other items -->
+          <div style="display:flex; flex-direction:column; gap:0.9rem;">
+
+            <div class="warn-banner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              <div>
+                <p class="w-title">1 slot warning — not blocking, just letting you know</p>
+                <p class="w-text">Neck slot collision: <b>Amulet of Natural Armor +1</b> and <b>Necklace of Fireballs</b> both occupy Neck. Both stay equipped and both keep working — this is a heads-up, not an error.</p>
+              </div>
+            </div>
+
+            <div>
+              <div class="card-title gold" style="margin-bottom:0.5rem;"><span class="dot"></span> Belt slot — expanded</div>
+              <div class="item-card expanded">
+                <div class="item-head">
+                  <div class="item-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                  </div>
+                  <div class="item-titles">
+                    <p class="item-name">Belt of Tumbling</p>
+                    <p class="item-meta">Belt · Wondrous item · 750 gp</p>
+                  </div>
+                  <div class="item-chevron">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg>
+                  </div>
+                </div>
+                <div class="chip-row">
+                  <span class="chip gold">Slot <b>Belt</b></span>
+                  <span class="chip">Aura <b>Faint</b> transmutation</span>
+                  <span class="chip">CL <b>3rd</b></span>
+                  <span class="chip">Weight <b>1 lb.</b></span>
+                  <span class="chip rune">↻ Linked automation</span>
+                </div>
+                <div class="item-body">
+                  <div>
+                    <p class="field-label">Statblock</p>
+                    <dl class="statblock-dl">
+                      <dt>Aura</dt><dd>faint transmutation</dd>
+                      <dt>CL</dt><dd>3rd</dd>
+                      <dt>Slot</dt><dd>belt</dd>
+                      <dt>Price</dt><dd>750 gp</dd>
+                      <dt>Weight</dt><dd>1 lb.</dd>
+                    </dl>
+                  </div>
+                  <div>
+                    <p class="field-label">Description</p>
+                    <p class="statblock-desc">The wearer of this belt can use Acrobatics to jump as if she had a running start, and gains a +5 competence bonus on Acrobatics checks made to jump.</p>
+                  </div>
+                  <div>
+                    <p class="field-label">Construction</p>
+                    <p class="statblock-desc construction">Requirements: Craft Wondrous Item, jump · Cost: 375 gp</p>
+                  </div>
+                  <div>
+                    <p class="field-label">Automation — feeds the engine, same as every other item</p>
+                    <div class="automation-row">
+                      <span class="a-val">+5</span>
+                      <span class="a-target">Acrobatics</span>
+                      <span class="chip" style="padding:0.1rem 0.4rem;">competence</span>
+                      <span class="a-cond">condition: jump checks only</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-divider">Other equipped items <span class="rule"></span></div>
+              <div class="other-items-grid" style="margin-top:0.5rem;">
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 2l2.4 6.6L21 10l-5.4 4.6L17 22l-5-3.6L7 22l1.4-7.4L3 10l6.6-1.4z"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Headband of Alluring Charisma +2</p>
+                      <p class="item-meta">Headband · +2 enhancement to CHA</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Headband</span><span class="chip">4,000 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Lenses of Detection</p>
+                      <p class="item-meta">Eyes · Detect magic/poison at will</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Eyes</span><span class="chip">4,500 gp</span></div>
+                </div>
+
+                <div class="item-card" style="border-color: color-mix(in srgb, var(--pf-danger) 45%, var(--pf-border));">
+                  <div class="item-head">
+                    <div class="item-icon" style="border-color: color-mix(in srgb, var(--pf-danger) 45%, transparent); color: var(--pf-danger); background: color-mix(in srgb, var(--pf-danger) 12%, var(--pf-surface-sunken));"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="9"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Amulet of Natural Armor +1</p>
+                      <p class="item-meta">Neck · +1 natural armor</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip danger">Neck — conflict</span><span class="chip">2,000 gp</span></div>
+                </div>
+
+                <div class="item-card" style="border-color: color-mix(in srgb, var(--pf-danger) 45%, var(--pf-border));">
+                  <div class="item-head">
+                    <div class="item-icon" style="border-color: color-mix(in srgb, var(--pf-danger) 45%, transparent); color: var(--pf-danger); background: color-mix(in srgb, var(--pf-danger) 12%, var(--pf-surface-sunken));"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 2C8 8 4 10 4 15a8 8 0 0016 0c0-5-4-7-8-13z"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Necklace of Fireballs (type III)</p>
+                      <p class="item-meta">Neck · 3 beads, 6d6 fire each</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip danger">Neck — conflict</span><span class="chip">11,700 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 6L9 17l-5-5"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Cloak of Resistance +2</p>
+                      <p class="item-meta">Shoulders · +2 resistance to all saves</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Shoulders</span><span class="chip">4,000 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Vest of Escape</p>
+                      <p class="item-meta">Chest · +4 competence to Escape Artist</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Chest</span><span class="chip">1,800 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="5" y="8" width="14" height="9" rx="2"/><path d="M8 8V6a4 4 0 018 0v2"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Bracers of Armor +3</p>
+                      <p class="item-meta">Wrist · +3 armor bonus to AC</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Wrist</span><span class="chip">9,000 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M7 11V7a5 5 0 0110 0v4"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Gloves of Storing</p>
+                      <p class="item-meta">Hands · Stow one item in an extradimensional space</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Hands</span><span class="chip">4,900 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Ring of Protection +1</p>
+                      <p class="item-meta">Ring (left) · +1 deflection to AC</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Ring L</span><span class="chip">2,000 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Ring of Feather Falling</p>
+                      <p class="item-meta">Ring (right) · Slow fall as the spell</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Ring R</span><span class="chip">2,200 gp</span></div>
+                </div>
+
+                <div class="item-card">
+                  <div class="item-head">
+                    <div class="item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 16l4 4 12-12-4-4z"/></svg></div>
+                    <div class="item-titles">
+                      <p class="item-name">Boots of Elvenkind</p>
+                      <p class="item-meta">Feet · +5 competence to Stealth</p>
+                    </div>
+                    <div class="item-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg></div>
+                  </div>
+                  <div class="chip-row"><span class="chip gold">Feet</span><span class="chip">2,500 gp</span></div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MOBILE FRAME ============ -->
+  <div class="frame-wrap">
+    <div class="frame-label">Mobile — 375px</div>
+    <div class="frame-mobile mobile">
+      <div class="app-topbar">
+        <a class="back-btn" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          Anise
+        </a>
+        <button class="edit-cta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        </button>
+      </div>
+
+      <div class="sheet-body">
+
+        <div class="doll-strip">
+          <div class="doll-mini">
+            <svg viewBox="0 0 300 460" aria-hidden="true">
+              <circle class="silhouette" cx="150" cy="42" r="27"/>
+              <path class="silhouette" d="M108 85 h84 l6 30 v95 h-96 v-95 z"/>
+              <rect class="silhouette" x="78" y="90" width="20" height="165" rx="10"/>
+              <rect class="silhouette" x="202" y="90" width="20" height="165" rx="10"/>
+              <rect class="silhouette" x="118" y="205" width="28" height="220" rx="12"/>
+              <rect class="silhouette" x="154" y="205" width="28" height="220" rx="12"/>
+            </svg>
+            <div class="mini-dot" style="left:56.7%; top:4.8%;"></div>
+            <div class="mini-dot occupied" style="left:43.3%; top:8.7%;"></div>
+            <div class="mini-dot occupied" style="left:56.7%; top:11.3%;"></div>
+            <div class="mini-dot conflict" style="left:43.3%; top:17%;"></div>
+            <div class="mini-dot occupied" style="left:56.7%; top:20%;"></div>
+            <div class="mini-dot occupied" style="left:43.3%; top:27.8%;"></div>
+            <div class="mini-dot" style="left:56.7%; top:36.5%;"></div>
+            <div class="mini-dot occupied" style="left:30%; top:35.9%;"></div>
+            <div class="mini-dot occupied" style="left:70.7%; top:53.3%;"></div>
+            <div class="mini-dot occupied" style="left:50%; top:44.8%;"></div>
+            <div class="mini-dot occupied" style="left:29.3%; top:56.1%;"></div>
+            <div class="mini-dot occupied" style="left:70.7%; top:57%;"></div>
+            <div class="mini-dot occupied" style="left:50%; top:94.6%;"></div>
+          </div>
+          <div class="doll-strip-text">
+            <span class="count-gold">11 / 13</span> body slots filled<br/>
+            1 tattoo · <span style="color:var(--pf-danger); font-weight:700;">1 conflict</span><br/>
+            Tap a row below to open it
+          </div>
+        </div>
+
+        <div class="warn-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <div>
+            <p class="w-title">1 slot warning</p>
+            <p class="w-text">Neck: <b>Amulet of Natural Armor +1</b> and <b>Necklace of Fireballs</b> both equipped — not blocked, just flagged.</p>
+          </div>
+        </div>
+
+        <div class="section-divider">Body slots <span class="rule"></span></div>
+        <div class="slot-list">
+
+          <div class="slot-row"><div class="sr-dot"></div><div class="sr-text"><div class="sr-slot">Head</div><div class="sr-item empty">Empty</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Headband</div><div class="sr-item">Headband of Alluring Charisma +2</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Eyes</div><div class="sr-item">Lenses of Detection</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row conflict"><div class="sr-dot conflict"></div><div class="sr-text"><div class="sr-slot">Neck — conflict</div><div class="sr-item">Amulet of Natural Armor +1, +1 more</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Shoulders</div><div class="sr-item">Cloak of Resistance +2</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Chest</div><div class="sr-item">Vest of Escape</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot"></div><div class="sr-text"><div class="sr-slot">Body</div><div class="sr-item empty">Empty</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Wrist</div><div class="sr-item">Bracers of Armor +3</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Hands</div><div class="sr-item">Gloves of Storing</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <!-- expanded row example on mobile: tap-to-open disclosure, same idiom as desktop -->
+          <div class="slot-row expanded">
+            <div class="sr-dot occupied"></div>
+            <div class="sr-text">
+              <div class="sr-slot">Belt <span class="sr-tattoo">◆ + Tattoo</span></div>
+              <div class="sr-item">Belt of Tumbling</div>
+            </div>
+            <div class="sr-chevron" style="transform: rotate(90deg); color: var(--pf-gold);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div>
+            <div class="sr-detail">
+              <dl class="statblock-dl">
+                <dt>Aura</dt><dd>faint transmutation</dd>
+                <dt>CL</dt><dd>3rd</dd>
+                <dt>Price</dt><dd>750 gp</dd>
+              </dl>
+              <p class="statblock-desc" style="margin-top:0.5rem;">+5 competence bonus on Acrobatics checks made to jump; jump as if with a running start.</p>
+              <div class="automation-row" style="margin-top:0.5rem;">
+                <span class="a-val">+5</span><span class="a-target">Acrobatics</span><span class="a-cond">jump only</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Ring (left)</div><div class="sr-item">Ring of Protection +1</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Ring (right)</div><div class="sr-item">Ring of Feather Falling</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Feet</div><div class="sr-item">Boots of Elvenkind</div></div><div class="sr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 18l6-6-6-6"/></svg></div></div>
+
+        </div>
+
+        <div class="section-divider">Worn &amp; held <span class="rule"></span></div>
+        <div class="slot-list">
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Armor</div><div class="sr-item">Mithral Chain Shirt +1</div></div></div>
+          <div class="slot-row"><div class="sr-dot"></div><div class="sr-text"><div class="sr-slot">Shield</div><div class="sr-item empty">None equipped</div></div></div>
+          <div class="slot-row"><div class="sr-dot occupied"></div><div class="sr-text"><div class="sr-slot">Held — hands 1/2</div><div class="sr-item">Rapier +1 → +9 to hit, 1d6+3</div></div></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

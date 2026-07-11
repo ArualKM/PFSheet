@@ -88,7 +88,17 @@ function usePrereqContext(ed: CharacterEditorApi): PrereqContext {
  * prerequisites as live met/unmet/manual chips evaluated against the character, and applies a pick to
  * character.feats. Prereqs are informational (never block — PF1e lets you note a feat; the chips warn).
  */
-export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: () => void }) {
+export function FeatPicker({
+  ed,
+  onClose,
+  autoFocusSearch = true,
+}: {
+  ed: CharacterEditorApi;
+  onClose: () => void;
+  /** Suppress the search input's autofocus (the wizard steps opt out — entering a step must not pop
+   * the mobile keyboard unprompted). Defaults to true so every existing call site is unaffected. */
+  autoFocusSearch?: boolean;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [q, setQ] = useState("");
   const [feats, setFeats] = useState<FeatResult[]>([]);
@@ -238,7 +248,7 @@ export function FeatPicker({ ed, onClose }: { ed: CharacterEditorApi; onClose: (
   return (
     <PickerShell icon={<Swords />} title="Feat compendium" onClose={onClose}>
       <PickerSearch
-        autoFocus
+        autoFocus={autoFocusSearch}
         value={q}
         onChange={setQ}
         loading={loading}
