@@ -40,6 +40,7 @@ import { conditionEffects } from "./conditions";
 import { computePathOfWar, highestInitiatorLevel, type PathOfWarSummary } from "./path-of-war";
 import { computeAkashic, akashicEssencePool, type AkashicSummary } from "./akashic";
 import { computeOaths, type OathsSummary } from "./oaths";
+import { computeEquipmentSlots, type EquipmentSlotsSummary } from "./equipment-slots";
 
 /* -------------------------------------------------------------------------- */
 /* Ability modifiers                                                          */
@@ -560,7 +561,7 @@ function stackTotalOfType(mods: IndexedMod[], type: BonusType): number {
 }
 
 /** All equipment items across every inventory bucket, in a single flat list. */
-function allInventory(character: PathForgeCharacterV1) {
+export function allInventory(character: PathForgeCharacterV1) {
   return [
     ...character.inventory.weapons,
     ...character.inventory.armorAndShields,
@@ -989,6 +990,9 @@ export type ComputedCharacter = {
       readyToLevel: boolean;
       atCap: boolean;
     };
+    /** Equipment slot-occupancy tracker (Items Overhaul Stage 1) — ALWAYS computed, no module gate:
+     * this is core PF1e (body slots / tattoos / armor+shield / hands), not an optional variant. */
+    equipmentSlots: EquipmentSlotsSummary;
   };
 };
 
@@ -1476,6 +1480,10 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
   // Oath-point budget (earned vs spent on boons) — pure sheet arithmetic, warn-only.
   const oaths = computeOaths(character);
 
+  // Equipment slot occupancy (body slots / tattoos / armor+shield / hands) — always-on, core PF1e,
+  // warn-only (never blocks a save). See docs/ITEMS_OVERHAUL/MASTER_PLAN.md Stage 1.
+  const equipmentSlots = computeEquipmentSlots(character);
+
   let milestoneLeveling: ComputedCharacter["summary"]["milestoneLeveling"];
   if (isModuleKeyEnabled(character, "milestone_leveling")) {
     const current = Math.max(0, character.milestoneLeveling?.current ?? 0);
@@ -1625,6 +1633,7 @@ export function computeCharacter(character: PathForgeCharacterV1): ComputedChara
       milestoneLeveling,
       companion,
       masterFamiliars,
+      equipmentSlots,
     },
   };
 }

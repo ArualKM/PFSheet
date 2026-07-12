@@ -18,6 +18,10 @@ type Feat = PathForgeCharacterV1["feats"]["list"][number];
 const feat = (id: string, name: string, extra: Record<string, unknown> = {}): Feat =>
   ({ id, name, tags: [], automation: [], ...extra }) as unknown as Feat;
 
+type Item = PathForgeCharacterV1["inventory"]["gear"][number];
+const gearItem = (id: string, name: string, extra: Record<string, unknown> = {}): Item =>
+  ({ id, name, category: "gear", quantity: 1, automation: [], modifiers: [], identified: true, ...extra }) as unknown as Item;
+
 describe("threeWayMerge", () => {
   it("no divergence → clean merge equal to base", () => {
     const [base, mine, theirs] = forked();
@@ -120,6 +124,21 @@ describe("threeWayMerge", () => {
     const { merged, conflicts } = threeWayMerge(base, mine, theirs);
     expect(conflicts).toHaveLength(0);
     expect(merged.feats.list.find((f) => f.id === "f-x")?.tags.sort()).toEqual(["base", "mine", "theirs"]);
+  });
+
+  // Items Overhaul Stage 1: equipSlot/tattooSlot/heldSlot/wondrous/compendiumId are new fields on
+  // EquipmentItem, an already-id-merged entity array — confirms they need no special-casing (an
+  // ordinary leaf field, exactly like the feat fields above).
+  it("entity arrays: a new equipSlot field on an EquipmentItem merges as an ordinary leaf", () => {
+    const [base, mine, theirs] = forked();
+    base.inventory.gear.push(gearItem("i-x", "Belt of Giant Strength"));
+    mine.inventory.gear.push(gearItem("i-x", "Belt of Giant Strength", { equipSlot: "belt" }));
+    theirs.inventory.gear.push(gearItem("i-x", "Belt of Giant Strength", { notes: "found in a chest" }));
+    const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+    expect(conflicts).toHaveLength(0);
+    const x = merged.inventory.gear.find((i) => i.id === "i-x");
+    expect(x?.equipSlot).toBe("belt");
+    expect(x?.notes).toBe("found in a chest");
   });
 
   it("applyConflictChoices: per-field pick of mine vs theirs", () => {

@@ -41,6 +41,7 @@ export {
   CharacterResolver,
   computeCharacter,
   classifyTarget,
+  allInventory,
 } from "./compute";
 export type {
   AbilityComputation,
@@ -64,6 +65,10 @@ export type { AkashicSummary, AkashicClassSummary, AkashicShapedSummary, Akashic
 // Oaths (3pp Phase 6) — the Oath-point budget
 export { computeOaths } from "./oaths";
 export type { OathsSummary } from "./oaths";
+
+// Equipment slots (Items Overhaul Stage 1) — body/tattoo slot occupancy + hands tracking
+export { computeEquipmentSlots } from "./equipment-slots";
+export type { EquipmentSlotsSummary, EquipmentSlotOccupant } from "./equipment-slots";
 
 // Buff Center helpers
 export { detectStackingConflicts, activeBuffDelta, previewBuffEffects } from "./buffs";
