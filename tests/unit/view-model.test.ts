@@ -1,7 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { createDefaultCharacter } from "@pathforge/schema";
+import { createDefaultCharacter, type EquipmentItem } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { buildCharacterViewModel, canSee } from "@/lib/character/view-model";
+
+function equipmentItem(over: Partial<EquipmentItem> & { id: string; name: string }): EquipmentItem {
+  return {
+    category: "gear",
+    quantity: 1,
+    weight: 0,
+    equipped: true,
+    automation: [],
+    modifiers: [],
+    identified: true,
+    ...over,
+  } as EquipmentItem;
+}
 
 function build(viewer: Parameters<typeof buildCharacterViewModel>[2], mutate?: (c: ReturnType<typeof createDefaultCharacter>) => void) {
   const c = createDefaultCharacter({ name: "Seraphina Vale" });
@@ -117,6 +130,74 @@ describe("buildCharacterViewModel — public/anonymous never leaks private field
     });
     expect(hidden.spheres).toBeNull();
     expect(hidden.hiddenSections).toContain("Spheres");
+  });
+
+  // Items Overhaul Stage 2 (docs/ITEMS_OVERHAUL/MASTER_PLAN.md): equipmentSlots + the per-item
+  // equipSlot/tattooSlot/wondrous fields are MORE DETAIL on the existing `inventory` section, not a
+  // new capability — they must ride the exact same §15 gate, never a bypass (the precise class of bug
+  // the Spheres pass caught: "the spheres section bypassed §15 gating").
+  it("gates equipmentSlots + per-item equipSlot/tattooSlot/wondrous behind the SAME inventory privacy section", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.inventory.gear.push(
+        equipmentItem({
+          id: "belt1",
+          name: "Belt of Giant Strength +4",
+          category: "magic_item",
+          equipSlot: "belt",
+          wondrous: { auraSchool: "transmutation", auraStrength: "moderate", casterLevel: 8 },
+        }),
+      );
+      c.privacy.sections.inventory = "private";
+    };
+    const hidden = build("anonymous", mutate);
+    expect(hidden.inventory).toBeNull();
+    expect(hidden.equipmentSlots).toBeNull();
+    expect(hidden.hiddenSections).toContain("Inventory");
+    // Nothing leaks anywhere else in the model shape either — not just the two top-level fields.
+    expect(JSON.stringify(hidden)).not.toContain("Belt of Giant Strength");
+
+    const visible = build("owner", mutate);
+    expect(visible.inventory).not.toBeNull();
+    expect(visible.equipmentSlots).not.toBeNull();
+    expect(visible.equipmentSlots?.bySlot.belt?.[0]?.name).toBe("Belt of Giant Strength +4");
+    const it = visible.inventory?.items.find((i) => i.name === "Belt of Giant Strength +4");
+    expect(it?.equipSlot).toBe("belt");
+    expect(it?.wondrous).toEqual({ auraSchool: "transmutation", auraStrength: "moderate", casterLevel: 8 });
+  });
+
+  it("surfaces equipmentSlots + per-item slot fields under the default public inventory privacy", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.inventory.gear.push(
+        equipmentItem({ id: "belt1", name: "Belt of Giant Strength +4", equipSlot: "belt" }),
+        equipmentItem({ id: "tattoo1", name: "Tattoo of the Belt", tattooSlot: "belt" }),
+      );
+    };
+    const vm = build("anonymous", mutate);
+    expect(vm.equipmentSlots).not.toBeNull();
+    expect(vm.equipmentSlots?.bySlot.belt).toHaveLength(1);
+    expect(vm.equipmentSlots?.tattoosBySlot.belt).toHaveLength(1);
+    const belt = vm.inventory?.items.find((i) => i.name === "Belt of Giant Strength +4");
+    expect(belt?.equipSlot).toBe("belt");
+  });
+
+  it("never surfaces equipSlot on an item that doesn't set one (additive field, not a default)", () => {
+    const mutate = (c: ReturnType<typeof createDefaultCharacter>) => {
+      c.inventory.gear.push(equipmentItem({ id: "torch1", name: "Torch" }));
+    };
+    const vm = build("owner", mutate);
+    const torch = vm.inventory?.items.find((i) => i.name === "Torch");
+    expect(torch?.equipSlot).toBeUndefined();
+    expect(torch?.tattooSlot).toBeUndefined();
+    expect(torch?.wondrous).toBeUndefined();
+    // A brand-new / unmodified sheet still gets a defined (empty, warning-free) equipmentSlots.
+    expect(vm.equipmentSlots).toEqual({
+      bySlot: {},
+      tattoosBySlot: {},
+      held: [],
+      handsUsed: 0,
+      handsAvailable: 2,
+      warnings: [],
+    });
   });
 
   // Every optional-rules module that surfaces its own card must respect §15 like core sections —

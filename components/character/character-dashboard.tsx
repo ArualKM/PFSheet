@@ -33,6 +33,7 @@ import { CollapsibleGroup, COLLAPSE_WHEN_OVER } from "./collapsible-group";
 import { groupTalentsByCategory } from "@/lib/character/sphere-talents";
 import { EntryDetailRow, DetailPara } from "./entry-detail-row";
 import { ShowMore } from "./show-more";
+import { SlotDoll, slotLabel, SLOT_DISPLAY_ORDER } from "./slot-doll";
 import { StatTile, MiniStat } from "./stat-tile";
 import { SectionCard, DefenseRow } from "./section-card";
 import { Card, CardContent } from "@/components/ui/card";
@@ -444,7 +445,7 @@ export function CharacterDashboard({
               {vm.inventory.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No items yet.</p>
               ) : (
-                <InventoryList inv={vm.inventory} />
+                <InventoryList inv={vm.inventory} slots={vm.equipmentSlots} />
               )}
             </SectionCard>
           )}
@@ -1308,23 +1309,39 @@ function SphereTierTalents({
 }
 
 type InventoryVM = NonNullable<CharacterViewModel["inventory"]>;
+type EquipmentSlotsVM = NonNullable<CharacterViewModel["equipmentSlots"]>;
 
-/** Inventory split into Equipped/Worn vs Carried, each item tagged with its category glyph. */
-function InventoryList({ inv }: { inv: InventoryVM }) {
+/**
+ * Inventory split into Equipped/Worn vs Carried, each item tagged with its category glyph. When any
+ * item on the sheet carries an `equipSlot`/`tattooSlot` (Items Overhaul Stage 2), the paper-doll
+ * renders at the top and the equipped list groups by body slot; pre-existing sheets with none set
+ * keep today's flat Equipped/Carried view EXACTLY (never a jarring empty doll for a sheet that's
+ * never touched the slot system).
+ */
+function InventoryList({ inv, slots }: { inv: InventoryVM; slots: EquipmentSlotsVM | null }) {
   const equipped = inv.items.filter((it) => it.equipped);
   const carried = inv.items.filter((it) => !it.equipped);
+  // EQUIPPED items only, matching computeEquipmentSlots' own predicate (review finding): a spare
+  // slotted belt sitting unequipped in the backpack must not summon an all-empty doll.
+  const hasSlotData = equipped.some((it) => it.equipSlot || it.tattooSlot);
   // Only label the groups when there's a real split — a single group reads cleaner unlabeled.
   const showHeaders = equipped.length > 0 && carried.length > 0;
   return (
     <div className="space-y-3">
-      {equipped.length > 0 && (
-        <div className="space-y-1.5">
-          {showHeaders && <InvHeading label="Equipped" count={equipped.length} />}
-          {equipped.map((it, i) => (
-            <InvRow key={`e${i}`} it={it} showBadge={!showHeaders} />
-          ))}
-        </div>
-      )}
+      {hasSlotData && slots && <SlotDoll slots={slots} />}
+      {/* No extra wrapper on the fallback branch — the no-slot render stays byte-identical to the
+          pre-Stage-2 DOM (review finding). */}
+      {equipped.length > 0 &&
+        (hasSlotData ? (
+          <SlottedEquippedGroups items={equipped} />
+        ) : (
+          <div className="space-y-1.5">
+            {showHeaders && <InvHeading label="Equipped" count={equipped.length} />}
+            {equipped.map((it, i) => (
+              <InvRow key={`e${i}`} it={it} showBadge={!showHeaders} />
+            ))}
+          </div>
+        ))}
       {carried.length > 0 && (
         <div className="space-y-1.5">
           {showHeaders && <InvHeading label="Carried" count={carried.length} />}
@@ -1339,6 +1356,52 @@ function InventoryList({ inv }: { inv: InventoryVM }) {
         <p className="text-xs text-muted-foreground">≈ {inv.carriedWeight} lb carried</p>
       )}
     </div>
+  );
+}
+
+/** Groups the equipped list by wondrous body slot (anatomical order, then any unknown/homebrew slot
+ * strings) with an "Other equipped" bucket for items carrying no `equipSlot` (weapons, armor,
+ * unslotted magic items) — never dropped. */
+function SlottedEquippedGroups({ items }: { items: InventoryVM["items"] }) {
+  const bySlot = new Map<string, InventoryVM["items"]>();
+  const other: InventoryVM["items"] = [];
+  for (const it of items) {
+    const slot = it.equipSlot?.trim();
+    if (!slot) {
+      other.push(it);
+      continue;
+    }
+    const list = bySlot.get(slot) ?? [];
+    list.push(it);
+    bySlot.set(slot, list);
+  }
+  const known = new Set<string>(SLOT_DISPLAY_ORDER);
+  const orderedKnown = SLOT_DISPLAY_ORDER.filter((k) => bySlot.has(k));
+  const unknown = [...bySlot.keys()].filter((k) => !known.has(k));
+  const groups = [...orderedKnown, ...unknown];
+
+  return (
+    <>
+      {groups.map((slot) => {
+        const list = bySlot.get(slot)!;
+        return (
+          <div key={slot} className="space-y-1.5">
+            <InvHeading label={slotLabel(slot)} count={list.length} />
+            {list.map((it, i) => (
+              <InvRow key={`${slot}-${i}`} it={it} showBadge={false} />
+            ))}
+          </div>
+        );
+      })}
+      {other.length > 0 && (
+        <div className="space-y-1.5">
+          <InvHeading label="Other equipped" count={other.length} />
+          {other.map((it, i) => (
+            <InvRow key={`o${i}`} it={it} showBadge={false} />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

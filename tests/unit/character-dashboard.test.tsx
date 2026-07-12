@@ -1,9 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within, cleanup } from "@testing-library/react";
-import { createDefaultCharacter } from "@pathforge/schema";
+import { createDefaultCharacter, type EquipmentItem } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
+
+function equipmentItem(over: Partial<EquipmentItem> & { id: string; name: string }): EquipmentItem {
+  return {
+    category: "gear",
+    quantity: 1,
+    weight: 0,
+    equipped: true,
+    automation: [],
+    modifiers: [],
+    identified: true,
+    ...over,
+  } as EquipmentItem;
+}
 
 function richCharacter() {
   const c = createDefaultCharacter({ name: "Seraphina Vale" });
@@ -133,5 +146,49 @@ describe("CharacterDashboard", () => {
     const publicCard = publicRegion.parentElement?.parentElement;
     expect(publicCard).not.toHaveClass("pf-hover-lift");
     expect(within(publicRegion).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  // Items Overhaul Stage 2 (docs/ITEMS_OVERHAUL/MASTER_PLAN.md): the doll must never appear on a
+  // pre-existing sheet that has never touched the slot system — a jarring empty doll on every old
+  // character would be a regression the plan explicitly calls out to avoid.
+  it("falls back to the flat Equipped/Carried inventory view when no item has a slot set", () => {
+    const c = richCharacter();
+    c.inventory.gear.push(
+      equipmentItem({ id: "g1", name: "Torch", quantity: 3, equipped: false }),
+      equipmentItem({ id: "g2", name: "Backpack", equipped: true }),
+    );
+    const vm = buildCharacterViewModel(c, computeCharacter(c), "owner", "public");
+    render(<CharacterDashboard vm={vm} />);
+
+    expect(screen.getByText("Backpack")).toBeInTheDocument();
+    expect(screen.getByText("Torch")).toBeInTheDocument();
+    // None of the doll/slot-list chrome renders — no slot data on the sheet.
+    expect(screen.queryByText("Headband")).not.toBeInTheDocument();
+    expect(screen.queryByText("Other equipped")).not.toBeInTheDocument();
+  });
+
+  it("renders the paper-doll + slot-grouped equipped list once any item carries an equipSlot", () => {
+    const c = richCharacter();
+    c.inventory.gear.push(
+      equipmentItem({
+        id: "belt1",
+        name: "Belt of Giant Strength +4",
+        category: "magic_item",
+        equipSlot: "belt",
+      }),
+      equipmentItem({ id: "g1", name: "Torch", quantity: 3, equipped: false }),
+    );
+    const vm = buildCharacterViewModel(c, computeCharacter(c), "owner", "public");
+    render(<CharacterDashboard vm={vm} />);
+
+    // The doll's slot list renders an empty known slot that has no equipped occupant (e.g. Headband)
+    // — proof the doll itself rendered, not just the grouped list.
+    expect(screen.getByText("Headband")).toBeInTheDocument();
+    // The equipped list is now grouped by slot: a "Belt" group heading, and the item appears (at
+    // least once — both the doll's compact row and the full equipped card show its name).
+    expect(screen.getAllByText("Belt").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Belt of Giant Strength +4").length).toBeGreaterThan(0);
+    // The carried Torch is unaffected by the grouping (still listed under Carried).
+    expect(screen.getByText("Torch")).toBeInTheDocument();
   });
 });

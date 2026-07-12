@@ -234,6 +234,25 @@ export type AkashicView = {
   }>;
 };
 
+/** A single slot occupant (paper-doll Items Overhaul, docs/ITEMS_OVERHAUL/MASTER_PLAN.md Stage 2).
+ * Mirrors `EquipmentSlotOccupant` from the rules-pf1e engine — viewer-safe (name/quantity only). */
+export type EquipmentSlotOccupantView = { id: string; name: string; quantity: number };
+
+/** Equipment-slot occupancy (Tracks A/B/D — body slots, tattoo sub-slots, held/hands). Rides the
+ * SAME `inventory` §15 gate as `CharacterViewModel.inventory` — this is more detail on the existing
+ * inventory section, not a new capability, so it must never be reachable by a viewer who fails the
+ * `inventory` gate (the exact class of bug the Spheres pass caught: "the spheres section bypassed
+ * §15 gating"). Track C (armor/shield) isn't duplicated here — the per-item `category`/`equipped`
+ * fields already on `inventory.items` cover it. */
+export type EquipmentSlotsView = {
+  bySlot: Record<string, EquipmentSlotOccupantView[]>;
+  tattoosBySlot: Record<string, EquipmentSlotOccupantView[]>;
+  held: Array<{ id: string; name: string; hands: number }>;
+  handsUsed: number;
+  handsAvailable: number;
+  warnings: string[];
+};
+
 export type CharacterViewModel = {
   viewer: ViewerContext;
   isOwnerView: boolean;
@@ -546,10 +565,27 @@ export type CharacterViewModel = {
       cost?: string;
       weight?: number;
       weapon?: { damage?: string; damageType?: string; crit?: string; range?: string; enhancement?: number };
+      /** Track A: the wondrous body slot this item occupies when equipped (free string — see
+       * EQUIP_SLOT_KEYS). */
+      equipSlot?: string;
+      /** Track B: the Inner Sea Magic tattoo sub-slot this item occupies (independent of equipSlot). */
+      tattooSlot?: string;
+      /** Wondrous-item statblock flavor (aura/CL/construction) — descriptive, viewer-safe like
+       * cost/weight (this is the public Identify-check info, not tactical notes). */
+      wondrous?: {
+        auraSchool?: string;
+        auraStrength?: string;
+        casterLevel?: number;
+        constructionRequirements?: string;
+        constructionCost?: string;
+      };
     }>;
     /** Total carried weight (Σ weight × quantity). */
     carriedWeight: number;
   } | null;
+  /** Equipment-slot occupancy (paper-doll Tracks A/B/D) — null under the exact same conditions as
+   * `inventory` above (same §15 gate). */
+  equipmentSlots: EquipmentSlotsView | null;
   wealth: { pp: number; gp: number; sp: number; cp: number; totalGp: number } | null;
   /** Human-readable labels of sections hidden from this viewer. */
   hiddenSections: string[];
@@ -779,11 +815,43 @@ export function buildCharacterViewModel(
             },
           }
         : {}),
+      // Items Overhaul Stage 2 (docs/ITEMS_OVERHAUL/MASTER_PLAN.md): equipSlot/tattooSlot/wondrous
+      // are additive, viewer-safe like cost/weight (public statblock flavor, not tactical notes) —
+      // no owner gating beyond the existing `inventory` section gate this whole array already rides.
+      ...(i.equipSlot ? { equipSlot: i.equipSlot } : {}),
+      ...(i.tattooSlot ? { tattooSlot: i.tattooSlot } : {}),
+      // Explicit field allowlist, NOT a spread (review finding): a spread skips TS's
+      // excess-property check, so a future owner/GM-only sub-field added to the schema's wondrous
+      // block would silently ship to public shares — name every viewer-safe field, like the weapon
+      // block above does.
+      ...(i.wondrous
+        ? {
+            wondrous: {
+              auraSchool: i.wondrous.auraSchool,
+              auraStrength: i.wondrous.auraStrength,
+              casterLevel: i.wondrous.casterLevel,
+              constructionRequirements: i.wondrous.constructionRequirements,
+              constructionCost: i.wondrous.constructionCost,
+            },
+          }
+        : {}),
     })),
     carriedWeight: inventorySource.reduce(
       (s, i) => s + (typeof i.weight === "number" ? i.weight : 0) * (i.quantity ?? 1),
       0,
     ),
+  });
+
+  // Same `inventory` gate as the array above — more detail on the SAME section, not a new privacy
+  // capability. A viewer who can't see inventory must never see slot occupancy either.
+  const equipSlotsSummary = computed.summary.equipmentSlots;
+  const equipmentSlotsView = gate("inventory", {
+    bySlot: equipSlotsSummary.bySlot,
+    tattoosBySlot: equipSlotsSummary.tattoosBySlot,
+    held: equipSlotsSummary.held,
+    handsUsed: equipSlotsSummary.handsUsed,
+    handsAvailable: equipSlotsSummary.handsAvailable,
+    warnings: equipSlotsSummary.warnings,
   });
 
   // Hoisted so the narrowed reference survives into the maneuvers .map() closure below.
@@ -1206,6 +1274,7 @@ export function buildCharacterViewModel(
     spellcasting,
     profile,
     inventory: inventoryView,
+    equipmentSlots: equipmentSlotsView,
     wealth: gate("wealth", {
       pp: character.wealth.pp,
       gp: character.wealth.gp,
