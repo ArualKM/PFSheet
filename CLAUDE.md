@@ -840,6 +840,35 @@ preference with reduced-motion fallbacks, desktop/mobile-aware. No new deps; gat
   desktop + phone · share hero on a real slug · GM audit pills · rule on the superseded mobile
   command bar + deferred FLIP/swipe.
 
+**S6 follow-ups + wizard v2 + ITEMS OVERHAUL framework (2026-07-10 → 07-11, 5 commits
+`3a437f1`…`725c17c`, all pushed).** Owner-driven session; every slice gate-green + adversarially
+reviewed; 903→950 unit tests; NO DB migrations.
+- **Owner-quirk fixes** (`3a437f1`): the Modern editor's sub-tab tablist moved INTO the active
+  card's header (top-pinned it sat ~10 cards from a low section; heading = the ITEM label); the
+  companion editor gained a **statblock picker** (`companion-statblock-picker.tsx` + unified
+  `lib/character/companion-statblock.ts` apply, createCompanionAction refactored onto it) — for
+  creature companions the statblock IS the "race" (cohorts keep the PC race picker). Patterns:
+  `applyCompanionStatblock` stamps `raceApplied {name, abilityMods:{}}` (kills the "race not
+  applied" false-nag + stale PC-race revert corruption); additive `companion.statblockName`;
+  companion-sync helpers idempotent-by-replacement via `cstat_` id prefixes.
+- **Wizard v2** (`a43bf57`): Systems step (optional-rule toggles; gestalt auto-split WITH HP heal),
+  PB budget presets 10/15/20/25 + sticky Custom (5-60) + unspent nudge, owner step order
+  welcome→systems→abilities→race→class→skills→feats→hp→gear→details→done (abilities-before-race
+  rides RacePicker's pb.racial mirror), Feats&Traits + HP steps, class-step archetypes + gestalt
+  hints. **`resumeStepFor` + wizardMeta `order` stamp — any future step reorder MUST bump
+  WIZARD_ORDER_VERSION or old checkpoints silently skip inserted steps forever.**
+- **Items Overhaul Stages 1-3** (`53202a4`/`c7352e4`/`725c17c`; plan `docs/ITEMS_OVERHAUL/`):
+  slot schema (13 equip + 11 tattoo slots, FREE STRINGS — an auraStrength enum failed the whole
+  document parse on "Faint"; compendium-alignment fields compendiumId/weaponGroup/armorType),
+  always-on warn-only `summary.equipmentSlots` (quantity-aware; shields cost a hand, buckler
+  name-heuristic exception), §15-gated read-view paper-doll (`slot-doll.tsx`; wondrous via explicit
+  allowlist NOT spread — spreads skip TS excess-property checks), EntryCard inventory editor with
+  slot/tattoo/wondrous disclosures + LIVE `pf:weapon:<id>` "Linked attack ⚡" chips (the sync
+  already existed — badge not button; all 4 states honest) + gated doll mirror + handsAvailable.
+  GOTCHA: `<details open={derived}>` is CONTROLLED — only ever force-OPEN (EntryCard idiom).
+  **Stage 4 (magic-item compendium) is DATA-BLOCKED on the owner's dataset — the biggest yet;
+  schema fields are shaped and waiting.**
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
