@@ -132,10 +132,20 @@ function buildChips(sectionKey: string, ed: CharacterEditorApi): ReactNode[] | n
       // raw gp coin count alone reads "broke" for a character carrying platinum.
       const w = ed.draft.wealth;
       const totalGp = Math.round((w.pp * 10 + w.gp + w.sp / 10 + w.cp / 100) * 100) / 100;
-      return [
+      const chips: ReactNode[] = [
         <StatChip key="items" label="Items" value={itemCount} />,
         <StatChip key="gp" label="GP" value={`≈${totalGp}`} tone="gold" />,
       ];
+      // Items Overhaul Stage 3 — the equipment-slots summary is always-on (no module gate), read
+      // live per render so the chip can never go stale after an equip/slot edit elsewhere.
+      const slots = summary.equipmentSlots;
+      if (slots.warnings.length > 0) {
+        chips.push(<StatChip key="warnings" label="Warnings" value={slots.warnings.length} tone="poor" />);
+      }
+      if (slots.handsUsed > 0) {
+        chips.push(<StatChip key="hands" label="Hands" value={`${slots.handsUsed}/${slots.handsAvailable}`} />);
+      }
+      return chips;
     }
 
     case "buffs": {
