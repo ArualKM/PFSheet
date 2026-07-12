@@ -13,6 +13,7 @@ import { computeCharacter, type ComputedCharacter } from "@pathforge/rules-pf1e"
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildMasterCache, masterCacheEquals } from "@/lib/character/companion-sync";
+import { deleteConfirmMatches } from "@/lib/character/delete-confirm";
 import { applyCompanionStatblock, type CompanionCompendiumRow } from "@/lib/character/companion-statblock";
 import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
 import type { Database } from "@/lib/supabase/types";
@@ -136,6 +137,54 @@ export async function createWizardCharacterAction(
   }
 
   redirect(`/characters/${result.id}/wizard`);
+}
+
+/**
+ * S6 Pillar 3 follow-up (2026-07-11) — reopen a finished/skipped/never-started wizard. The wizard
+ * page redirects to `/edit` whenever `metadata.custom.wizard` is missing or `active: false`, which
+ * made the guided flow permanently unreachable once a character left it. Bound to a form action
+ * (`reopenWizardAction.bind(null, characterId)`, same shape as `signInWithOAuthAction`) from the
+ * wizard page's own interstitial, so it always ends in a redirect rather than returning state.
+ *
+ * Reads `sheet_data` + `sheet_version` through the RLS-scoped client — same access model as every
+ * other character action here (a non-owner/non-editor's read simply comes back empty; no separate
+ * `owner_id` check needed, mirrors `saveCharacterSheetAction`). Safe-parses, then re-stamps
+ * `writeWizardMeta(character, { active: true })` — the patch deliberately omits `step`, so
+ * `writeWizardMeta`'s spread keeps whatever step was last stored (or defaults to "welcome" if the
+ * character never had wizard meta at all); `resumeStepFor` in the wizard shell handles any stale
+ * ordering on load. The write is a compare-and-swap on the version just read (the `bump_sheet_version`
+ * trigger advances it); a CAS miss — a concurrent save landed between our read and write, e.g. the
+ * overview's master-familiar cache refresh — lands BACK on the wizard page, whose interstitial
+ * re-renders with the same "Reopen guided setup" button: the failure is visible and one click away
+ * from a retry, instead of silently dropping the user in /edit as if they never asked (review LOW).
+ * Unreadable/unparseable sheets still fall back to /edit, where the load-failure surfaces properly.
+ */
+export async function reopenWizardAction(characterId: string): Promise<void> {
+  const { supabase } = await authedClient();
+
+  const { data, error } = await supabase
+    .from("characters")
+    .select("sheet_data, sheet_version")
+    .eq("id", characterId)
+    .maybeSingle();
+  if (error || !data) redirect(`/characters/${characterId}/edit`);
+
+  const parsed = safeParseCharacter(data.sheet_data);
+  if (!parsed.ok) redirect(`/characters/${characterId}/edit`);
+
+  writeWizardMeta(parsed.character, { active: true });
+
+  await supabase
+    .from("characters")
+    .update({ sheet_data: parsed.character as unknown as Json })
+    .eq("id", characterId)
+    .eq("sheet_version", data.sheet_version);
+
+  // Success and CAS miss both land on the wizard page, which renders the truth: success
+  // shows the (now active) wizard; a miss (or RLS-filtered write) means the flag did NOT
+  // flip, so the page's interstitial re-renders with the same "Reopen guided setup"
+  // button — the failure is visible and one click away from a retry.
+  redirect(`/characters/${characterId}/wizard`);
 }
 
 const COMPANION_TYPES = ["animal_companion", "familiar", "eidolon", "cohort", "mount", "other"] as const;
@@ -453,4 +502,53 @@ export async function saveCharacterSheetAction(
   }
 
   return { ok: true, savedAt: new Date().toISOString(), version: updated.sheet_version };
+}
+
+export type DeleteCharacterState = { ok: boolean; error?: string };
+
+/**
+ * Permanently delete a character. Owner-requested "type the name to confirm"
+ * protection: the client dialog (`delete-character-dialog.tsx`) already disables its
+ * confirm button until the typed value matches, but that's UI only — the server
+ * independently re-verifies via the SAME shared `deleteConfirmMatches` (trimmed,
+ * case-sensitive, DELETE fallback for blank names) against the row's REAL name
+ * (defense in depth; never trust the client dialog alone).
+ *
+ * Companions link via `parent_character_id` with `ON DELETE SET NULL` (migration
+ * 0025), so deleting a parent unlinks its companions rather than cascading the
+ * delete to them — they become ordinary standalone characters.
+ *
+ * The delete is `.select("id")`-verified: RLS (`characters_delete_owner`) scopes
+ * deletes to the owner, so anyone else's delete silently matches 0 rows, which is
+ * treated as a failure here — never a false success (the codebase's standing
+ * convention for RLS-gated writes; see `saveCharacterSheetAction`).
+ */
+export async function deleteCharacterAction(characterId: string, confirmName: string): Promise<DeleteCharacterState> {
+  const { supabase, user } = await authedClient();
+
+  const { data: row, error: readError } = await supabase
+    .from("characters")
+    .select("id, name, owner_id")
+    .eq("id", characterId)
+    .maybeSingle();
+  if (readError || !row) return { ok: false, error: "Character not found." };
+  if (row.owner_id !== user.id) return { ok: false, error: "Only the owner can delete this character." };
+  if (!deleteConfirmMatches(confirmName, row.name)) {
+    return { ok: false, error: "The typed name doesn't match — delete cancelled." };
+  }
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from("characters")
+    .delete()
+    .eq("id", characterId)
+    .select("id")
+    .maybeSingle();
+  if (deleteError) return { ok: false, error: deleteError.message };
+  if (!deleted) return { ok: false, error: "Could not delete — you may not have permission." };
+
+  // With `experimental.staleTimes {dynamic: 30}` the /characters list is served from the
+  // Router Cache for up to 30s — without this, the just-deleted character would still be
+  // in the list we land on (same convention as lib/actions/imports.ts).
+  revalidatePath("/characters");
+  redirect("/characters");
 }

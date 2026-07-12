@@ -142,6 +142,43 @@ describe("wizard v2 resume — v1-order checkpoints must not skip the inserted s
   });
 });
 
+describe("reopening a finished/never-started wizard (reopenWizardAction's core write)", () => {
+  it("re-activating a completed meta keeps its step and re-stamps the order, mirroring the action's `{ active: true }`-only patch", () => {
+    const c = createDefaultCharacter({ name: "Finisher" });
+    writeWizardMeta(c, {
+      active: false,
+      step: "done",
+      startedAt: "2026-07-09T00:00:00.000Z",
+      completedAt: "2026-07-09T01:00:00.000Z",
+      order: 1, // simulate a stale pre-reorder stamp too
+    });
+
+    // This is exactly what reopenWizardAction does: patch only `active`, never `step`.
+    const reopened = writeWizardMeta(c, { active: true });
+
+    expect(reopened.active).toBe(true);
+    expect(reopened.step).toBe("done");
+    expect(reopened.order).toBe(WIZARD_ORDER_VERSION);
+    // completedAt is a historical timestamp, not an access gate — untouched by the patch.
+    expect(reopened.completedAt).toBe("2026-07-09T01:00:00.000Z");
+    // resumeStepFor now sees a current-order stamp, so it resumes literally at "done" — the
+    // wizard shell's own step renderer (not resumeStepFor) is what lets the user navigate on
+    // from there via Back/step-jump.
+    expect(resumeStepFor(reopened)).toBe("done");
+  });
+
+  it("reopening a character that never had wizard meta at all defaults to the welcome step", () => {
+    const c = createDefaultCharacter({ name: "Never Wizarded" });
+    expect(c.metadata.custom.wizard).toBeUndefined();
+
+    const reopened = writeWizardMeta(c, { active: true });
+
+    expect(reopened.active).toBe(true);
+    expect(reopened.step).toBe("welcome");
+    expect(reopened.order).toBe(WIZARD_ORDER_VERSION);
+  });
+});
+
 describe("CharacterWizard skeleton — welcome + handoff (S6 Pillar 3, slice W1)", () => {
   beforeEach(() => {
     vi.useFakeTimers();

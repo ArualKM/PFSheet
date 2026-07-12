@@ -16,6 +16,7 @@ import { CompanionSheet } from "@/components/character/companion-sheet";
 import { SheetViewSwitch } from "@/components/character/sheet-view-switch";
 import { CampaignFeedback } from "@/components/character/campaign-feedback";
 import { CompanionsCard } from "@/components/character/companions-card";
+import { DeleteCharacterDialog } from "@/components/character/delete-character-dialog";
 import { ShareControls } from "@/components/character/share-controls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -127,6 +128,18 @@ export default async function CharacterOverviewPage({
       />
       <CampaignFeedback items={feedback} characterId={characterId} />
       {isOwner && <CompanionsCard parentId={characterId} companions={companions} />}
+      {isOwner && (
+        <Card className="mt-4 border-danger/30">
+          <CardContent className="p-5">
+            <h2 className="mb-3 text-base font-semibold text-foreground">Danger zone</h2>
+            <DeleteCharacterDialog
+              characterId={data.id}
+              characterName={data.name}
+              companionCount={companions.length}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
