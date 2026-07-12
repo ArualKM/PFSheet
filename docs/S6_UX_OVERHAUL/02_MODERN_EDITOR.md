@@ -1,5 +1,18 @@
 # S6 · Modern Editor Overhaul (desktop + mobile)
 
+> **STATUS: SHIPPED through Stage 2 (2026-07-09, `d5e034f`/`abd3590`/`8ffb499`).** Stage 0
+> (extraction: 7,236→5,372 lines, 8 optional-system editors to own files), Stage 1
+> (`<EditorCanvas>`, entrance only on panel CHANGE — never first mount), and Stage 2
+> (`section-summary.tsx` chip-summary canvas, `LayoutGroup` + `layoutDependency`, `jumpToSection`)
+> all landed as designed below. **Stage 3 (the mobile bottom command bar, §6 below) was NOT
+> built — it was superseded**, per CLAUDE.md's "P2 Modern editor" entry: the app-level
+> `MobileBottomNav` (`components/app-shell/mobile-bottom-nav.tsx`) already owns `bottom-0`, and
+> the Stage-2 chip stack already serves as the mobile section index. Swipe gestures + a
+> shared-element `layoutId` FLIP remain deferred pending device/session eyes. Stage 4
+> (desktop peek-stack) was also not built — cut as lowest priority. Kept below as the design
+> record for the primitives that DID ship (§3, §4's `editor-canvas.tsx`/`section-summary.tsx`,
+> §7's perf/a11y rules — all still accurate).
+
 Part 2 of the S6 UX handoff package. Pillar 2 of 3 (companion sheets → **this** → wizard),
 sequenced deliberately: this is the biggest lift and the wizard (`03_CHARACTER_WIZARD.md`) will
 reuse whatever section-shell/EntryCard/Motion patterns this pass lands, so it should ship second.
@@ -327,7 +340,7 @@ one giant flip.
   chip summary ever show STALE data after `ed.update` fires (must read `ed.computed`/`ed.draft`
   directly, never a memoized snapshot taken at mount)?
 
-**Stage 3 — Mobile bottom command bar + gesture nav.**
+**Stage 3 — Mobile bottom command bar + gesture nav.** *(Not built — superseded by the existing `MobileBottomNav`; see the status banner at the top of this doc.)*
 - Build `mobile-command-bar.tsx`; wire the swipe-drag wrapper described in §4.
 - File-level tasks: `mobile-command-bar.tsx` (new), `character-editor.tsx` (mount the bar on
   `< md`), `editor-canvas.tsx` (accept a `direction` for slide-in/out, gesture handlers).
@@ -337,7 +350,7 @@ one giant flip.
   (`pathforge-mobile-first-ui.md` mentions one from the nav overhaul — check
   `components/app-shell/` for it and make sure the two floating elements don't collide)?
 
-**Stage 4 (optional/desktop polish) — Peek-stack on desktop.**
+**Stage 4 (optional/desktop polish) — Peek-stack on desktop.** *(Not built — cut; see the status banner at the top of this doc.)*
 - Desktop shows the active section full-size + collapsed summaries for 2-3 adjacent sections
   below it (scrollable), each independently expandable — moves desktop Modern a step closer to
   "everything glanceable" without becoming Classic.

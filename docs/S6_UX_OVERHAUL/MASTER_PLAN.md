@@ -1,7 +1,17 @@
 # S6 — UX Overhaul: companion sheets, fluid Modern editor, wizard, unified viewers
 
-**Status:** LOCKED IN (2026-07-09). Handoff package for a fresh Fable 5 chat. Everything here is additive on
-top of a v1-complete app; nothing below requires throwing away working code.
+**Status:** ALL FOUR PILLARS SHIPPED (2026-07-09). Companion sheets, the Modern editor overhaul,
+the create-a-character wizard, and the Viewers design-language pass all landed — see CLAUDE.md's
+"S6 UX overhaul — ALL FOUR PILLARS COMPLETE" entry for the shipped commits. Two things below
+drifted from plan after shipping and are noted in their own docs rather than here: Pillar 2's
+Stage 3 mobile command bar was superseded by the existing app-level `MobileBottomNav` (see
+`02_MODERN_EDITOR.md`), and Pillar 3's step order/list changed under "wizard v2" + the 2026-07-12
+level-up wizard generalized `WizardShell` (see `03_CHARACTER_WIZARD.md`). This file remains the
+accurate cross-cutting invariants + execution-model reference for any future work on these
+surfaces.
+
+Originally drafted 2026-07-09 as a handoff package for a fresh Fable 5 chat. Everything here was
+additive on top of a v1-complete app; nothing below required throwing away working code.
 
 **North star:** ONE cohesive design language across the whole app. The mockups in `mockups/` set the visual
 vocabulary — chip/stat-tile density, live summaries, purposeful hierarchy, disciplined gold/rune accents,

@@ -13,6 +13,15 @@ Touch baseline is the house standard `--pf-tap: 44px` (`app/globals.css:30`); an
 - **Build order: A → B → C** — nav overhaul, then the mobile-polish sweep, then the view-page update. Each ships
   as its own gate-green, adversarially-reviewed, browser-verified increment (same bar as the editor redesign).
 
+> **Status (2026-07-12): A → B → C all SHIPPED, live on prod.** Nav overhaul (A — killed the sidebar
+> drawer, avatar account menu, section hamburger bottom-sheet, sticky live-stats at `top-14`, floating
+> back-to-top: commits `893d00c`/`0b3b6e7`), the 44px touch-target sweep (B — `842a441`), and the
+> view-page completeness pass (C — feat/feature/trait rules-text via `<EntryDetailRow>`, per-class
+> archetypes header, at-will spell badge + FCB skill ranks, SLA/racial-mod lines: `1b2f9b1`/`b958d0f`/
+> `1eed610`/`40708e8`) are all done. Items below already carry "Shipped deviation" notes where the as-built
+> behavior diverged from plan (e.g. A2/A3's shrink-on-scroll decision). See `../CLAUDE.md` ("Mobile +
+> view-page plan" note) for the commit-level record.
+
 ---
 
 ## A) MOBILE NAVIGATION OVERHAUL — ONE recommended arrangement

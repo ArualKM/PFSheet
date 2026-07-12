@@ -57,8 +57,11 @@
 > skip-verify path included) and excluded from preview counts. Fixture corpus:
 > `tests/unit/import-vehti.test.ts`.
 >
-> Remaining from this doc: P4 archetype matching depth (3pp archetypes stay "as written").
-> See "Deferred detectors" at the bottom for Path of War / Akashic / Psionics.
+> Remaining from this doc: P4 archetype matching depth (3pp archetypes stay "as written"). The
+> "Deferred detectors" section at the bottom is now historical — Path of War, Akashic, and the
+> Psionics import detector all shipped as part of the 3pp epic's Phase 8 consolidated sweep
+> (`docs/3PP_MASTER_PLAN.md`, commit `3a7b730`); see CLAUDE.md "The big 3pp update (S4
+> flagship) — COMPLETE."
 
 _Owner request (2026-07-01 session): now that the PFcore compendiums exist (M12: 25 tables,
 ~25.9k rows), a Myth-Weavers (or any) import shouldn't stop at "text preserved" — it should
@@ -205,6 +208,10 @@ and `mineNotesEntries` promotes entry-shaped lines from the preserved notes dump
 claims (default SKIPPED unless an exact compendium match is found — junk can't self-promote).
 
 ## Deferred detectors — Path of War · Akashic · Psionics (plan only, gated on their systems)
+
+> **Historical — SHIPPED 2026-07-03.** All three systems, and their import detectors, shipped
+> via the 3pp epic's Phase 8 consolidated sweep. This section is kept as the original design
+> record, not current status — see `docs/3PP_MASTER_PLAN.md` Phase 8 + CLAUDE.md.
 
 These follow the SAME detector→question→claims pattern, but each is gated on its character
 system being implemented (psionics core EXISTS; PoW/Akashic are post-1.0 pending datasets):

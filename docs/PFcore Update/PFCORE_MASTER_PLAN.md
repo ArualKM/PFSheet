@@ -1,5 +1,14 @@
 # PFcore — Compendium-Driven Builder (M12) — Master Plan
 
+> **STATUS (2026-07-12): COMPLETE.** 9 of the 10 phases below shipped, each after an
+> adversarial Workflow review + real-browser verification (Phase 0 data load through Phase 7
+> races, plus Phase 9 companions). **Phase 8 (mythic depth compendium picker) was honestly
+> skipped** — `mythic_path_ability_compendium.name` data turned out to be unusable book
+> references, not real ability names (the mythic CORE system itself shipped separately,
+> pre-M12, and was later completed with recovered names — see CLAUDE.md "Mythic completed").
+> See CLAUDE.md "M12 (PFcore compendium-driven builder) is COMPLETE" for the full phase log,
+> and `PHASE4_STATUS.md` in this folder for the keystone class-builder's detailed resume notes.
+
 _Authored 2026-06-29 from a 4-agent grounded assessment of the live PathForge codebase + the new
 `docs/PFcore Update/csv/` dataset (25 TSV tables / ~25,924 rows). This is the authoritative plan for the
 "PFcore" epic: turning PathForge from a hand-entered sheet into a **compendium-driven builder** where you

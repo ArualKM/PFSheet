@@ -924,15 +924,17 @@ dead-end /edit redirect; a CAS miss lands back ON the interstitial (visible retr
   PowerShell text pipes. Also `character-editor-layouts.test.tsx` now sets `testTimeout: 30_000`
   (heaviest mount; crossed vitest's 5s default under full-suite load on a green commit).
 
-**Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
-interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
-`class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
-detail rows, prepared/cast/rest), **S5a** (mobile overhaul — drawer nav, responsive editor,
-density). **Next: S2** `/view` polish (inside **M11** polish/QA/launch), then **S5b** (native
-Android/iPhone apps + real-time sync/conflict — XL), **S4** (3pp content), **S6** (more features),
-**S7** (final review). Deferred tails: M8 — Myth-Weavers HTML mapper, Hero Lab `.por`, statblock
-parser; M9 — printable-PDF export (§13.3), Foundry round-trip fidelity, `campaigns:read` endpoints;
-S5a — touch-height sweep of raw inputs; M10 — per-theme manifest color, custom install prompt.
+**Secondary milestones** (`docs/SECONDARY_MILESTONES.md`, S1–S7) — **ALL effectively DONE** as of
+2026-07-12: S1 point-buy · S2 /view polish · S3 classes+spells · S4 3pp flagship (COMPLETE, see the
+3pp epic) · S5a mobile overhaul · S5b Phases 0–1 (version-guarded save + 3-way merge on web;
+**native apps SHELVED — the PWA is the mobile story**, V1 roadmap owner call; Phase 2 per-field
+conflict UI + offline outbox deferred) · S6 UX overhaul (all 4 pillars) · S7 = the standing
+review-every-pass cadence. **Current open work: Items Stage 4** (magic-item compendium,
+DATA-BLOCKED on the owner's dataset). Deferred tails to fold in opportunistically: M8 —
+Myth-Weavers HTML mapper, statblock parser (Hero Lab `.por` shelved); M9 — Foundry round-trip
+fidelity, `campaigns:read` endpoints; M10 — per-theme manifest color, custom install prompt;
+real-device <640px mobile pass; per-caster spells-known attribution; editor "Guide me" link next
+to ClassRow's level field; the SECURITY DEFINER helper schema-move.
 
 **Server/Client boundary gotcha:** never pass a function prop from a Server Component to a Client
 Component (build + jsdom tests don't catch it; it crashes at request time). Components used by

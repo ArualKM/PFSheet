@@ -1,5 +1,7 @@
 # INSTRUCTIONS FOR CLAUDE ULTRACODE — Finish Converting the Archives of Nethys (PF1e) HTML Archive into Normalized TSV Compendium Tables for PFSheet / PathForge
 
+> **EXECUTED — 2026-06-29 (Phase 0, PFcore/M12).** The Supabase load described in §8 is done: **25,924 rows / 25 tables** loaded to prod via migrations **`0021`–`0024`** (+ the search-prefix fix in `0026`, 2026-07-01) using a config-driven loader (`csv/loader/pfcore.mjs`), not the per-table `\copy` recipe below — the compendium contract (RLS, tsvector search, search RPC) is the same, just applied generically. Migrations now run through `0029`. **Do not re-run this import.** See `CLAUDE.md` → "PFcore / M12" for the full history. The TSV-extraction TODOs in §0/§7 (rage powers, cavalier orders/banners, hunter animal focus, fighter weapon groups, druid herbalism, the 13 summary-only `class_options` rows, expanding `feats_effects`/`features_effects` beyond the seed) were left unresolved and the data was loaded as-is — still open if anyone picks them up.
+
 > **Read this whole brief before touching anything.** It is the single source of truth for the task. Where this document and your training intuition disagree, **this document wins** — especially on TSV formatting, the Supabase "compendium contract," and which columns already exist. Do not invent columns that contradict the schemas given here, and do not "improve" the rules text by summarizing it.
 
 

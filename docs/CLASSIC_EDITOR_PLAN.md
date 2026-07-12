@@ -1,6 +1,6 @@
 # Classic Editor — Implementation Plan
 
-**Status: BUILT (2026-07-09, branch `feat/classic-editor`).** All phases shipped in one pass (the
+**Status: BUILT (2026-07-09, branch `feat/classic-editor`) and MERGED to `main`.** All phases shipped in one pass (the
 phasing below was written for a context-limited session; the build session had the full map loaded).
 Gate-green (lint / typecheck / 762 tests / prod build), browser-verified via a temporary no-auth
 harness page (deleted before commit), adversarially reviewed. §8 below records the as-built design —

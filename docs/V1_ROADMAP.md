@@ -4,16 +4,22 @@ _Created 2026-06-28 from a grounded 7-domain readiness assessment (`v1-readiness
 cross-checked against the codebase. This is the authoritative "what's left for 1.0" plan; the running
 status log is [`../CLAUDE.md`](../CLAUDE.md) and the quick resume is [`NEXT_SESSION.md`](NEXT_SESSION.md)._
 
-> **✅ v1 COMPLETE (updated 2026-07-01).** **V1·1 through V1·6 have all shipped** — password reset / error
-> boundaries / coming-soon gating / API-key pepper (V1·1); PWA raster icons + enforced CSP (V1·2);
-> feat/feature/trait **automation editor** + conditions 12→17 + **Mythic depth** + **ABP** (V1·3); campaign
-> GM module/detail writes + invitation-consent flow (V1·4, migration `0020`); public E2E smoke + a11y on
-> every push (V1·5); **printable one-page PDF** (V1·6). All four spawned follow-ups merged too. Since then,
-> **M12 (the compendium-driven builder) also shipped** (migrations → `0025`) plus a big editor/mobile/
-> compendium UI-polish pass. **The web app + PWA is v1-complete.** 408 unit tests. The remaining work is
-> **post-1.0** (the S4 3pp flagship — Spheres `<OptionPicker>` → Path of War → Akashic). The per-item detail
-> below is the HISTORICAL plan of record; live status is [`../CLAUDE.md`](../CLAUDE.md) +
-> [`NEXT_SESSION.md`](NEXT_SESSION.md).
+> **✅ v1 COMPLETE (shipped 2026-07-01; everything below is now HISTORICAL).** **V1·1 through V1·6 all
+> shipped** — password reset / error boundaries / coming-soon gating / API-key pepper (V1·1); PWA raster
+> icons + enforced CSP (V1·2); feat/feature/trait **automation editor** + conditions 12→17 + **Mythic
+> depth** + **ABP** (V1·3); campaign GM module/detail writes + invitation-consent flow (V1·4, migration
+> `0020`); public E2E smoke + a11y on every push (V1·5); **printable one-page PDF** (V1·6). All four
+> spawned follow-ups merged too.
+>
+> **Everything this doc calls "Post-1.0" has since shipped too.** The S4 3pp flagship (Spheres/Path of
+> War/Akashic/Oaths + the options-compendium infra) is **complete** (2026-07-02); **M12** (the PFcore
+> compendium-driven class/archetype/prestige/race/companion builder) is **complete**; the **S6 UX
+> overhaul** (companion sheets, Modern editor, new-player wizard, unified viewers design language) is
+> **complete** (2026-07-09); a **guided level-up wizard** (7 stages) plus **character deletion +
+> wizard-reopen** shipped 2026-07-12. The Items Overhaul is the one thing still mid-flight (Stages 1-3
+> done; Stage 4's magic-item compendium is data-blocked on the owner's dataset). **1046 unit tests;
+> migrations through `0029`.** The per-item detail below is the HISTORICAL plan of record; live status is
+> [`../CLAUDE.md`](../CLAUDE.md).
 
 ## What "v1" means here
 

@@ -1,5 +1,7 @@
 # Instructions for Claude Ultracode — Loading the 3pp Compendium
 
+> **EXECUTED — 2026-07-02 ("the big 3pp update", S4 flagship).** This load is done: **14,350 rows / 20 tables** live in prod via migrations **`0027`**/**`0028`** (loader `loader/threepp.mjs`). Every per-system UI in §3 (Psionics, Path of War, Akashic power/veil/maneuver pickers, Spheres depth) and every optional ruleset in §5/§6 (Oaths & Boons, Major Drawbacks/Flaws, Backgrounds & Occupations, custom builders) shipped as full gated character systems — see `CLAUDE.md` → "The big 3pp update (S4 flagship)" for the history. Migrations now run through `0029`. **Do not re-run this import.**
+
 This is the implementer's guide for turning `3pp Update/csv/*.tsv` into live PathForge/Supabase compendium tables + sheet UI. It assumes the `PFcore Update` compendium already exists and follows the identical contract.
 
 ## 1. Compendium contract (per table)

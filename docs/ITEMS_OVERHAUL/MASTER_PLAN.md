@@ -1,6 +1,15 @@
 # Items / Inventory Overhaul — Master Plan
 
-**Status:** PLANNING (docs-only leg, drafted 2026-07-11). No app code touched. Format follows
+**Status: Stages 1-3 SHIPPED (2026-07-11); Stage 4 DATA-BLOCKED.** `53202a4` (Stage 1 —
+equipment slot schema + always-on warn-only slot engine), `c7352e4` (Stage 2 — the read-view
+paper-doll + slot-grouped inventory, §15-gated), `725c17c` (Stage 3 — the inventory editor
+overhaul: every item an `<EntryCard>`, slot/tattoo/held selects, the wondrous statblock
+disclosure, and the live "Linked attack ⚡" chip off the existing `pf:weapon:<id>` computed
+attacks). Everything through Stage 3 below is built and live, matching this plan closely (the
+Ground truth / slot model / wondrous data model / weapon↔attack sections describe what shipped,
+not just what was proposed). Stage 4 (the magic-item compendium, described below as future work)
+has not started and remains blocked on the owner sourcing a normalized Magic Item dataset — no
+change there. Format follows
 `docs/S6_UX_OVERHAUL/MASTER_PLAN.md` and `docs/3PP_MASTER_PLAN.md` — read those first if you haven't;
 this doc assumes the same conventions (additive Zod, the compendium contract, §15 gating, the
 chip+disclosure editor language, mobile-first).

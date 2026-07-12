@@ -1,5 +1,13 @@
 # S4 — Per-System Design Detail
 
+> **STATUS (2026-07-12): SHIPPED.** Every system detailed below is live — Spheres of Power/
+> Might/Guile, Akashic Magic, Psionics, Path of War, Mythic, Wounds & Vigor, Gestalt, and the
+> small Phase-B systems (Hero Points, Background Skills, Honor, Stamina & Combat Tricks). See
+> CLAUDE.md ("Spheres compendium", "The big 3pp update (S4 flagship) — COMPLETE") and
+> `docs/3PP_MASTER_PLAN.md` for what actually shipped and where implementation diverged from
+> this design (e.g. per-domain compendium tables instead of one generic table). Kept as the
+> grounded per-system design record, not current status.
+
 Companion to `S4_OPTIONAL_RULES_PLAN.md`. Full grounded design for each system from the research workflow. Standard ship order: schema+engine core → editor+read+privacy → compendium → parser, each pass reviewed + gated.
 
 ---

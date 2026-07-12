@@ -16,10 +16,13 @@ GM-verifiable, import/export-capable Pathfinder 1e character platform.
 ## Status
 
 **Live in production** at [pfsheet.org](https://pfsheet.org) (auto-deploys from `main` via Vercel).
-Milestones **M0–M12** are complete (M12 = the **compendium-driven builder**); secondary milestones (S1–S7)
-are being built interleaved — a full **sheet-depth audit** (every core PF1e sheet feature wired
-engine→sheet) is done, and **S4 (optional rules & 3pp) is complete** (Psionics, Path of War, Akashic,
-Oaths + Spheres of Power/Might/Guile all live). The web app + PWA is **v1-complete**.
+Milestones **M0–M12** are complete (M12 = the **compendium-driven builder**), **S4 (optional rules &
+3pp)** is complete (Psionics, Path of War, Akashic, Oaths + Spheres of Power/Might/Guile all live), and
+the **v1 launch checklist is done** — the web app + PWA is the mobile story (native apps shelved).
+Current work is post-1.0: a July 2026 pass shipped a **guided character-creation wizard**, a **guided
+level-up wizard**, an **items/equipment-slots overhaul** (paper-doll read view), owner-only **character
+deletion**, **companion character sheets**, a second **"Classic" all-in-one editor layout** alongside the
+chip-based "Modern" one, and an app-wide **motion/animation system**.
 
 What's shipped:
 
@@ -54,16 +57,34 @@ What's shipped:
   negative levels), metamagic→effective spell level, HP from Hit Dice + Con + favored-class bonus,
   nonlethal→staggered/unconscious status, and class daily-resource uses — each surfaced on the read
   sheet and privacy-gated.
-- **Optional rules & 3pp (S4, in progress)** — Hero Points, Background Skills, Honor, Stamina &
-  Combat Tricks, Fractional BAB/Saves, Wounds & Vigor, Gestalt, Mythic (core), and Psionics (core) —
-  each behind a per-character toggle — plus a **copy/paste statblock parser** that turns pasted
-  psionic powers into structured entries (generalizing to maneuvers/talents/veils).
+- **Optional rules & 3pp (S4, complete)** — Hero Points, Background Skills, Honor, Stamina &
+  Combat Tricks, Fractional BAB/Saves, Wounds & Vigor, Gestalt, Automatic Bonus Progression, Mythic
+  (tier/path/pool/surge + path abilities + mythic feats), **Psionics**, **Path of War** (initiators,
+  maneuvers/stances with active-stance automation), **Akashic** (essence + veils), and **Oaths** —
+  each a full character system behind a per-character toggle — plus a **copy/paste statblock parser**
+  that turns pasted powers/maneuvers into structured entries.
 - **Spheres of Power / Might / Guile** — the deepest 3pp system: a 4,756-row compendium browser at
   `/spheres`, and a per-subsystem character editor + read view (each system gets its own caster level /
   spell points / talents, its own tradition, and its own drawbacks/boons — with a "drawback applies here"
   flag you can pin to a specific sphere/talent). A system-scoped compendium picker adds talents/spheres/
   traditions/drawbacks/boons; imports hunt for matching compendium entries; talents expand in the read
   view for their full rules text.
+- **Guided onboarding** — `/characters/new` offers a Guided-setup wizard (8 steps: systems toggles, point-
+  buy with budget presets, race, class with archetype/gestalt awareness, skills, feats, HP, gear) or a
+  blank sheet; an abandoned wizard resumes where it left off, or can be reopened later from the character
+  overview. A companion **guided level-up wizard** (`/characters/[id]/level-up`) walks Class → HP → Skills →
+  [Feats] → [ASI] → [Spells] → Review, showing only the steps a given level actually owes.
+- **Character lifecycle** — an owner-only "Danger zone" on the character overview supports type-the-name-
+  to-confirm **deletion**; companion characters (familiars/mounts/eidolons) get their own linked, purpose-
+  built read view and a simplified "Simple" editor layout alongside the full Advanced editor.
+- **Equipment & items** — a full equipment-slot model (13 gear slots + 11 tattoo slots) with a warn-only
+  slot-conflict engine, a paper-doll read view, and an inventory editor with slot/tattoo/wondrous-item
+  disclosures and live linked-attack chips for equipped weapons. (A magic-item compendium is planned but
+  blocked on sourcing the item dataset.)
+- **Two editor layouts** — the chip-based "Modern" editor (collapsed stat-chip summaries that expand in
+  place) and a continuous single-page "Classic" editor, switchable per user.
+- **Motion system** — app-wide page transitions, staggered list entrances, and hover-lift, gated by a
+  user animation preference (`system` / `full` / `off`) with reduced-motion fallbacks.
 
 See [`CLAUDE.md`](CLAUDE.md) for the detailed milestone log, `docs/SECONDARY_MILESTONES.md` for the
 S1–S7 roadmap, and `docs/S4_OPTIONAL_RULES_PLAN.md` for the optional-rules/3pp plan.
@@ -82,7 +103,7 @@ S1–S7 roadmap, and `docs/S4_OPTIONAL_RULES_PLAN.md` for the optional-rules/3pp
 | Components       | shadcn/ui style + Radix primitives                  |
 | Validation       | Zod                                                 |
 | Forms            | React Hook Form                                     |
-| Server state     | TanStack Query                                      |
+| Animation        | Motion (`motion/react`), user-gated preference       |
 | Testing          | Vitest (unit) + Playwright (e2e)                    |
 | Package manager  | pnpm (workspaces)                                   |
 

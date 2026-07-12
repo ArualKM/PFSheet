@@ -1,5 +1,18 @@
 # S4 — Optional Rules & 3pp Systems: Master Plan
 
+> **STATUS (2026-07-12): SHIPPED.** Every system in the table below is live — Hero Points,
+> Background Skills, Honor, Stamina & Combat Tricks, Wounds & Vigor, Gestalt, and Mythic shipped
+> under S4 itself; Path of War, Akashic Magic, and Psionics shipped as part of the 3pp epic
+> (`docs/3PP_MASTER_PLAN.md`); Spheres of Power/Might/Guile shipped as their own epic (see
+> CLAUDE.md's "Spheres compendium" + "Spheres + optional-rules UX overhaul" entries). One
+> divergence from this plan: the "generic `<domain>_compendium` template" below became, in
+> practice, one proven-contract table PER domain (`sphere_talents`, `psionic_power_compendium`,
+> `pow_maneuver_compendium`, `akashic_veil_compendium`, plus the 25-table PFcore compendium) —
+> same contract/RPC/picker pattern, not one literal parameterized table. This doc remains the
+> design record for the shared-infrastructure reasoning; see `docs/S4_SYSTEM_DESIGNS.md` for
+> per-system detail and `docs/3PP_MASTER_PLAN.md` / `docs/PFcore Update/PFCORE_MASTER_PLAN.md`
+> for how the compendium long-pole actually got solved.
+
 Grounded design plan for layering the optional/third-party rulesets onto PathForge. Produced by an
 11-agent research workflow (each agent fetched the canonical source) + a synthesis pass. The detailed
 per-system designs are archived in the workflow output; this doc is the build reference.

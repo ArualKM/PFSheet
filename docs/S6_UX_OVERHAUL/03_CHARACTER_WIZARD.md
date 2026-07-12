@@ -1,5 +1,18 @@
 # S6 · Pillar 3 — "Create a character" wizard
 
+> **STATUS: SHIPPED (2026-07-09, `b42b029`/`89c7961`/`809902f`), then evolved further.** The
+> 8-step `newPlayer` wizard below (route, `metadata.custom.wizard` flag, `wizard.ts`, one
+> `useCharacterEditor` session, thin wrappers around the M12 pickers) landed essentially as
+> designed. **"Wizard v2" (2026-07-10/11, `a43bf57`) then changed the step order and list —
+> see the note at §4.3 below.** The **2026-07-12 level-up wizard generalized `WizardShell`**
+> into a `steps`/`initialStep`/`writeStep`/`navLabel`-driven shell shared by both wizards; the
+> create-wizard's own step table now lives in `create-wizard-steps.tsx` (extracted verbatim out
+> of what was `wizard-shell.tsx`, per `docs/LEVELUP_WIZARD/MASTER_PLAN.md`'s "Shell
+> generalization" design), while `wizard-shell.tsx` itself became the shared engine. See
+> CLAUDE.md's "S6 Pillar 3" and "S6 follow-ups + wizard v2" entries. Kept below as the design
+> record — the reuse seams, the `useCharacterEditor` constraint (§1-2), and the flag design (§3)
+> still hold; only the step order/list changed.
+
 Part of the S6 UX overhaul handoff package. Read `docs/S6_UX_OVERHAUL/MASTER_PLAN.md` for the
 cross-pillar sequencing + invariants before starting — **this pillar ships LAST**, on top of the
 overhauled Modern editor (`02_MODERN_EDITOR.md`). Do not start this
@@ -260,6 +273,16 @@ mount, not from local-only state). Renders:
   editor's Live Values bar already shows) so a new player isn't left wondering if their picks stuck.
 
 ### 4.3 Steps (each a thin wrapper file in `components/character/wizard/steps/`)
+
+> **Order/list changed by "wizard v2" (2026-07-11, `a43bf57`):** the shipped order is
+> welcome → systems → abilities → race → class → skills → feats → hp → gear → details → done.
+> Abilities now runs BEFORE Race (point-buy seeds `racial[]` from
+> `identity.raceApplied.abilityMods`, so Race must come after Abilities, the reverse of this
+> table's assumption), and three steps shipped beyond this table: a **Systems** step
+> (optional-rule toggles, including a gestalt auto-split with an HP heal), a **Feats & Traits**
+> step, and an **HP** step. The table below documents the original design intent and per-step
+> gating rationale (still accurate for the steps it covers) — for the authoritative shipped
+> order and step list, see `components/character/wizard/create-wizard-steps.tsx`.
 
 | Step | Wraps | Gate to advance | Recommended default | Inline help |
 |---|---|---|---|---|

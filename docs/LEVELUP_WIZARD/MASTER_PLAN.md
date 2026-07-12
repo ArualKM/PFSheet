@@ -1,10 +1,24 @@
 # Level-Up Wizard — Master Plan
 
-**Status:** PLANNING (docs-only leg, drafted 2026-07-11). No app code touched. Format follows
+**Status: SHIPPED (2026-07-12, all 7 stages).** `9733456` (Stage 1+2 — flag module + core
+ASI engine + wizard shell generalization), `3729a50` (Stages 3-7 — the full guided flow, Class →
+HP → Skills → [Feats] → [ASI] → [Spells] → Review), `e0f0cc1` (a 41-agent adversarial review —
+16 confirmed + 1 split finding, all fixed). 1046 unit tests. No DB migrations (all
+Zod/metadata-additive, as planned). The design below matches what shipped closely; known
+deviations a future reader should know: `resumeLevelUpStepFor` ended up `(meta, visibleKeys)` —
+a plain list of currently-visible step keys — not `(meta, ed)`; `levelUpMetaSchema` gained an
+additive `startingClasses` field (the per-class level baseline the HP/Skills/Spells/Review steps
+diff against) beyond what's sketched below; the `ClassCompendiumPicker` prefill fix shipped as
+**two** additive props — `prefillLevel` (the planned must-fix) *and* `initialHpMethod` (a
+review-driven follow-on: re-applying an owned class was defaulting to "average" HP and silently
+overwriting a hand-rolled Max HP); and the `review` step's Finish navigates to the **character
+overview**, not `/edit`. `reopenLevelUpAction` + the `/level-up` interstitial shipped as planned.
+Format follows
 `docs/ITEMS_OVERHAUL/MASTER_PLAN.md` and `docs/S6_UX_OVERHAUL/03_CHARACTER_WIZARD.md` — read those
 first if you haven't; this doc assumes the same conventions (additive Zod, the M12 compendium
 pickers, `useCharacterEditor` as the one save loop, chip+disclosure, "warn/hide, never block",
-mobile-first).
+mobile-first). The rest of this document is the original planning record, preserved as the design
+rationale for what shipped.
 
 ## Goals
 

@@ -1,5 +1,14 @@
 # S6 · Viewers Design Language — unifying read / share / GM with the editor
 
+> **STATUS: SHIPPED (2026-07-09, `fff6133`/`89d0d0c`).** The shared `stat-tile.tsx`/
+> `section-card.tsx` (with the `accent`/`className` prop)/`severity-pill.tsx` extraction landed
+> as a byte-identical extraction commit, then a restyle commit, per the §7 risk note — plus
+> `ShareHero` on `/c/[publicSlug]` (with the `#full-sheet` anchor CTA), the `AuditReport`
+> severity strip + GM status pills, and the Combat-only accent bar. One deliberate narrowing vs.
+> §3.1: the shipped `pf-hover-lift` on Companion/Familiar cards is CONDITIONAL (only when the
+> owner-only master link actually renders), not a blanket extension. Privacy + RSC review angles
+> came back clean. See CLAUDE.md's "S6 UX overhaul" entry. Kept below as the design record.
+
 Part 4 of 4 in the S6 UX overhaul (`docs/S6_UX_OVERHAUL/`). Ships **LAST**, deliberately — the owner's
 own framing: "make [the editor mockups] function and be implemented, THEN work on the design language
 of the Viewers to match these next too." Pillars 1–3 make the create/edit side fluid and prove a shared

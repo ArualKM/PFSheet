@@ -13,6 +13,45 @@
 See also: the core roadmap + status in [`CLAUDE.md`](../CLAUDE.md), and the modularity/3pp notes that
 S4 builds on (the existing `lib/character/optional-rules.ts` framework).
 
+> **Status update (2026-07-12) — most of this backlog has since shipped, usually via simpler/different
+> designs than sketched below; this doc stays as the design record, not a live spec.** Per item:
+> - **S1 (Point Buy)** — ✅ shipped.
+> - **S2 (`/view` polish)** — ✅ shipped (folded into M11's read-view work and later the "Read-view
+>   overhaul" + Pillar-4 viewer-design-language passes).
+> - **S3a (spells detail/prepared casting)** + **S3b (prebuilt classes)** — ✅ both shipped
+>   (`spell-tables.ts`/`computeSpellcasting`; `class-catalog.ts`, itself later superseded by M12's live
+>   compendium-driven class builder).
+> - **S4 (3pp / optional-rules content)** — ✅ shipped, but **not** via the `RuleModuleDefinition` registry
+>   pattern designed below (that registry/`modules/*.ts` layer, and the `fieldDefinitionSchema`/
+>   `formulaPatchSchema` stubs it would have consumed, were never built). The actual shape is simpler and
+>   ad hoc per module: `character.<system>` block → `isModuleKeyEnabled`-gated engine `summary.<system>` →
+>   gated view-model section → own-file editor → dashboard card. Every module this doc anticipated (Mythic,
+>   Psionics, Spheres ×3, Path of War, Akashic, Oaths, Hero Points, Background Skills, Honor, Stamina, ABP,
+>   Fractional BAB, Wounds & Vigor, Gestalt) is live — see CLAUDE.md's S4/3pp-epic entries.
+> - **S5a (mobile UI overhaul)** — ✅ shipped (`MOBILE_NAV_AND_POLISH_PLAN.md`, then further mobile passes).
+> - **S5b (native apps + sync/conflict)** — **partially shipped, and re-scoped.** Phase 0
+>   (`threeWayMerge`) and Phase 1 (`sheet_version` + CAS + conflict banner, migration `0016`) shipped **on
+>   web only** — see `S5b_NATIVE_APP_PLAN.md`'s own status note. Phase 2 (offline outbox, per-field
+>   conflict UI) is deferred. **The native-app half of this section (Expo/React Native, App/Play Store) is
+>   SHELVED** — the owner-locked v1 decision (`docs/V1_ROADMAP.md`) is that the **PWA is the mobile
+>   story**; no native shell is planned.
+> - **S6 (additional features — this doc's own numbering)** — **mostly still backlog.** Shipped from this
+>   list: the condition tracker (A3, via the conditions-engine expansion), quick HP adjust (A2, partial —
+>   no dedicated Play view), printable-PDF export (E, as V1·6), the feat/class/race/etc. compendium (C1,
+>   far bigger in the end — the M12 PFcore epic), and the level-up wizard (D1, shipped 2026-07-12, all 7
+>   stages). **Not built:** the dice roller (A1), initiative/encounter tracker (A4), real-time party
+>   presence (A5), party page (B1 — the `party_viewer` view-model tier this section counts on still exists
+>   unwired), gallery (B2), embeds (B3), a general NPC/monster statblock system (C2 — the companion system
+>   covers creature statblocks for PCs, not GM encounters), the build-advisor linter (D2), NL rules lookup
+>   (D3), VTT integration (F), and monetization (H). **Do not confuse this doc's "S6" with CLAUDE.md's
+>   later, unrelated "S6 UX overhaul"** (companion sheets / Modern editor / wizard / viewers design
+>   language, shipped 2026-07-09) — same letter, different initiative.
+> - **S7 (full feature review)** — still the standing final gate; treat as ongoing. Every phase above
+>   shipped behind its own adversarial review, but a single cross-cutting S7 pass hasn't run as its own
+>   milestone.
+>
+> Live status for all of the above: [`../CLAUDE.md`](../CLAUDE.md).
+
 ---
 
 ## S1 — Point Buy Calculator (ability scores)

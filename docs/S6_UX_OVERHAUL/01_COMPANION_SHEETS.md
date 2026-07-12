@@ -1,5 +1,12 @@
 # S6 · Companion Sheets — Simple/Advanced view + editor
 
+> **STATUS: SHIPPED (2026-07-09, commits `de9cb67`/`68e01cf`/`057acba`).** The Simple/Advanced
+> companion read view + editor landed as designed below (3-way `SheetViewSwitch`, the
+> `companion-simple` editor layout, the Motion bridge this pillar introduced for the whole S6
+> effort). Two motion gotchas this pillar surfaced — `AnimatePresence` exit props are frozen, and
+> `reducedMotion="always"` doesn't gate `opacity` — are recorded in `ANIMATION_SYSTEM.md` and
+> CLAUDE.md's "S6 Pillar 1: companion sheets" entry. Kept below as the design record.
+
 Part 1 of 3 in the S6 UX overhaul (`docs/S6_UX_OVERHAUL/`). Ship this pillar FIRST — smallest,
 self-contained, and it proves the "third server-rendered node" pattern the editor overhaul will
 reuse. Execution model: **you (Fable 5) are the leader** — spawn Sonnet 5 subagents for the

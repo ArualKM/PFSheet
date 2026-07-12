@@ -1,8 +1,18 @@
-<!-- Generated 2026-06-27 via a 10-agent grounded audit of the schema + editors + view + UX, then synthesized. A prioritized plan, not yet executed. -->
+<!-- Generated 2026-06-27 via a 10-agent grounded audit of the schema + editors + view + UX, then synthesized. See the STATUS banner below for what has since shipped. -->
 
 The two highest-priority claims are confirmed: languages has schema + factory seed (`["Common"]`) but zero editor/view-model references, and the compute engine only has the hardcoded `armorCheckPenalty: 0` with no reads of conditions/DR/ER/nonlethal/languages. The `bg-surface-sunken` token is undefined yet used 8 times. The findings are solid; I'll synthesize the plan.
 
 # PathForge Sheet Audit & Pre-S4 Plan
+
+> **STATUS (2026-07-12): every P0 item + the P1 health cluster shipped**, each after an
+> adversarial review — see CLAUDE.md "Sheet-depth audit (pre-S4) — COMPLETE" for the full list
+> (languages, skills depth, combat/iterative full-attack, the conditions ENGINE, armor→AC +
+> ACP→skills, weapon→attack, metamagic→effective spell level, conditional defenses,
+> identity/size `<select>`, negative levels + nonlethal→hpStatus + quick HP control,
+> HP-from-Hit-Dice + Con + FCB, the class daily-resource uses tracker, and more). The remaining
+> P1/P2 rows below (spellcasting depth like domains/bloodlines/wizard specialization, per-
+> maneuver CMB, two-weapon fighting, creature type/age category, and most Inventory/Feats UX
+> polish) are still open backlog — treat this doc as the live P1/P2 punch list, not a stale plan.
 
 PathForge has a strong computed core (AC/saves/abilities/BAB/skills math, buff stacking, spellcasting slots, privacy view-model, import/export round-trips), but the audit found a consistent failure pattern across every domain: **data is modeled in the schema and often editable, but never reaches the rules engine or the read-only sheet.** The single worst case is the product-owner-flagged **LANGUAGES** gap — confirmed end-to-end: the schema exists (`meta.ts:5`), the factory seeds `["Common"]` (`factory.ts:145`), importers/exporters read it, yet there is **zero** editor UI and **zero** view-model/dashboard surfacing (grep returns nothing outside importers). The same "captured but invisible/inert" defect independently recurs for conditions, damage reduction, energy resistance, immunities, spell resistance, encumbrance/ACP, character traits, and inventory→AC/attack linkage. A second cluster is **core PF1e math that is purely manual**: HP from Hit Dice, iterative attacks, weapon damage, armor check penalty, carrying capacity, and favored-class bonuses. Below, P0 items are things a real player is blocked on or must track entirely off-app; P1 are important gaps and trust-eroding UX bugs; P2 is polish.
 

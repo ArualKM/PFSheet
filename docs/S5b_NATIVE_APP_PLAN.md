@@ -1,5 +1,18 @@
 <!-- Generated 2026-06-27 via a 7-agent design fan-out grounded in the codebase, then synthesized. A design starting point, not a final spec. -->
 
+> **Status (2026-07-12): re-scoped — native apps SHELVED, web-side conflict handling SHIPPED.** The
+> owner-locked v1 decision (`docs/V1_ROADMAP.md`) is that **native iOS/Android apps are not being built —
+> the PWA is the mobile story**; nothing in this doc's Expo/React Native material (§1-2, §5-6, and the
+> native halves of the §3-6 phased plan) is planned or in progress. What DID ship, **web-only**, closely
+> following this doc's §4-5 design: **Phase 0** (`packages/pathforge-schema` gained a pure, structural,
+> id-aware `threeWayMerge(base, mine, theirs)` in `merge.ts`, 11 tests) and **Phase 1** (migration `0016` —
+> a `sheet_version` column + `bump_sheet_version` trigger, exactly as sketched below in §4;
+> `saveCharacterSheetAction` is now a compare-and-swap that auto-merges disjoint concurrent edits and
+> surfaces a `ConflictBanner` for true collisions). **Phase 2** (offline outbox, per-field conflict UI, the
+> offline→reconnect→merge integration test) remains deferred. Migrations now run through `0029` — well
+> past this doc's `0016`/`0017`/`0018`. Treat this document as the design record for the web-side conflict
+> work and as an ARCHIVED plan for the native-app portions; live status is [`../CLAUDE.md`](../CLAUDE.md).
+
 # S5b — Native Apps + Real-Time Sync & Conflict Handling (Design)
 
 PathForge's game logic already lives in four pure, dependency-light `@pathforge/*` workspace packages (Zod schema, no-eval rules engine, importers, exporters) that import no UI, server, React, or DOM code — so the hard part of a Pathfinder app is already portable to native with effectively zero changes. This document specifies S5b: ship native Android + iPhone apps from one Expo/React Native codebase that reuses that core verbatim, layer a local-first sync engine over Supabase, and replace today's silent last-write-wins autosave with a deterministic, privacy-aware conflict-resolution model. The central insight: the only genuinely hard problem is concurrency — `saveCharacterSheetAction` currently does an unconditional whole-`sheet_data` JSONB overwrite with no version guard — so the plan front-loads all conflict risk into a web-only spike and three web-only phases that fix a real existing bug before any app-store exposure.
