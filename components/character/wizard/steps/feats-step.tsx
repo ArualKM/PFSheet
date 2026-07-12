@@ -58,7 +58,22 @@ function RemovableChip({
  * than re-deriving them. Drawbacks are just traits with `type: "Flaw" | "Drawback"` (no separate
  * schema), so they already show up in the traits chip strip once added.
  */
-export function FeatsStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
+export function FeatsStep({
+  ed,
+  heading = "Feats, traits & drawbacks",
+  intro = "Feats and traits round out what your character is good at beyond their class. This step is optional — skip it and add these later from the full editor.",
+  showLevelOneGuideline = true,
+}: {
+  ed: CharacterEditorApi;
+  characterId: string;
+  /** Level-up wizard Stage 5 reuse (same additive pattern as HpStep/SkillsStep's heading/intro) —
+   * the level-up wrapper overrides the create-flow copy and suppresses the level-1 guideline (a
+   * review caught the wrapper stacking a second h2 card on top of this one instead). Defaults keep
+   * the create wizard byte-identical. */
+  heading?: string;
+  intro?: string;
+  showLevelOneGuideline?: boolean;
+}) {
   const [featPickerOpen, setFeatPickerOpen] = useState(false);
   const [traitPickerOpen, setTraitPickerOpen] = useState(false);
   const [drawbackPickerOpen, setDrawbackPickerOpen] = useState(false);
@@ -72,15 +87,14 @@ export function FeatsStep({ ed }: { ed: CharacterEditorApi; characterId: string 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-card p-6">
       <div className="space-y-1.5">
-        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Feats, traits &amp; drawbacks</h2>
-        <p className="max-w-prose text-sm text-muted-foreground">
-          Feats and traits round out what your character is good at beyond their class. This step is
-          optional — skip it and add these later from the full editor.
-        </p>
-        <p className="rounded-lg border border-gold/40 bg-gold/5 p-2.5 text-xs text-foreground">
-          A typical level 1 character picks <strong>1 feat</strong> (plus a bonus feat if human) and{" "}
-          <strong>2 traits</strong> — just a guideline, not a hard limit.
-        </p>
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h2>
+        <p className="max-w-prose text-sm text-muted-foreground">{intro}</p>
+        {showLevelOneGuideline && (
+          <p className="rounded-lg border border-gold/40 bg-gold/5 p-2.5 text-xs text-foreground">
+            A typical level 1 character picks <strong>1 feat</strong> (plus a bonus feat if human) and{" "}
+            <strong>2 traits</strong> — just a guideline, not a hard limit.
+          </p>
+        )}
       </div>
 
       <section className="space-y-2">

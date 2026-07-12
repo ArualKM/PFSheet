@@ -243,8 +243,25 @@ export async function startLevelUpAction(characterId: string): Promise<void> {
   if (readWizardMeta(parsed.character)?.active) redirect(`/characters/${characterId}/wizard`);
   if (readLevelUpMeta(parsed.character)?.active) redirect(`/characters/${characterId}/level-up`);
 
-  const computed = computeCharacter(parsed.character);
-  writeLevelUpMeta(parsed.character, buildStartLevelUpMeta(parsed.character, computed.summary.hp.max));
+  // The compute here only supplies the startingMaxHp baseline (and the familiar-sync check below) —
+  // a sheet that throws in computeCharacter must not crash the action the way it can't crash a save
+  // (saveCharacterSheetAction guards the same call). Starting without the HP baseline just hides the
+  // HP step's delta banner; the session itself is still fully valid.
+  let computed: ComputedCharacter | null = null;
+  try {
+    computed = computeCharacter(parsed.character);
+  } catch {
+    computed = null;
+  }
+
+  // A master-linked synced familiar's HD/levels track its master (companion-sync.ts) — there is
+  // nothing for a level-up session to assign. The overview hides the button; this guard covers the
+  // direct-URL path the same way (review finding).
+  if (parsed.character.companion?.type === "familiar" && computed?.summary.companion?.synced === true) {
+    redirect(`/characters/${characterId}`);
+  }
+
+  writeLevelUpMeta(parsed.character, buildStartLevelUpMeta(parsed.character, computed?.summary.hp.max));
 
   await supabase
     .from("characters")
@@ -280,6 +297,11 @@ export async function reopenLevelUpAction(characterId: string): Promise<void> {
 
   const parsed = safeParseCharacter(data.sheet_data);
   if (!parsed.ok) redirect(`/characters/${characterId}/edit`);
+
+  // Same mutual-exclusion check as startLevelUpAction/reopenWizardAction — the interstitial already
+  // hides its Resume button while guided setup is active, but the server must not trust the UI
+  // (a stale tab could still post this action after guided setup reopened elsewhere).
+  if (readWizardMeta(parsed.character)?.active) redirect(`/characters/${characterId}/wizard`);
 
   writeLevelUpMeta(parsed.character, { active: true });
 

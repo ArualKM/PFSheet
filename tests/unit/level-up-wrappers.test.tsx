@@ -1,11 +1,11 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { createDefaultCharacter, writeLevelUpMeta, type PathForgeCharacterV1 } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 
 // Level-Up Wizard Stage 4 (HP/Skills wrapper delta banners) + the level-up-steps.tsx registry
-// visibility table. Harness preamble copied from tests/unit/wizard-shell-visibility.test.tsx â€”
+// visibility table. Harness preamble copied from tests/unit/wizard-shell-visibility.test.tsx —
 // useCharacterEditor pulls in the editor chrome's jsdom-missing browser APIs + a module-scope
 // Supabase client even though these wrapper components don't render a picker themselves.
 if (!window.matchMedia) {
@@ -111,7 +111,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("LevelUpHpStep â€” the +N HP delta banner", () => {
+describe("LevelUpHpStep — the +N HP delta banner", () => {
   it("shows a delta banner when meta.startingMaxHp is set", async () => {
     const c = createDefaultCharacter({ name: "HP Test" });
     c.identity.classes.push({ id: "cls_fighter", name: "Fighter", level: 4, presetKey: "fighter" });
@@ -126,7 +126,7 @@ describe("LevelUpHpStep â€” the +N HP delta banner", () => {
     expect(screen.getByText(/this level-up/i)).toBeInTheDocument();
   });
 
-  it("hides the delta banner when meta.startingMaxHp is absent â€” never guesses a baseline", async () => {
+  it("hides the delta banner when meta.startingMaxHp is absent — never guesses a baseline", async () => {
     const c = createDefaultCharacter({ name: "HP Test 2" });
     c.identity.classes.push({ id: "cls_fighter", name: "Fighter", level: 4, presetKey: "fighter" });
     c.identity.totalLevel = 4;
@@ -143,7 +143,7 @@ describe("LevelUpHpStep â€” the +N HP delta banner", () => {
   });
 });
 
-describe("LevelUpSkillsStep â€” the new-ranks advisory banner", () => {
+describe("LevelUpSkillsStep — the new-ranks advisory banner", () => {
   it("shows a new-ranks banner when meta.startingClasses records a level gain", async () => {
     const c = createDefaultCharacter({ name: "Skills Test" });
     c.identity.classes.push({ id: "cls_rogue", name: "Rogue", level: 4, presetKey: "rogue" });
@@ -164,7 +164,7 @@ describe("LevelUpSkillsStep â€” the new-ranks advisory banner", () => {
     expect(screen.getByText(/about \d+ new skill rank/i)).toBeInTheDocument();
   });
 
-  it("hides the banner when meta.startingClasses is absent â€” never guesses a baseline", async () => {
+  it("hides the banner when meta.startingClasses is absent — never guesses a baseline", async () => {
     const c = createDefaultCharacter({ name: "Skills Test 2" });
     c.identity.classes.push({ id: "cls_rogue", name: "Rogue", level: 4, presetKey: "rogue" });
     c.identity.totalLevel = 4;
@@ -183,7 +183,7 @@ describe("LevelUpSkillsStep â€” the new-ranks advisory banner", () => {
     const c = createDefaultCharacter({ name: "Skills Test 3" });
     c.identity.classes.push({ id: "cls_wizard", name: "Wizard", level: 1, presetKey: "wizard" });
     c.identity.totalLevel = 1;
-    // startingClasses has NO entry for cls_wizard â€” it was multiclassed in THIS session.
+    // startingClasses has NO entry for cls_wizard — it was multiclassed in THIS session.
     writeLevelUpMeta(c, {
       active: true,
       fromLevel: 3,
@@ -201,7 +201,7 @@ describe("LevelUpSkillsStep â€” the new-ranks advisory banner", () => {
   });
 });
 
-describe("LEVEL_UP_STEPS registry â€” visibility predicates", () => {
+describe("LEVEL_UP_STEPS registry — visibility predicates", () => {
   function stubEd(c: PathForgeCharacterV1): CharacterEditorApi {
     return { draft: c, computed: computeCharacter(c) } as unknown as CharacterEditorApi;
   }
@@ -257,7 +257,7 @@ describe("LEVEL_UP_STEPS registry â€” visibility predicates", () => {
     expect(visibleKeys).toContain("spells");
   });
 
-  it("with no active session (meta null), feats/asi are hidden â€” fail closed, never guessed", () => {
+  it("with no active session (meta null), feats/asi are hidden — fail closed, never guessed", () => {
     const c = createDefaultCharacter({ name: "No Session" });
     const ed = stubEd(c);
     const visibleKeys = LEVEL_UP_STEPS.filter((s) => !s.visible || s.visible(ed)).map((s) => s.key);

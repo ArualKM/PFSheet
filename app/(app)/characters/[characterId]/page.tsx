@@ -133,7 +133,11 @@ export default async function CharacterOverviewPage({
               <Link href={`/characters/${characterId}/wizard`}>Guided setup</Link>
             </Button>
           )}
+          {/* Also hidden while guided setup is active — startLevelUpAction would just bounce to
+              /wizard server-side (mutual exclusion), so a "Level Up" button here would silently
+              reroute; the Resume-setup button above is the honest affordance in that state. */}
           {!syncedFamiliar &&
+            !wizardMeta?.active &&
             (levelUpMeta?.active ? (
               <Button asChild variant="secondary" size="sm">
                 <Link href={`/characters/${characterId}/level-up`}>Resume level-up</Link>

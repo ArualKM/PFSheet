@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   readLevelUpMeta,
   writeLevelUpMeta,
@@ -77,22 +77,32 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
     c.health.favoredClassHpBonus = c.identity.classes.reduce((s, x) => s + (x.favoredClassBonus?.hp ?? 0), 0);
   };
 
-  // Mirrors ClassRow's fetchFeatureRows/regrantFeatures verbatim (character-editor.tsx:2496-2528) —
-  // re-declared locally per the house rule above, not imported.
-  const fetchFeatureRows = async (className: string, compendiumId: string | undefined): Promise<CompendiumFeatureRow[]> => {
+  // A failed feature fetch must be VISIBLE: the level bump has already committed synchronously, so
+  // silently granting zero features would leave the sheet half-leveled with no signal (review
+  // finding). The banner offers the honest retry path (−1 then +1 re-runs the regrant).
+  const [regrantError, setRegrantError] = useState<string | null>(null);
+
+  // Mirrors ClassRow's fetchFeatureRows/regrantFeatures (character-editor.tsx:2496-2528) —
+  // re-declared locally per the house rule above, not imported — plus error surfacing.
+  const fetchFeatureRows = async (
+    className: string,
+    compendiumId: string | undefined,
+  ): Promise<{ rows: CompendiumFeatureRow[]; error?: string }> => {
     if (compendiumId?.startsWith("3pp:")) {
       const slug = compendiumId.slice("3pp:".length);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).from("threepp_class_compendium").select("slug,progression_json").eq("slug", slug).maybeSingle();
-      return data ? threeppFeaturesFromProgression(data.progression_json, slug) : [];
+      const { data, error } = await (supabase as any).from("threepp_class_compendium").select("slug,progression_json").eq("slug", slug).maybeSingle();
+      if (error) return { rows: [], error: error.message };
+      return { rows: data ? threeppFeaturesFromProgression(data.progression_json, slug) : [] };
     }
-    const [{ data: feats }, { data: fx }] = await Promise.all([
+    const [featsRes, fxRes] = await Promise.all([
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("class_feature_compendium").select("slug,feature,level,type,description").eq("class", className).eq("category", "Main"),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).from("feature_effect").select("feature,target,op,value_or_formula,bonus_type,notes").eq("class", className),
     ]);
-    return buildFeatureRows(feats ?? [], fx ?? []);
+    if (featsRes.error || fxRes.error) return { rows: [], error: featsRes.error?.message ?? fxRes.error?.message };
+    return { rows: buildFeatureRows(featsRes.data ?? [], fxRes.data ?? []) };
   };
 
   const regrantFeatures = async (
@@ -103,7 +113,14 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
     exclude: string[],
     compendiumId: string | undefined,
   ) => {
-    const rows = await fetchFeatureRows(className, compendiumId);
+    const { rows, error } = await fetchFeatureRows(className, compendiumId);
+    if (error) {
+      setRegrantError(
+        `Couldn't load ${className}'s class features (${error}) — the level itself applied. Tap −1 then +1 to retry, or grant them from the full editor's Features section.`,
+      );
+      return;
+    }
+    setRegrantError(null);
     ed.update((c) => {
       if (!c.identity.classes.some((r) => r.id === classId)) return; // removed while the fetch was in flight
       grantClassFeatures(c, { features: rows, fromLevel: fromLvl, toLevel, exclude });
@@ -135,11 +152,16 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
     }
   };
 
-  // The undo affordance for an accidental +1 — never below level 1 (this is a correction control,
-  // not class removal), and per `grantClassFeatures`'s own contract a level-down leaves
-  // already-granted features in place BY DESIGN (ClassRow does the same; there's nothing to un-grant).
+  // The undo affordance for an accidental +1 — floored at the level this class ENTERED the session
+  // with (meta.startingClasses, by id; a class added this session, or a pre-startingClasses session,
+  // floors at 1), so repeated clicks can never erase levels the character had before the wizard
+  // opened (review finding). This is a correction control, not class removal, and per
+  // `grantClassFeatures`'s own contract a level-down leaves already-granted features in place BY
+  // DESIGN (ClassRow does the same; there's nothing to un-grant).
+  const sessionFloor = (cl: ClassEntry): number =>
+    Math.max(1, meta?.startingClasses?.find((s) => s.id === cl.id)?.level ?? 1);
   const bumpDown = (cl: ClassEntry) => {
-    if (cl.level <= 1) return;
+    if (cl.level <= sessionFloor(cl)) return;
     const v = cl.level - 1;
     ed.update((c) => {
       const t = c.identity.classes.find((x) => x.id === cl.id);
@@ -159,14 +181,22 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
   // class matching the row being previewed — by compendiumId first, falling back to a case-
   // insensitive name match (a hand-added/imported class may have no compendiumId yet) — and, if
   // found, seed the level field past its CURRENT level so re-selecting it can only raise it, never
-  // silently reset it downward. Plain (non-track-aware) remaining is intentionally "good enough"
-  // here per the Master Plan — this only seeds a starting point the player can still edit.
+  // silently reset it downward. Stored compendiumIds are PREFIXED keys ("pfcore:<slug>",
+  // "3pp:<slug>", "pfcore-prestige:<slug>" — applyCompendiumClass, class-builder.ts) while the
+  // picker row carries the bare slug, so compare on the part after the first colon (a review caught
+  // the direct equality was dead code). Remaining is per-track under gestalt — the same
+  // remainingFor the +1 buttons use — so a lagging track isn't under-seeded in a catch-up.
+  const bareCompendiumSlug = (id: string | undefined): string | undefined => {
+    if (!id) return undefined;
+    const colon = id.indexOf(":");
+    return colon >= 0 ? id.slice(colon + 1) : id;
+  };
   const prefillLevel = (row: { slug: string; name: string }): number | undefined => {
     const existing =
-      classes.find((cl) => cl.compendiumId === row.slug) ??
+      classes.find((cl) => bareCompendiumSlug(cl.compendiumId) === row.slug) ??
       classes.find((cl) => (cl.compendiumPreset?.name ?? cl.name).toLowerCase() === row.name.toLowerCase());
     if (!existing) return undefined;
-    return existing.level + Math.max(1, remaining);
+    return existing.level + Math.max(1, remainingFor(existing));
   };
 
   if (familiarLinked) {
@@ -222,6 +252,11 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">Your classes</h3>
+        {regrantError && (
+          <p role="alert" className="rounded-lg border border-warning/50 bg-warning/10 p-2.5 text-xs text-foreground">
+            {regrantError}
+          </p>
+        )}
         {classes.length === 0 ? (
           <p className="text-xs text-muted-foreground">No classes yet — add one below.</p>
         ) : (
@@ -239,7 +274,7 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
                     {gestalt && <span className="text-[11px] text-muted-foreground">track {(cl.track ?? "a").toUpperCase()}</span>}
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => bumpDown(cl)} disabled={cl.level <= 1} aria-label={`Lower ${name} by one level`}>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => bumpDown(cl)} disabled={cl.level <= sessionFloor(cl)} aria-label={`Lower ${name} by one level`}>
                       −1
                     </Button>
                     <Button type="button" size="sm" variant="secondary" onClick={() => bumpUp(cl)} disabled={rem <= 0} aria-label={`Raise ${name} by one level`}>
@@ -263,8 +298,19 @@ export function LevelUpClassStep({ ed }: { ed: CharacterEditorApi; characterId: 
             yourself before committing to it.
           </div>
           {/* No baseOnly here (unlike the create wizard's ClassStep) — prestige must be reachable;
-              the picker's own Base/Prestige Segmented handles the toggle. */}
-          <ClassCompendiumPicker ed={ed} onClose={() => {}} autoFocusSearch={false} resetAfterApply prefillLevel={prefillLevel} />
+              the picker's own Base/Prestige Segmented handles the toggle. initialHpMethod="manual"
+              matches the +1 buttons: HP is untouched until the HP step — the picker's usual
+              "average" default would silently recompute-and-overwrite a hand-rolled Max HP the
+              moment it re-applies an existing class (review HIGH). The player can still choose
+              Average/Max in the picker deliberately. */}
+          <ClassCompendiumPicker
+            ed={ed}
+            onClose={() => {}}
+            autoFocusSearch={false}
+            resetAfterApply
+            prefillLevel={prefillLevel}
+            initialHpMethod="manual"
+          />
         </div>
       </CollapsibleGroup>
     </div>

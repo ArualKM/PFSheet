@@ -4,6 +4,12 @@ import { createDefaultCharacter } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { formatModifier } from "@/lib/utils";
 
+// This file mounts the FULL CharacterEditor (every sub-editor, twice per layout-switch test) — the
+// heaviest render in the suite (~2s standalone). Under full-suite parallelism on a loaded machine
+// the first test can cross vitest's 5s default and cascade-fail the file (observed: green in
+// isolation AND green on the same commit earlier the same day — a timing edge, not a defect).
+vi.setConfig({ testTimeout: 30_000 });
+
 // The full CharacterEditor mounts every sub-editor in classic mode; jsdom lacks a couple of
 // browser APIs some of that chrome touches.
 if (!window.matchMedia) {

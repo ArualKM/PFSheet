@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { readWizardMeta } from "@pathforge/schema";
+import { readLevelUpMeta, readWizardMeta } from "@pathforge/schema";
 import { loadCharacterForEdit } from "@/lib/character/load-for-edit";
 import { CharacterWizard } from "@/components/character/wizard/character-wizard";
 import { reopenWizardAction } from "@/lib/actions/characters";
@@ -37,22 +37,33 @@ export default async function CharacterWizardPage({
   }
 
   if (!readWizardMeta(result.character)?.active) {
+    // Mutual exclusion, made VISIBLE (mirrors /level-up's guided-setup notice): with a level-up
+    // session active, posting reopenWizardAction would just bounce to /level-up server-side — show
+    // why and link there instead of offering a button that silently reroutes (review finding).
+    const levelUpActive = readLevelUpMeta(result.character)?.active === true;
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader className="items-center text-center">
             <CardTitle className="text-lg">Guided setup is closed for this character</CardTitle>
             <CardDescription>
-              You can reopen the guided wizard and pick up where it left off, or keep using the full
-              editor.
+              {levelUpActive
+                ? "A level-up session is in progress — finish or close it first, then guided setup can reopen."
+                : "You can reopen the guided wizard and pick up where it left off, or keep using the full editor."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-2">
-            <form action={reopenWizardAction.bind(null, characterId)} className="w-full">
-              <Button type="submit" className="w-full">
-                Reopen guided setup
+            {levelUpActive ? (
+              <Button asChild className="w-full">
+                <Link href={`/characters/${characterId}/level-up`}>Resume the level-up</Link>
               </Button>
-            </form>
+            ) : (
+              <form action={reopenWizardAction.bind(null, characterId)} className="w-full">
+                <Button type="submit" className="w-full">
+                  Reopen guided setup
+                </Button>
+              </form>
+            )}
             <Button asChild variant="ghost">
               <Link href={`/characters/${characterId}/edit`}>Back to the editor</Link>
             </Button>

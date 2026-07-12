@@ -231,6 +231,33 @@ describe("LevelUpClassStep", () => {
     expect(latestEd!.draft.identity.totalLevel).toBe(1);
   });
 
+  it("the −1 button floors at the class's SESSION-START level, not 1 (review C6)", async () => {
+    // With startingClasses snapshotted (Stage 7's startLevelUpAction stamps it), −1 must never
+    // erase levels the class had before this session opened — only undo THIS session's bumps.
+    let latestEd: CharacterEditorApi | undefined;
+    const c = fixture({ fromLevel: 3, targetLevel: 5 });
+    writeLevelUpMeta(c, { startingClasses: [{ id: "cls_fighter", name: "Fighter", level: 3 }] });
+    render(
+      <Host initial={c} onEd={(ed) => (latestEd = ed)}>
+        {(ed) => <LevelUpClassStep ed={ed} characterId="c1" />}
+      </Host>,
+    );
+    await settle();
+
+    // At the session-start level already — nothing to undo.
+    expect(screen.getByRole("button", { name: /lower fighter by one level/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /raise fighter by one level/i }));
+    await settle();
+    expect(latestEd!.draft.identity.classes[0]!.level).toBe(4);
+
+    fireEvent.click(screen.getByRole("button", { name: /lower fighter by one level/i }));
+    await settle();
+    expect(latestEd!.draft.identity.classes[0]!.level).toBe(3);
+    // Back at the floor — disabled again; pre-session levels are untouchable from here.
+    expect(screen.getByRole("button", { name: /lower fighter by one level/i })).toBeDisabled();
+  });
+
   it("raising the target-level stepper writes meta.targetLevel via ed.update", async () => {
     let latestEd: CharacterEditorApi | undefined;
     render(

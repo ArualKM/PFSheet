@@ -72,6 +72,7 @@ export function ClassCompendiumPicker({
   autoFocusSearch = true,
   resetAfterApply,
   prefillLevel,
+  initialHpMethod,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
@@ -98,6 +99,12 @@ export function ClassCompendiumPicker({
    * default undefined preserves today's behavior everywhere else (the full editor's Classes
    * section: `level` persists across selections, same precedent as `baseOnly`/`resetAfterApply`). */
   prefillLevel?: (row: { slug: string; name: string }) => number | undefined;
+  /** Level-up wizard Stage 3 review fix (HIGH): applying with the default "average" fully
+   * recomputes-and-overwrites `health.maxHp` for ALL classes — correct in the full editor, but the
+   * level-up Class step defers HP to its own HP step, so it seeds "manual" here (the player can
+   * still pick Average/Max in the Segmented deliberately). Additive/optional — default undefined
+   * keeps today's "average" everywhere else. */
+  initialHpMethod?: HpMethod;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
@@ -114,7 +121,7 @@ export function ClassCompendiumPicker({
   const [parsed, setParsed] = useState<ReturnType<typeof parseProgression> | null>(null);
   const [features, setFeatures] = useState<CompendiumFeatureRow[]>([]);
   const [level, setLevel] = useState(1);
-  const [hpMethod, setHpMethod] = useState<HpMethod>("average");
+  const [hpMethod, setHpMethod] = useState<HpMethod>(initialHpMethod ?? "average");
   const [castingAbility, setCastingAbility] = useState<AbilityKey>("int");
   const [casterType, setCasterType] = useState<CasterType>("prepared");
   const [applying, setApplying] = useState(false);

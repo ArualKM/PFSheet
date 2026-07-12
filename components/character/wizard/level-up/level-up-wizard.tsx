@@ -52,6 +52,7 @@ export function LevelUpWizard({
       writeStep={(c, step) => {
         writeLevelUpMeta(c, { step: step as LevelUpStepKey });
       }}
+      navLabel="Level-up steps"
     />
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readLevelUpMeta, readWizardMeta } from "@pathforge/schema";
+import { computeCharacter } from "@pathforge/rules-pf1e";
 import { loadCharacterForEdit } from "@/lib/character/load-for-edit";
 import { LevelUpWizard } from "@/components/character/wizard/level-up/level-up-wizard";
 import { startLevelUpAction, reopenLevelUpAction } from "@/lib/actions/characters";
@@ -55,6 +56,42 @@ export default async function LevelUpPage({
 
   if (meta?.active) {
     return <LevelUpWizard characterId={characterId} initial={result.character} initialVersion={sheetVersion} />;
+  }
+
+  // A master-linked synced familiar's HD/levels track its master (companion-sync.ts) — the overview
+  // hides its Level Up button, and this covers the direct-URL path the same way (review finding;
+  // startLevelUpAction carries the same server-side guard). Only checked with no active session:
+  // an in-flight session on a since-linked familiar still renders the wizard above, whose Class
+  // step shows its own read-only explanation. The compute is gated on the cheap type check first.
+  const syncedFamiliar =
+    result.character.companion?.type === "familiar" &&
+    (() => {
+      try {
+        return computeCharacter(result.character).summary.companion?.synced === true;
+      } catch {
+        return false;
+      }
+    })();
+  if (syncedFamiliar) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md">
+          <CardHeader className="items-center text-center">
+            <CardTitle className="text-lg">This companion levels with its master</CardTitle>
+            <CardDescription>
+              {data.name}&rsquo;s Hit Dice, saves, and skills are derived from its master
+              automatically while the companion link is on — there are no independent class levels to
+              assign. Level up the master character instead.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-2">
+            <Button asChild variant="ghost">
+              <Link href={`/characters/${characterId}`}>Back to the sheet</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const backToSheet = (

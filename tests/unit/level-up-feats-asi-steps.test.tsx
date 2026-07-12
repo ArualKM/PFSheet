@@ -148,7 +148,7 @@ describe("LevelUpFeatsStep", () => {
     expect(screen.queryByText(/this level-up grants/i)).not.toBeInTheDocument();
   });
 
-  it("embeds the create wizard's FeatsStep composition (Browse feats + traits pickers, verbatim)", async () => {
+  it("embeds the create wizard's FeatsStep composition (Browse feats + traits pickers) under ONE heading", async () => {
     render(
       <Host initial={fixture({ fromLevel: 1, targetLevel: 3 })} onEd={() => {}}>
         {(ed) => <LevelUpFeatsStep ed={ed} characterId="c1" />}
@@ -156,7 +156,11 @@ describe("LevelUpFeatsStep", () => {
     );
     await settle();
 
-    expect(screen.getByRole("heading", { name: /feats, traits & drawbacks/i })).toBeInTheDocument();
+    // Exactly one h2, owned by the embedded FeatsStep via its heading override — the review caught
+    // the original wrapper stacking its own second h2 card on top of the embedded step's.
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings).toHaveLength(1);
+    expect(headings[0]).toHaveTextContent(/^feats$/i);
     expect(screen.getByRole("button", { name: /browse feats/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /browse traits/i })).toBeInTheDocument();
   });
@@ -266,6 +270,62 @@ describe("LevelUpAsiStep", () => {
     expect(screen.getByText(/more increases recorded than levels 4\/8\/12\/16\/20/i)).toBeInTheDocument();
     // Advisory only — the Add control is never disabled by the over-cap state.
     expect(screen.getByRole("button", { name: /add \+1/i })).toBeEnabled();
+  });
+
+  it("remove deletes the HIGHEST-level entry even when insertion order diverges (review C1)", async () => {
+    // Interleaved adds/removes across two abilities make nextAsiLevel reuse a freed LOWER slot for
+    // a LATER insertion — raw insertion order then diverges from the sorted display, and removal
+    // must follow the display (peel the rightmost/highest number), not the push order.
+    let latestEd: CharacterEditorApi | undefined;
+    render(
+      <Host initial={fixture({ fromLevel: 3, targetLevel: 8 })} onEd={(ed) => (latestEd = ed)}>
+        {(ed) => <LevelUpAsiStep ed={ed} characterId="c1" />}
+      </Host>,
+    );
+    await settle();
+
+    const select = screen.getByLabelText(/ability to increase/i);
+    fireEvent.change(select, { target: { value: "dex" } });
+    fireEvent.click(screen.getByRole("button", { name: /add \+1/i })); // dex@4
+    await settle();
+    fireEvent.change(select, { target: { value: "str" } });
+    fireEvent.click(screen.getByRole("button", { name: /add \+1/i })); // str@8 (4 taken)
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /remove an ability increase from dex/i })); // frees 4
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /add \+1/i })); // str@4 — inserted AFTER str@8
+    await settle();
+
+    const strLevels = () =>
+      latestEd!.draft.abilities.abilityIncreases.filter((i) => i.ability === "str").map((i) => i.level);
+    expect(strLevels().sort((a, b) => a - b)).toEqual([4, 8]);
+
+    fireEvent.click(screen.getByRole("button", { name: /remove an ability increase from str/i }));
+    await settle();
+    // The level-8 entry (the chip's rightmost number) is the one removed, despite being the
+    // EARLIER insertion.
+    expect(strLevels()).toEqual([4]);
+  });
+
+  it("bookkeeping levels never duplicate once milestones are exhausted (review C2)", async () => {
+    // targetLevel 2: the multiples-of-4 loop never runs — the fallback must still skip used values
+    // instead of stamping level 2 on every add.
+    let latestEd: CharacterEditorApi | undefined;
+    render(
+      <Host initial={fixture({ fromLevel: 1, targetLevel: 2 })} onEd={(ed) => (latestEd = ed)}>
+        {(ed) => <LevelUpAsiStep ed={ed} characterId="c1" />}
+      </Host>,
+    );
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: /add \+1/i }));
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: /add \+1/i }));
+    await settle();
+
+    const levels = latestEd!.draft.abilities.abilityIncreases.map((i) => i.level);
+    expect(levels).toHaveLength(2);
+    expect(new Set(levels).size).toBe(2);
   });
 
   it("the +1 lands in the computed effective score right after Add", async () => {

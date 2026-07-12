@@ -80,6 +80,7 @@ export function WizardShell({
   steps,
   initialStep,
   writeStep,
+  navLabel = "Character creation steps",
 }: {
   ed: CharacterEditorApi;
   characterId: string;
@@ -93,6 +94,9 @@ export function WizardShell({
    *  level-up wizard passes its own `writeLevelUpMeta` the same way. Replaces the old call that was
    *  hardcoded to `writeWizardMeta` inside `goTo`. */
   writeStep: (c: PathForgeCharacterV1, stepKey: string) => void;
+  /** The desktop spine's <nav> landmark name — a review caught the create wizard's label leaking
+   *  onto every consumer of the generalized shell; the level-up wizard passes "Level-up steps". */
+  navLabel?: string;
 }) {
   const shouldAnimate = useShouldAnimate();
 
@@ -149,7 +153,7 @@ export function WizardShell({
       <MobileSpine steps={visibleSteps} stepIndex={stepIndex} status={ed.status} error={ed.error} />
 
       <div className="flex flex-col gap-6 py-4 lg:flex-row lg:items-start lg:gap-8 lg:py-6">
-        <DesktopSpine steps={visibleSteps} stepIndex={stepIndex} status={ed.status} error={ed.error} />
+        <DesktopSpine steps={visibleSteps} stepIndex={stepIndex} status={ed.status} error={ed.error} navLabel={navLabel} />
 
         <div className="min-w-0 flex-1 space-y-5">
           {/* A true concurrent-edit collision needs the same resolver the full editor shows — a
@@ -272,15 +276,17 @@ function DesktopSpine({
   stepIndex,
   status,
   error,
+  navLabel,
 }: {
   steps: WizardStepDef[];
   stepIndex: number;
   status: SaveStatus;
   error: string | null;
+  navLabel: string;
 }) {
   return (
     <nav
-      aria-label="Character creation steps"
+      aria-label={navLabel}
       className="hidden shrink-0 lg:sticky lg:top-20 lg:block lg:w-56"
     >
       <ol className="space-y-1">
