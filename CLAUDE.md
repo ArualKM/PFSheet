@@ -869,6 +869,61 @@ reviewed; 903→950 unit tests; NO DB migrations.
   **Stage 4 (magic-item compendium) is DATA-BLOCKED on the owner's dataset — the biggest yet;
   schema fields are shaped and waiting.**
 
+**Character deletion + wizard reopen (2026-07-12, `e7cc628`).** Owner Q&A follow-through: owner-only
+**Danger zone** on the character overview → `<DeleteCharacterDialog>` (type-the-name confirm; the ONE
+shared `lib/character/delete-confirm.ts` match on client + server: trimmed both sides, case-sensitive,
+blank-trimmed names fall back to typing literal DELETE — a review caught the empty-name gate was a
+logical contradiction and the client/server trim asymmetry); `deleteCharacterAction` = RLS read + owner
+check + `.select()`-verified delete + `revalidatePath("/characters")` BEFORE redirect (staleTimes cache
+kept showing the deleted row). Wizard reopen: `/characters/[id]/wizard` inactive-meta now renders an
+interstitial ("Reopen guided setup" via `reopenWizardAction`, CAS, step preserved) instead of the old
+dead-end /edit redirect; a CAS miss lands back ON the interstitial (visible retry).
+
+**LEVEL-UP WIZARD — COMPLETE (2026-07-12, `9733456`/`3729a50`/`e0f0cc1`, Ultracode).** Plan:
+`docs/LEVELUP_WIZARD/MASTER_PLAN.md` (all 7 stages). Flow: **Class → HP → Skills → [Feats] → [ASI] →
+[Spells] → Review** — bracketed steps exist ONLY when the session owes them (a L2 level-up shows a
+4-step spine). 1046 unit tests; NO DB migrations (all Zod/metadata-additive). Shipped after a
+7-dimension/41-agent adversarial Workflow review — 16 confirmed + 1 split finding, ALL fixed (`e0f0cc1`).
+- **Flag** `metadata.custom.levelUp` (`packages/pathforge-schema/src/level-up.ts`): active/step/
+  fromLevel/targetLevel/startingMaxHp/**startingClasses** (the per-class baseline every delta banner +
+  the −1 floor + the review diff read — never re-derive a baseline)/order; `resumeLevelUpStepFor(meta,
+  visibleKeys)` is PURE (walks forward past hidden steps + order-version guard); `featsOwedAtLevel`/
+  `asiCountAtLevel` advisory helpers. **ASI is real schema+engine now:** `abilities.abilityIncreases`
+  ({id,level,ability}[]) + an UNCONDITIONAL compute.ts loop (+1 untyped, stacks; NO module gate — core,
+  unlike the mythic +2 precedent it mirrors; level field is bookkeeping ONLY).
+- **Shell generalized** (`wizard-shell.tsx`): `steps: WizardStepDef[]` + `initialStep` + `writeStep` +
+  `navLabel` props; per-step `visible?: (ed) => boolean` re-evaluated EVERY render; current step tracked
+  BY KEY with render-phase re-landing (never useEffect nav); create wizard moved to
+  `create-wizard-steps.tsx` with zero behavior change (62 pre-existing tests untouched = the proof).
+- **Class step**: one-tap **+1/−1 per owned class** (mirrors ClassRow's bump: FCB re-clamp, totalLevel
+  sync, `recomputeClassDerived({hpMethod:"manual"})`, async feature regrant with VISIBLE error banner);
+  −1 floors at the session-start level; target-level stepper = multi-level catch-up (budgets, not
+  per-level UI: 3→7 = 2 feats + 1 ASI in one pass); gate = totalLevel === targetLevel (gestalt: BOTH
+  tracks + not collapsed; GestaltHint reused). Picker gained `prefillLevel` (owned-class level can
+  never silently reset; compendiumId match strips the "pfcore:"/"3pp:" prefix) + `initialHpMethod`
+  ("manual" here — the "average" default silently overwrote hand-rolled Max HP, review HIGH).
+- **Steps**: HP/Skills = create-step embeds (new heading/intro props) + "+N this level-up" meta-diff
+  banners; Feats = FeatsStep embed (ONE h2) + owed badge; ASI = new editor (select + Add + grouped
+  chips, session-owed + lifetime recorded-vs-owed, warn-never-block over-cap; remove peels the
+  HIGHEST level; bookkeeping levels never duplicate); Spells = per-caster chips + SpellPicker +
+  new-caster highlight (sequential presetKey→name match). Review = before/after StatChips + the
+  **"Anything else?" escape hatch** (feats/ASI/spells render inline regardless of visibility) +
+  Finish (active:false + completedAt, waits saved/offline, conflict HOLDS, → overview).
+- **Entry + resume**: overview **Level Up** button (posts `startLevelUpAction`; "Resume level-up"
+  while active; "Ready to level up!" cosmetic when milestone-ready; hidden for synced familiars AND
+  while guided setup is active) + the owner-requested **Guided setup / Resume setup** button;
+  `/characters/[id]/level-up` route (active → wizard; else start/paused interstitials; synced-familiar
+  explainer; steers to /wizard when guided setup is active). Browser-close resume is trivial: active
+  stays true until Finish → the page lands straight back in the wizard at the stored step.
+  **Mutual exclusion is enforced BOTH directions server-side** (start/reopen actions check the other
+  flag on the freshly-parsed sheet; `startLevelUpAction` NEVER restamps an active session — fromLevel
+  would corrupt; `buildStartLevelUpMeta` in `lib/character/level-up-start.ts` clears a prior
+  completedAt, proven by a write/read round-trip test).
+- **Session gotcha for future work:** PS5.1 `Get-Content`/`Set-Content` round-trips MOJIBAKE UTF-8
+  files (read as cp1252, re-encoded) — use the Write/Edit tools or node for file rewrites, never
+  PowerShell text pipes. Also `character-editor-layouts.test.tsx` now sets `testTimeout: 30_000`
+  (heaviest mount; crossed vitest's 5s default under full-suite load on a green commit).
+
 **Secondary milestones** are designed in `docs/SECONDARY_MILESTONES.md` (S1–S7) and being built
 interleaved with M10/M11. **Done: S1** (point-buy calculator), **S3** (S3b prebuilt classes +
 `class-catalog.ts`; S3a spells — `spell-tables.ts`, `computeSpellcasting`, gated `vm.spellcasting`,
