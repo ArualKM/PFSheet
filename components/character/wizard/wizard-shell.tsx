@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
-import { WIZARD_STEP_KEYS, writeWizardMeta, type WizardStepKey } from "@pathforge/schema";
+import type { PathForgeCharacterV1 } from "@pathforge/schema";
 import { useShouldAnimate } from "@/components/motion/use-should-animate";
 import { pfDurFast, pfEase } from "@/components/motion/tokens";
 import { Button } from "@/components/ui/button";
@@ -13,59 +13,22 @@ import type { CharacterEditorApi, SaveStatus } from "../editor/use-character-edi
 // editor graph (~1.2MB) into the wizard bundle (a confirmed review finding).
 import { SaveStatusBadge } from "../editor/save-status-badge";
 import { ConflictResolver } from "../editor/conflict-resolver";
-import { WelcomeStep } from "./steps/welcome-step";
-import { SystemsStep } from "./steps/systems-step";
-import { RaceStep, canAdvanceRace } from "./steps/race-step";
-import { ClassStep, canAdvanceClass } from "./steps/class-step";
-import { AbilitiesStep, canAdvanceAbilities } from "./steps/abilities-step";
-import { SkillsStep } from "./steps/skills-step";
-import { FeatsStep } from "./steps/feats-step";
-import { HpStep } from "./steps/hp-step";
-import { GearStep } from "./steps/gear-step";
-import { DetailsStep } from "./steps/details-step";
-import { HandoffStep } from "./steps/handoff-step";
 
 /**
- * S6 Pillar 3 §4.2 step shell. Wizard v2 (owner-requested, 2026-07-10) runs eleven steps in the
- * order defined by WIZARD_STEP_KEYS: systems early (gestalt/background-skills reshape later
- * steps), abilities BEFORE race (racial mods then ride RacePicker's pointBuy mirror instead of
- * being baked into the baseline), and feats/HP between skills and gear. Saving throws, initiative,
- * and attack values are engine-computed — they review on the Finish card, not a manual step.
+ * S6 Pillar 3 §4.2 step shell — generalized in the level-up wizard's Stage 2
+ * (`docs/LEVELUP_WIZARD/MASTER_PLAN.md` "Shell generalization design") so ONE shell drives both the
+ * create wizard AND the level-up wizard, rather than forking the chrome (the codebase's standing
+ * discipline: don't fork a mechanism already built once — see the Items epic's linked-attack sync,
+ * the DRY'd buff/automation effect-row). The create wizard's own step table (labels/help/render/
+ * gates/hints, content unchanged) now lives in `create-wizard-steps.ts` as `CREATE_WIZARD_STEPS`;
+ * this file owns only the chrome: `DesktopSpine`/`MobileSpine`, the `ConflictResolver` wiring, the
+ * entrance-animation `prevKey` idiom, and `WizardFooter`'s a11y-correct gate-hint plumbing.
  */
 
-const STEP_LABELS: Record<WizardStepKey, string> = {
-  welcome: "Welcome",
-  systems: "Systems",
-  abilities: "Abilities",
-  race: "Race",
-  class: "Class",
-  skills: "Skills",
-  feats: "Feats & Traits",
-  hp: "Hit Points",
-  gear: "Gear",
-  details: "Details",
-  done: "Finish",
-};
+export type WizardStepProps = { ed: CharacterEditorApi; characterId: string };
 
-// §4.3's one-line inline help per step (welcome/done render their own bespoke content instead).
-const STEP_HELP: Record<WizardStepKey, string> = {
-  welcome: "A quick tour before you start picking.",
-  systems: "Optional rules your table plays with — these tailor the later steps.",
-  abilities: "Ability scores govern nearly every roll your character makes.",
-  race: "Race affects your ability scores, size, and speed.",
-  class: "Your class is your role in the party — it sets HP, attack, and spells.",
-  skills: 'Skills you’re trained in ("class skills") get a +3 bonus once you put a rank in them.',
-  feats: "Feats and traits are the picks that make your build yours.",
-  hp: "Your starting hit points — computed from class, level, and Constitution.",
-  gear: "A rough starting-gold suggestion for your class, plus the full inventory editor.",
-  details: "Flavor — alignment, deity, backstory. Come back to this anytime.",
-  done: "Everything you picked is saved. Head into the full editor for the rest.",
-};
-
-type WizardStepProps = { ed: CharacterEditorApi; characterId: string };
-
-type WizardStepDef = {
-  key: WizardStepKey;
+export type WizardStepDef = {
+  key: string;
   label: string;
   help: string;
   /** Whether "Skip this step" is offered — not the welcome/done bookends. */
@@ -73,73 +36,100 @@ type WizardStepDef = {
   /** Optional Next gate — disables Next (never Skip) until the step's pick is coherent, using the
    *  same engine predicates the editors use (doc §7: never invent new ones). */
   canAdvance?: (ed: CharacterEditorApi) => boolean;
+  /** ACTIONABLE copy for a failed gate — rendered as VISIBLE text next to the disabled Next button
+   *  (a `title` tooltip never reaches anyone: `disabled:pointer-events-none` suppresses hover, and
+   *  touch/screen-reader users have no hover at all). Only meaningful alongside `canAdvance`. */
+  gateHint?: string;
+  /** Absent = always visible (every existing create-wizard step). When present and false, the step
+   *  is omitted from the spine, from Next/Back sequencing, and from resume — but its render function
+   *  and any data it wrote are untouched; re-satisfying the predicate (e.g. the player adds a caster
+   *  on the Class step) makes it reappear with whatever was already on the draft. Re-evaluated fresh
+   *  on EVERY render, never frozen at session start — see `resolveVisibleStep`. */
+  visible?: (ed: CharacterEditorApi) => boolean;
   render: (props: WizardStepProps) => ReactNode;
 };
 
-const STEP_RENDER: Record<WizardStepKey, (props: WizardStepProps) => ReactNode> = {
-  welcome: ({ ed, characterId }) => <WelcomeStep ed={ed} characterId={characterId} />,
-  systems: ({ ed, characterId }) => <SystemsStep ed={ed} characterId={characterId} />,
-  abilities: ({ ed, characterId }) => <AbilitiesStep ed={ed} characterId={characterId} />,
-  race: ({ ed, characterId }) => <RaceStep ed={ed} characterId={characterId} />,
-  class: ({ ed, characterId }) => <ClassStep ed={ed} characterId={characterId} />,
-  skills: ({ ed, characterId }) => <SkillsStep ed={ed} characterId={characterId} />,
-  feats: ({ ed, characterId }) => <FeatsStep ed={ed} characterId={characterId} />,
-  hp: ({ ed, characterId }) => <HpStep ed={ed} characterId={characterId} />,
-  gear: ({ ed, characterId }) => <GearStep ed={ed} characterId={characterId} />,
-  details: ({ ed, characterId }) => <DetailsStep ed={ed} characterId={characterId} />,
-  done: ({ ed, characterId }) => <HandoffStep ed={ed} characterId={characterId} />,
-};
-
-// Next-gates per doc §4.3 — only where the sheet would otherwise be nonsensical; Skip always works.
-const STEP_GATES: Partial<Record<WizardStepKey, (ed: CharacterEditorApi) => boolean>> = {
-  race: canAdvanceRace,
-  class: canAdvanceClass,
-  abilities: canAdvanceAbilities,
-};
-
-// ACTIONABLE copy for a failed gate — rendered as VISIBLE text next to the disabled Next button
-// (a `title` tooltip never reaches anyone: `disabled:pointer-events-none` suppresses hover, and
-// touch/screen-reader users have no hover at all — a confirmed review finding).
-const STEP_GATE_HINTS: Partial<Record<WizardStepKey, string>> = {
-  race: "Apply a race to continue — or Skip if you'd rather decide later.",
-  class: "Add a class to continue — search above, pick one, then Apply. Or Skip for now.",
-  abilities: "You're over the point-buy budget — lower a score to continue, or Skip.",
-};
-
-const STEPS: WizardStepDef[] = WIZARD_STEP_KEYS.map((key) => ({
-  key,
-  label: STEP_LABELS[key],
-  help: STEP_HELP[key],
-  skippable: key !== "welcome" && key !== "done",
-  canAdvance: STEP_GATES[key],
-  render: STEP_RENDER[key],
-}));
+/**
+ * Resolve which step KEY a session should land on: if `stepKey` is currently visible, stay there.
+ * Otherwise walk forward from its position in the FULL `steps` order (the order never changes, only
+ * presence) to the first visible step; if none remain forward, fall back to the last visible step
+ * overall. Mirrors `resumeStepFor`'s "a stored key may no longer be reachable in the current
+ * sequence; walk forward to the nearest one that is" idiom, extended with a live per-render
+ * visibility check instead of a static order-version comparison.
+ *
+ * Used both for `initialStep` hardening (a checkpoint may point at a step that's hidden this
+ * session) and, every render, to re-land a user whose CURRENT step's predicate just flipped false.
+ */
+function resolveVisibleStep(steps: WizardStepDef[], stepKey: string, ed: CharacterEditorApi): string {
+  const isVisible = (s: WizardStepDef) => !s.visible || s.visible(ed);
+  const startIndex = Math.max(0, steps.findIndex((s) => s.key === stepKey));
+  for (let i = startIndex; i < steps.length; i++) {
+    if (isVisible(steps[i]!)) return steps[i]!.key;
+  }
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (isVisible(steps[i]!)) return steps[i]!.key;
+  }
+  // No visible steps at all — shouldn't happen for any real step list; fall back to whatever was
+  // asked rather than throwing, so a degenerate caller doesn't crash the shell.
+  return stepKey;
+}
 
 export function WizardShell({
   ed,
   characterId,
+  steps,
   initialStep,
+  writeStep,
 }: {
   ed: CharacterEditorApi;
   characterId: string;
-  initialStep: WizardStepKey;
+  /** The FULL ordered step list for this wizard — filtering to what's relevant THIS session happens
+   *  fresh inside, every render. Order never changes, only presence. */
+  steps: WizardStepDef[];
+  initialStep: string;
+  /** Persists the current step key into whichever `metadata.custom.<x>` progress bag this wizard
+   *  uses (via `ed.update`, so it rides the existing save loop/undo/3-way-merge for free). The
+   *  create wizard passes `(c, step) => writeWizardMeta(c, { step: step as WizardStepKey })`; a
+   *  level-up wizard passes its own `writeLevelUpMeta` the same way. Replaces the old call that was
+   *  hardcoded to `writeWizardMeta` inside `goTo`. */
+  writeStep: (c: PathForgeCharacterV1, stepKey: string) => void;
 }) {
-  const initialIndex = Math.max(0, WIZARD_STEP_KEYS.indexOf(initialStep));
-  const [stepIndex, setStepIndex] = useState(initialIndex);
   const shouldAnimate = useShouldAnimate();
 
-  const current = STEPS[stepIndex]!;
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === STEPS.length - 1;
+  // Visibility is a pure predicate over `ed`, recomputed fresh EVERY render — not frozen at session
+  // start (a predicate can flip true or false as the player edits other steps). ALL navigation state
+  // below — stepIndex, goTo clamping, Back/Next targets, the spine, "Step N of M" — derives from
+  // `visibleSteps`, never from `steps` directly.
+  const visibleSteps = steps.filter((s) => !s.visible || s.visible(ed));
 
-  // Every advance/back/skip mirrors stepIndex into metadata.custom.wizard.step (via ed.update, so
-  // it rides the existing save loop/undo/3-way-merge for free) — a refresh mid-wizard resumes here.
+  // Track the CURRENT STEP BY KEY, not index — an index alone would silently point at the wrong step
+  // the instant a predicate ahead of it flips. The lazy initializer resolves a stale or hidden
+  // `initialStep` (e.g. a checkpoint written when a step was visible, resumed after it no longer is)
+  // before the first paint.
+  const [currentKey, setCurrentKey] = useState(() => resolveVisibleStep(steps, initialStep, ed));
+
+  // If the step the user is ON just disappeared (its predicate flipped false this render), land on
+  // the nearest still-visible step — adjust-during-render (the EntryCard / editor-canvas.tsx idiom:
+  // compare against tracked prior state, setState conditionally), never a useEffect-driven
+  // navigation (the shell must not navigate via an effect).
+  if (!visibleSteps.some((s) => s.key === currentKey)) {
+    const landed = resolveVisibleStep(steps, currentKey, ed);
+    if (landed !== currentKey) setCurrentKey(landed);
+  }
+
+  const stepIndex = Math.max(0, visibleSteps.findIndex((s) => s.key === currentKey));
+  const current = visibleSteps[stepIndex] ?? steps[0]!;
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === visibleSteps.length - 1;
+
+  // Every advance/back/skip mirrors the step into the caller's metadata bag (via ed.update, so it
+  // rides the existing save loop/undo/3-way-merge for free) — a refresh mid-wizard resumes here.
   const goTo = (nextIndex: number) => {
-    const clamped = Math.max(0, Math.min(STEPS.length - 1, nextIndex));
-    const key = STEPS[clamped]!.key;
-    setStepIndex(clamped);
+    const clamped = Math.max(0, Math.min(visibleSteps.length - 1, nextIndex));
+    const key = visibleSteps[clamped]!.key;
+    setCurrentKey(key);
     ed.update((c) => {
-      writeWizardMeta(c, { step: key });
+      writeStep(c, key);
     });
   };
 
@@ -156,10 +146,10 @@ export function WizardShell({
 
   return (
     <div className="mx-auto max-w-5xl">
-      <MobileSpine stepIndex={stepIndex} status={ed.status} error={ed.error} />
+      <MobileSpine steps={visibleSteps} stepIndex={stepIndex} status={ed.status} error={ed.error} />
 
       <div className="flex flex-col gap-6 py-4 lg:flex-row lg:items-start lg:gap-8 lg:py-6">
-        <DesktopSpine stepIndex={stepIndex} status={ed.status} error={ed.error} />
+        <DesktopSpine steps={visibleSteps} stepIndex={stepIndex} status={ed.status} error={ed.error} />
 
         <div className="min-w-0 flex-1 space-y-5">
           {/* A true concurrent-edit collision needs the same resolver the full editor shows — a
@@ -194,7 +184,7 @@ export function WizardShell({
             skippable={current.skippable}
             locked={ed.status === "conflict"}
             gateSatisfied={current.canAdvance ? current.canAdvance(ed) : true}
-            gateHint={STEP_GATE_HINTS[current.key]}
+            gateHint={current.gateHint}
             onBack={() => goTo(stepIndex - 1)}
             onSkip={() => goTo(stepIndex + 1)}
             onNext={() => goTo(stepIndex + 1)}
@@ -277,14 +267,24 @@ function WizardFooter({
   );
 }
 
-function DesktopSpine({ stepIndex, status, error }: { stepIndex: number; status: SaveStatus; error: string | null }) {
+function DesktopSpine({
+  steps,
+  stepIndex,
+  status,
+  error,
+}: {
+  steps: WizardStepDef[];
+  stepIndex: number;
+  status: SaveStatus;
+  error: string | null;
+}) {
   return (
     <nav
       aria-label="Character creation steps"
       className="hidden shrink-0 lg:sticky lg:top-20 lg:block lg:w-56"
     >
       <ol className="space-y-1">
-        {STEPS.map((step, i) => {
+        {steps.map((step, i) => {
           const state = i < stepIndex ? "done" : i === stepIndex ? "current" : "upcoming";
           return (
             <li
@@ -323,18 +323,28 @@ function DesktopSpine({ stepIndex, status, error }: { stepIndex: number; status:
   );
 }
 
-function MobileSpine({ stepIndex, status, error }: { stepIndex: number; status: SaveStatus; error: string | null }) {
-  const current = STEPS[stepIndex]!;
+function MobileSpine({
+  steps,
+  stepIndex,
+  status,
+  error,
+}: {
+  steps: WizardStepDef[];
+  stepIndex: number;
+  status: SaveStatus;
+  error: string | null;
+}) {
+  const current = steps[stepIndex]!;
   return (
     <div className="sticky top-14 z-20 mb-4 rounded-xl border border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Step {stepIndex + 1} of {STEPS.length}
+          Step {stepIndex + 1} of {steps.length}
         </span>
         <span className="truncate text-base font-bold text-gold">{current.label}</span>
       </div>
       <div className="mt-2 flex gap-1">
-        {STEPS.map((step, i) => (
+        {steps.map((step, i) => (
           <span
             key={step.key}
             aria-hidden

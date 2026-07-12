@@ -1,7 +1,14 @@
 "use client";
 
-import { readWizardMeta, resumeStepFor, type PathForgeCharacterV1 } from "@pathforge/schema";
+import {
+  readWizardMeta,
+  resumeStepFor,
+  writeWizardMeta,
+  type PathForgeCharacterV1,
+  type WizardStepKey,
+} from "@pathforge/schema";
 import { useCharacterEditor } from "../editor/use-character-editor";
+import { CREATE_WIZARD_STEPS } from "./create-wizard-steps";
 import { WizardShell } from "./wizard-shell";
 
 /**
@@ -27,7 +34,11 @@ export function CharacterWizard({
     <WizardShell
       ed={ed}
       characterId={characterId}
+      steps={CREATE_WIZARD_STEPS}
       initialStep={meta ? resumeStepFor(meta) : "welcome"}
+      writeStep={(c, step) => {
+        writeWizardMeta(c, { step: step as WizardStepKey });
+      }}
     />
   );
 }

@@ -141,6 +141,19 @@ describe("threeWayMerge", () => {
     expect(x?.notes).toBe("found in a chest");
   });
 
+  // Level-up wizard Stage 1: abilities.abilityIncreases is a new, additive entity array (id-merged,
+  // like feats.list above) — confirms concurrent ASI picks from two sessions both survive rather
+  // than one clobbering the other.
+  it("entity arrays: abilities.abilityIncreases merges by id (concurrent ASI picks both survive)", () => {
+    const [base, mine, theirs] = forked();
+    mine.abilities.abilityIncreases.push({ id: "asi-a", level: 4, ability: "str" });
+    theirs.abilities.abilityIncreases.push({ id: "asi-b", level: 4, ability: "dex" });
+    const { merged, conflicts } = threeWayMerge(base, mine, theirs);
+    expect(conflicts).toHaveLength(0);
+    const abilities = merged.abilities.abilityIncreases.map((i) => i.ability).sort();
+    expect(abilities).toEqual(["dex", "str"]);
+  });
+
   it("applyConflictChoices: per-field pick of mine vs theirs", () => {
     const [base, mine, theirs] = forked();
     mine.identity.name = "MyName";

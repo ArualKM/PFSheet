@@ -40,6 +40,27 @@ export const pointBuyStateSchema = z.object({
 export type PointBuyState = z.infer<typeof pointBuyStateSchema>;
 
 /**
+ * Core PF1e Ability Score Increase: +1 to one ability of the player's choice at character levels 4,
+ * 8, 12, 16, and 20 — cumulative, untyped (RAW: a permanent addition to the score, not a competing
+ * "bonus"). One entry per increase taken. Mirrors `mythicAbilityBoostSchema`
+ * (`./mythic.ts:32` — `{ id, tier, ability }`) exactly, minus the mythic-specific `tier` field and
+ * with `level` (the character level it was taken at) in its place — `level` is bookkeeping only,
+ * never enforced or re-derived from; the array's LENGTH is what the level-up wizard budgets against.
+ * Unlike the mythic version, this is CORE PF1e — always-on, no `isModuleKeyEnabled` gate anywhere
+ * this is read (see `packages/pathforge-rules-pf1e/src/compute.ts`'s ASI loop). `.default([])`
+ * backfills every pre-existing sheet; `factory.ts` needs no edit (its draft is parsed through
+ * `pathForgeCharacterV1Schema.parse`, which applies the default).
+ */
+export const abilityIncreaseSchema = z.object({
+  id: z.string(),
+  /** The character level this increase was taken at — bookkeeping only, not enforced. */
+  level: z.number().int(),
+  /** Which ability the +1 was assigned to (free string, like the mythic boost's `ability`). */
+  ability: z.string(),
+});
+export type AbilityIncrease = z.infer<typeof abilityIncreaseSchema>;
+
+/**
  * The six core PF1e abilities are required and exhaustive (a `z.record` keyed by
  * an enum is only partial in Zod, which would let a character validate with
  * missing scores). Secondary/custom scores live in `custom`.
@@ -56,5 +77,7 @@ export const abilityBlockSchema = z.object({
   custom: z.record(z.string(), abilityScoreSchema).default({}),
   /** Optional point-buy calculator state (absent = manual entry, never used point-buy). */
   pointBuy: pointBuyStateSchema.optional(),
+  /** Core Ability Score Increases (levels 4/8/12/16/20) — see `abilityIncreaseSchema`. */
+  abilityIncreases: z.array(abilityIncreaseSchema).default([]),
 });
 export type AbilityBlock = z.infer<typeof abilityBlockSchema>;

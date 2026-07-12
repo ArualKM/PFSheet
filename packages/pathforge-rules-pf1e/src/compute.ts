@@ -391,6 +391,21 @@ export function buildModifierIndex(
     }
   }
 
+  // Core Ability Score Increase (levels 4/8/12/16/20): each recorded increase is a permanent +1 to
+  // its assigned ability. Same mechanism as the mythic loop just above (untyped so multiple
+  // increases to one ability stack, RAW: cumulative) but — unlike mythic tier boosts — this is CORE
+  // PF1e, not an optional module: deliberately NO `isModuleKeyEnabled` gate here. Every character
+  // gets ASIs; only Mythic Adventures is opt-in.
+  for (const inc of character.abilities.abilityIncreases ?? []) {
+    const mod = modifierEntryToMod("Ability score increase", {
+      id: `asi-${inc.id}`,
+      label: "Ability score increase",
+      value: 1,
+      enabled: true,
+    });
+    if (mod) push(classifyTarget(`abilities.${String(inc.ability).toLowerCase()}`), mod);
+  }
+
   // Familiar master link: Intelligence rises with the master's level (CRB table). Applied as a
   // raise-to delta over the BASE score, so buffs (fox's cunning) still add on top and later
   // master levels lift it without overwriting anything the user typed. Archetypes alter this:
