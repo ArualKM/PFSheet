@@ -276,6 +276,28 @@ describe("wizard steps — systems / abilities budgets / BG skill ranks", () => 
       expect(latestEd!.draft.abilities.pointBuy?.budget).toBe(42);
     });
 
+    it("the recommended array leans toward the PLAYER-CHOSEN key ability (class comes later now)", async () => {
+      // Owner-reported: with the v2 order (abilities before class) the array silently assumed a
+      // STR build. The "Lean toward" select now drives the bias explicitly.
+      let latestEd: CharacterEditorApi | undefined;
+      render(
+        <Host initial={fixture()} onEd={(ed) => (latestEd = ed)}>
+          {(ed) => <AbilitiesStep ed={ed} characterId="c1" />}
+        </Host>,
+      );
+      await settle();
+
+      fireEvent.change(screen.getByLabelText(/key ability for the recommended array/i), {
+        target: { value: "wis" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /use a recommended array/i }));
+      await settle();
+
+      const primary = latestEd!.draft.abilities.primary;
+      expect(primary.wis.score).toBe(15); // the chosen lean claims the top of the array
+      expect(primary.str.score).toBe(8); // STR drops to the bottom of the secondary priority
+    });
+
     it("Custom mode is STICKY: editing through a preset value keeps the field mounted", async () => {
       // A sheet arriving with a non-preset budget shows Custom without any click; changing its
       // value down THROUGH a preset (22 → 20) must NOT unmount the focused field and silently

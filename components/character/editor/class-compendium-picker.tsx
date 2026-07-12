@@ -70,6 +70,7 @@ export function ClassCompendiumPicker({
   onClose,
   baseOnly,
   autoFocusSearch = true,
+  resetAfterApply,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
@@ -81,6 +82,12 @@ export function ClassCompendiumPicker({
    * `RacePicker.autoFocusSearch`. Defaults to `true` so every existing call site (the editor's
    * Classes section) keeps today's autofocus-on-open behavior unchanged. */
   autoFocusSearch?: boolean;
+  /** Owner-reported gestalt bug: after applying a class the picker parked in its report state with
+   * no visible path back to the search — "add your second class below" pointed at nothing. When
+   * true, a successful apply returns the picker to the search list (the caller shows the applied
+   * classes itself). Additive/optional — default undefined keeps the report-parking behavior for
+   * the full editor. */
+  resetAfterApply?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
@@ -271,7 +278,16 @@ export function ClassCompendiumPicker({
         res = applyCompendiumClass(c, { input, level, hpMethod, features });
       });
     }
-    setReport(res ?? null);
+    if (resetAfterApply && res) {
+      // Back to the search list so the next class (gestalt track B, a multiclass dip) is one tap
+      // away — the caller renders the applied-classes summary.
+      setSelected(null);
+      setTppSelected(null);
+      setReport(null);
+      setQ("");
+    } else {
+      setReport(res ?? null);
+    }
     setApplying(false);
   };
 

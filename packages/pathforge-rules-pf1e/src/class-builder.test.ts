@@ -156,6 +156,26 @@ describe("archetypes (Phase 5)", () => {
     expect([...(c.identity.classes[0]!.archetypes?.[0]?.replaces ?? [])].sort()).toEqual(["trap sense", "trapfinding"]);
   });
 
+  it("re-applying the SAME archetype is a no-op even when the compendiumId format drifts", () => {
+    // Owner-reported double-apply: id formats can drift across entry paths (core vs 3pp prefix,
+    // imports) — the idempotence guard must also match by case-insensitive NAME, or the second
+    // apply doubles the archetype and manufactures a self-conflict.
+    const c = rogue5();
+    applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    const featuresBefore = c.features.list.length;
+
+    // Same id → no-op (the original guard).
+    const sameId = applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });
+    expect(sameId).toEqual({ added: [], replaced: [], conflicts: [] });
+
+    // Same NAME, different id (e.g. a 3pp-prefixed slug) → also a no-op now.
+    const driftedId = applyArchetype(c, { classId: "rogue1", archetype: { name: "acrobat", compendiumId: "3pp:acrobat" }, features: ACROBAT });
+    expect(driftedId).toEqual({ added: [], replaced: [], conflicts: [] });
+
+    expect(c.identity.classes[0]!.archetypes).toHaveLength(1);
+    expect(c.features.list).toHaveLength(featuresBefore);
+  });
+
   it("blocks a second archetype that replaces an already-replaced feature (nothing mutates)", () => {
     const c = rogue5();
     applyArchetype(c, { classId: "rogue1", archetype: { name: "Acrobat", compendiumId: "acrobat-rogue" }, features: ACROBAT });

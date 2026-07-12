@@ -53,8 +53,25 @@ export function ClassStep({ ed }: { ed: CharacterEditorApi; characterId: string 
         {" — search for any of these below."}
       </p>
 
+      {/* Applied classes as chips — with resetAfterApply the picker returns to search after each
+          apply (owner-reported gestalt bug: it parked in the report state, so "add your second
+          class below" pointed at nothing), so THIS row is the applied-state feedback. */}
+      {classes.length > 0 && (
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          Your {classes.length === 1 ? "class" : "classes"}:
+          {classes.map((cl) => (
+            <span
+              key={cl.id}
+              className="inline-flex items-center rounded-md border border-gold/40 bg-gold/10 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
+            >
+              {cl.compendiumPreset?.name ?? cl.name} {cl.level}
+            </span>
+          ))}
+        </p>
+      )}
+
       {/* autoFocusSearch off: entering a wizard step must not pop the mobile keyboard unprompted. */}
-      <ClassCompendiumPicker ed={ed} onClose={() => {}} baseOnly autoFocusSearch={false} />
+      <ClassCompendiumPicker ed={ed} onClose={() => {}} baseOnly autoFocusSearch={false} resetAfterApply />
 
       <GestaltHint ed={ed} />
 

@@ -184,8 +184,17 @@ export function applyArchetype(
   const row = character.identity.classes.find((c) => c.id === opts.classId);
   if (!row) return { added: [], replaced: [], conflicts: [] };
 
-  // Idempotent: already applied?
-  if (opts.archetype.compendiumId && (row.archetypes ?? []).some((a) => a.compendiumId === opts.archetype.compendiumId)) {
+  // Idempotent: already applied? Matched by compendiumId AND (owner-reported double-apply) by
+  // case-insensitive NAME — id formats can drift across entry paths (core vs 3pp prefix, imports,
+  // hand-added rows), and the same-named archetype on the same class is a duplicate regardless.
+  const incomingName = opts.archetype.name.trim().toLowerCase();
+  if (
+    (row.archetypes ?? []).some(
+      (a) =>
+        (opts.archetype.compendiumId && a.compendiumId === opts.archetype.compendiumId) ||
+        a.name.trim().toLowerCase() === incomingName,
+    )
+  ) {
     return { added: [], replaced: [], conflicts: [] };
   }
 

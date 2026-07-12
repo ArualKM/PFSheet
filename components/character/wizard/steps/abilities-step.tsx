@@ -118,7 +118,12 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
 
   const pb = ed.draft.abilities.pointBuy;
   const pointBuyOn = pb?.enabled ?? false;
-  const keyAbility = keyAbilityFor(ed);
+  // The v2 order puts Abilities BEFORE Class, so `keyAbilityFor` usually has no class to bias from
+  // (owner-reported: the recommended array silently defaulted to a STR build). The key ability is
+  // now the player's explicit pick: seeded from the class when one exists (a Back-visit after
+  // choosing a class re-seeds, since the shell remounts each step per visit), otherwise STR — but
+  // visibly chosen, not assumed.
+  const [keyAbility, setKeyAbility] = useState<AbilityKey>(() => keyAbilityFor(ed));
 
   // Local UI-only flag: whether the "Custom" segment is showing. STICKY (a review finding): it
   // initializes true when the sheet ARRIVES with a non-preset budget, and flips true via
@@ -235,9 +240,26 @@ export function AbilitiesStep({ ed }: { ed: CharacterEditorApi; characterId: str
               Spent <span className="tnum font-semibold text-foreground">{spent}</span> / {pb.budget}
             </span>
             <Badge variant={over ? "danger" : remaining === 0 ? "success" : "gold"}>{remaining} remaining</Badge>
-            <Button type="button" size="sm" variant="secondary" className="ml-auto min-h-9" onClick={applyRecommended}>
-              Use a recommended array
-            </Button>
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                Lean toward
+                <select
+                  value={keyAbility}
+                  onChange={(e) => setKeyAbility(e.target.value as AbilityKey)}
+                  aria-label="Key ability for the recommended array"
+                  className="h-11 rounded-md border border-border bg-background px-1.5 text-xs text-foreground sm:h-8"
+                >
+                  {ABILITY_KEYS.map((k) => (
+                    <option key={k} value={k}>
+                      {ABILITY_NAMES[k]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="button" size="sm" variant="secondary" className="min-h-9" onClick={applyRecommended}>
+                Use a recommended array
+              </Button>
+            </span>
           </div>
         </div>
       ) : (

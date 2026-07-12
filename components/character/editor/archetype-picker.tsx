@@ -172,7 +172,13 @@ export function ArchetypePicker({
 
   const replaces = useMemo(() => archetypeReplaces(features), [features]);
   const conflicts = useMemo(() => findArchetypeConflicts(applied, replaces), [applied, replaces]);
-  const alreadyApplied = !!selected && applied.some((a) => a.compendiumId === selected.slug);
+  // Match by compendiumId AND case-insensitive name (owner-reported double-apply: id formats can
+  // drift across entry paths, and the engine's applyArchetype now guards by name the same way).
+  const isApplied = (slug: string, name: string) =>
+    applied.some(
+      (a) => a.compendiumId === slug || a.name.trim().toLowerCase() === name.trim().toLowerCase(),
+    );
+  const alreadyApplied = !!selected && isApplied(selected.slug, selected.name);
 
   const apply = () => {
     if (!selected || !classId) return;
@@ -226,7 +232,12 @@ export function ArchetypePicker({
                   <PickerRow key={r.slug} onClick={() => selectArch(r)} ariaLabel={`Open ${r.name}`}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-foreground">{r.name}</span>
-                      {r.source && <span className="shrink-0 text-[11px] text-muted-foreground">{r.source.split(/ pg/)[0]}</span>}
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {/* The lockout is visible AT THE LIST (owner ask) — the detail view's
+                            "Already applied" note alone let a double-apply feel available. */}
+                        {isApplied(r.slug, r.name) && <StatChip tone="good" value="Applied" />}
+                        {r.source && <span className="text-[11px] text-muted-foreground">{r.source.split(/ pg/)[0]}</span>}
+                      </span>
                     </span>
                   </PickerRow>
                 ))}
@@ -238,6 +249,7 @@ export function ArchetypePicker({
                         <span className="flex items-center justify-between gap-2">
                           <span className="truncate text-sm font-medium text-foreground">{r.name ?? r.slug}</span>
                           <span className="flex min-w-0 shrink items-center justify-end gap-1.5">
+                            {isApplied(`3pp:${r.slug}`, r.name ?? r.slug) && <StatChip tone="good" value="Applied" />}
                             {/* The matched base_class — multi-class rows (e.g. "Rogue, Unchained Rogue") stay explainable. */}
                             {r.base_class && (
                               <span className="hidden max-w-[12rem] truncate text-[11px] text-muted-foreground sm:inline-block">
