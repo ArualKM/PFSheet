@@ -99,8 +99,13 @@ export function ClassStep({ ed }: { ed: CharacterEditorApi; characterId: string 
  * package's own `splitGestaltTracks`/`recomputeClassDerived`/`computeMaxHpFromLevels` — never
  * reimplements the split or HP-heal math (mirrors `GestaltCollapseBanner` in character-editor.tsx,
  * which isn't exported and can't be imported here).
+ *
+ * Exported (Level-Up Wizard Stage 3, `docs/LEVELUP_WIZARD/MASTER_PLAN.md`) so the level-up wizard's
+ * own Class step reuses this component VERBATIM instead of forking it — the same "don't fork a
+ * mechanism already built once" discipline as the rest of this codebase. Its logic doesn't care
+ * whether the session is create-a-character or leveling up, so no level-up-specific branch was added.
  */
-function GestaltHint({ ed }: { ed: CharacterEditorApi }) {
+export function GestaltHint({ ed }: { ed: CharacterEditorApi }) {
   if (!isGestalt(ed.draft)) return null;
   const classes = ed.draft.identity.classes;
   if (classes.length === 0) return null;

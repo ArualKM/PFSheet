@@ -34,8 +34,23 @@ import type { CharacterEditorApi } from "../../editor/use-character-editor";
  * (`isBackgroundSkill`) gets a second, separate ranks field — mirrors `SkillsEditor`'s own
  * `backgroundRanks` write (`t.backgroundRanks = val > 0 ? val : undefined`) and its budget readout
  * (`ed.computed.summary.backgroundSkills`), not reimplemented math. Off (the default): unchanged.
+ *
+ * `heading`/`intro` (additive, Level-Up Wizard Stage 4): optional copy overrides so the level-up
+ * wizard's thin wrapper (`level-up/skills-step.tsx`) can reuse this component VERBATIM with level-up
+ * copy instead of "Skills" — absent (every existing create-wizard call site) renders today's exact
+ * strings, zero behavior change. `intro` replaces only the BASE sentence; the Background Skills
+ * suffix below still appends itself whenever `bgEnabled` is true, custom intro or not.
  */
-export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
+export function SkillsStep({
+  ed,
+  heading = "Skills",
+  intro = "Skills you’re trained in (“class skills”, listed first) get a +3 bonus once you put a rank in them. This step is optional — you can leave every rank at 0 and fill these in later.",
+}: {
+  ed: CharacterEditorApi;
+  characterId: string;
+  heading?: string;
+  intro?: string;
+}) {
   const totalLevel = ed.draft.identity.totalLevel || 1;
   const skills = ed.draft.skills.list;
   const ranksSpent = skills.reduce((sum, s) => sum + (s.ranks ?? 0), 0);
@@ -96,10 +111,9 @@ export function SkillsStep({ ed }: { ed: CharacterEditorApi; characterId: string
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-6">
       <div className="space-y-2">
-        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Skills</h2>
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h2>
         <p className="max-w-prose text-sm text-muted-foreground">
-          Skills you&rsquo;re trained in (&ldquo;class skills&rdquo;, listed first) get a +3 bonus once you
-          put a rank in them. This step is optional — you can leave every rank at 0 and fill these in later.
+          {intro}
           {bgEnabled &&
             " Background Skills is on, so a few skills below also get a separate Background-ranks budget."}
         </p>

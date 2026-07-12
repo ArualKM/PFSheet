@@ -45,6 +45,15 @@ export const levelUpMetaSchema = z.object({
   targetLevel: z.number().int(),
   /** Max HP at fromLevel — lets the HP step show a "+7 this level-up" delta instead of just a total. */
   startingMaxHp: z.number().int().optional(),
+  /** Snapshot of `identity.classes` (id/name/level) at session START, written once by the entry
+   * action (Stage 7). `fromLevel` alone can't attribute gained levels to INDIVIDUAL classes in a
+   * multiclass catch-up — a 3→7 session might raise one class by all 4 levels, or split unevenly
+   * across two — so the Skills step's "ranks gained" diff and the Review step's before/after both
+   * need this per-class baseline instead. Optional: absent for an in-flight session started before
+   * this field existed, or read defensively outside an active session — every reader treats absence
+   * as "no baseline, don't guess" (never re-derived by comparing against the CURRENT class list,
+   * which has already changed by the time a mid-session step reads it). */
+  startingClasses: z.array(z.object({ id: z.string(), name: z.string(), level: z.number().int() })).optional(),
   /** ISO timestamp. */
   startedAt: z.string(),
   /** ISO timestamp, set on handoff (the review step's Finish). */
@@ -137,4 +146,28 @@ export function resumeLevelUpStepFor(
     if (visible.has(key)) return key;
   }
   return visibleKeys[visibleKeys.length - 1]!;
+}
+
+/**
+ * Core PF1e: a feat at 1st level and every ODD level thereafter (3, 5, 7, …) —
+ * `Math.ceil(level / 2)` for `level >= 1`, else 0. Pure ADVISORY UI-hint math, same honesty as
+ * `skillRanksForLevel` (`class-catalog.ts`): there is no engine-enforced `featBudget` anywhere
+ * (Master Plan, Ground Truth), and class-granted bonus feats are already handled automatically by
+ * `grantClassFeatures` — this formula is purely the core "any class" feat progression. The Feats
+ * step's visibility/count badge diffs two calls
+ * (`featsOwedAtLevel(targetLevel) - featsOwedAtLevel(fromLevel)`) so a multi-level catch-up sums
+ * every odd level crossed in ONE pass, not per-level UI.
+ */
+export function featsOwedAtLevel(level: number): number {
+  return level >= 1 ? Math.ceil(level / 2) : 0;
+}
+
+/**
+ * Core PF1e: an ability score increase at levels 4, 8, 12, 16, and 20 — `Math.floor(level / 4)`,
+ * floored at 0. Same advisory-only status as `featsOwedAtLevel` (no engine enforcement of a "count
+ * available" budget — the engine only applies whatever `abilities.abilityIncreases` already holds).
+ * Diffed the same way for the ASI step's visibility/count badge.
+ */
+export function asiCountAtLevel(level: number): number {
+  return Math.max(0, Math.floor(level / 4));
 }

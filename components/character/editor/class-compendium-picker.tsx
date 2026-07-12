@@ -71,6 +71,7 @@ export function ClassCompendiumPicker({
   baseOnly,
   autoFocusSearch = true,
   resetAfterApply,
+  prefillLevel,
 }: {
   ed: CharacterEditorApi;
   onClose: () => void;
@@ -88,6 +89,15 @@ export function ClassCompendiumPicker({
    * classes itself). Additive/optional — default undefined keeps the report-parking behavior for
    * the full editor. */
   resetAfterApply?: boolean;
+  /** Level-up wizard Stage 3 (`docs/LEVELUP_WIZARD/MASTER_PLAN.md`, "Risks" — the must-fix gotcha):
+   * `level` defaults to 1 and, without this prop, is NEVER seeded from a class the character
+   * already owns — `applyCompendiumClass` OVERWRITES an existing row's level, so selecting your OWN
+   * class and clicking Apply with the stale/default `level` would silently LOWER it. When provided,
+   * EVERY selection (a search-result row, core or 3pp) re-seeds `level` from this callback's result,
+   * clamped to a minimum of 1 (`undefined` = "not owned yet, start at 1"). Additive/optional —
+   * default undefined preserves today's behavior everywhere else (the full editor's Classes
+   * section: `level` persists across selections, same precedent as `baseOnly`/`resetAfterApply`). */
+  prefillLevel?: (row: { slug: string; name: string }) => number | undefined;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [mode, setMode] = useState<ClassMode>("base");
@@ -171,6 +181,9 @@ export function ClassCompendiumPicker({
     setFeatures([]);
     setExpanded(new Set());
     setQ("");
+    // Re-seed BEFORE the async progression fetch — the Level field must never show a stale default
+    // while loading (see `prefillLevel`'s doc comment above).
+    if (prefillLevel) setLevel(Math.max(1, prefillLevel({ slug: row.slug, name: row.name }) ?? 1));
 
     // Prestige: only the progression table exists (no feature/effect tables) and casting is suppressed.
     if (isPrestige) {
@@ -231,6 +244,9 @@ export function ClassCompendiumPicker({
     setExpanded(new Set());
     setQ("");
     setError(null);
+    // Same re-seed as the core select() path — a 3pp row is just as reusable for "level up my own
+    // 3pp class" and must not show a stale default either.
+    if (prefillLevel) setLevel(Math.max(1, prefillLevel({ slug: row.slug, name: row.name ?? row.slug }) ?? 1));
     const prog = normalizeProgression(row.progression_json ?? null) ?? null;
     setProgression(prog);
     const p = parseProgression(prog);

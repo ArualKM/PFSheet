@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { safeParseCharacter } from "@pathforge/schema";
+import { safeParseCharacter, readWizardMeta, readLevelUpMeta } from "@pathforge/schema";
 import { computeCharacter } from "@pathforge/rules-pf1e";
 import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
 import { createClient } from "@/lib/supabase/server";
@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { buildCharacterViewModel } from "@/lib/character/view-model";
 import { loadCampaignFeedback } from "@/lib/character/campaign-feedback";
+import { startLevelUpAction } from "@/lib/actions/characters";
 import { CharacterDashboard } from "@/components/character/character-dashboard";
 import { ClassicSheet } from "@/components/character/classic-sheet";
 import { CompanionSheet } from "@/components/character/companion-sheet";
@@ -96,6 +97,19 @@ export default async function CharacterOverviewPage({
 
   const feedback = isOwner ? await loadCampaignFeedback(characterId, user.id, result.character) : [];
 
+  // Level-Up Wizard Stage 7 entry points (`docs/LEVELUP_WIZARD/MASTER_PLAN.md`, "Entry points") —
+  // owner-only. A master-linked familiar's Hit Dice track its master (companion-sync.ts), not
+  // independent class levels — the Level Up button is hidden entirely rather than rendered-disabled,
+  // per the Master Plan's Risks list ("the level-up entry point itself should simply not appear ...
+  // on a synced familiar's overview"). Guided setup is unaffected (it walks the CREATE flow, not
+  // leveling) and stays visible for a synced familiar.
+  const wizardMeta = readWizardMeta(result.character);
+  const levelUpMeta = readLevelUpMeta(result.character);
+  const syncedFamiliar = result.character.companion?.type === "familiar" && computed.summary.companion?.synced === true;
+  // Cosmetic-only relabel when the (optional, §15-gated) Milestone Leveling module says a level is
+  // owed — same action either way, never a gate (Ground Truth: "unrelated, adjacent").
+  const readyToLevel = vm.milestoneLeveling?.readyToLevel === true;
+
   const actions = (
     <>
       <ShareControls
@@ -104,6 +118,35 @@ export default async function CharacterOverviewPage({
         initialSlug={data.public_slug}
         appUrl={env.appUrl}
       />
+      {isOwner && (
+        <>
+          {/* Guided setup — always rendered (both wizard states), regardless of the familiar guard
+              below: a synced familiar can still walk through the create wizard's OWN steps (race/
+              class pickers etc. are guarded per-step, not at this entry point) — only LEVELING is
+              meaningless for it. */}
+          {wizardMeta?.active ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/characters/${characterId}/wizard`}>Resume setup</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/characters/${characterId}/wizard`}>Guided setup</Link>
+            </Button>
+          )}
+          {!syncedFamiliar &&
+            (levelUpMeta?.active ? (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/characters/${characterId}/level-up`}>Resume level-up</Link>
+              </Button>
+            ) : (
+              <form action={startLevelUpAction.bind(null, characterId)}>
+                <Button type="submit" variant="secondary" size="sm">
+                  {readyToLevel ? "Ready to level up!" : "Level Up"}
+                </Button>
+              </form>
+            ))}
+        </>
+      )}
       <Button asChild variant="ghost" size="sm">
         <Link href={`/characters/${characterId}/history`}>History</Link>
       </Button>

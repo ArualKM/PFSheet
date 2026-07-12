@@ -7,6 +7,9 @@ import {
   createDefaultCharacter,
   safeParseCharacter,
   writeWizardMeta,
+  readWizardMeta,
+  readLevelUpMeta,
+  writeLevelUpMeta,
   type PathForgeCharacterV1,
 } from "@pathforge/schema";
 import { computeCharacter, type ComputedCharacter } from "@pathforge/rules-pf1e";
@@ -16,6 +19,7 @@ import { buildMasterCache, masterCacheEquals } from "@/lib/character/companion-s
 import { deleteConfirmMatches } from "@/lib/character/delete-confirm";
 import { applyCompanionStatblock, type CompanionCompendiumRow } from "@/lib/character/companion-statblock";
 import { syncMasterFamiliars } from "@/lib/character/companion-sync-server";
+import { buildStartLevelUpMeta } from "@/lib/character/level-up-start";
 import type { Database } from "@/lib/supabase/types";
 
 const VISIBILITIES = ["private", "campaign", "unlisted", "public"] as const;
@@ -172,6 +176,15 @@ export async function reopenWizardAction(characterId: string): Promise<void> {
   const parsed = safeParseCharacter(data.sheet_data);
   if (!parsed.ok) redirect(`/characters/${characterId}/edit`);
 
+  // Mutual exclusion (Level-Up Wizard Stage 7, "The flag design"): the create wizard and the
+  // level-up wizard are two shells around the SAME `useCharacterEditor` save loop, writing into the
+  // SAME `metadata.custom` bag — running both at once would fight over navigation writes. An
+  // in-flight level-up session takes priority (it's further along a real character, not a fresh
+  // one); redirect to finish/resume IT instead of silently reopening guided setup underneath it.
+  if (readLevelUpMeta(parsed.character)?.active) {
+    redirect(`/characters/${characterId}/level-up`);
+  }
+
   writeWizardMeta(parsed.character, { active: true });
 
   await supabase
@@ -185,6 +198,100 @@ export async function reopenWizardAction(characterId: string): Promise<void> {
   // flip, so the page's interstitial re-renders with the same "Reopen guided setup"
   // button — the failure is visible and one click away from a retry.
   redirect(`/characters/${characterId}/wizard`);
+}
+
+/**
+ * Level-Up Wizard Stage 7 (`docs/LEVELUP_WIZARD/MASTER_PLAN.md`, "Entry points") — the character
+ * overview's "Level Up" button. Mirrors `reopenWizardAction`'s shape exactly (RLS-scoped read,
+ * safe-parse, CAS update, redirect-either-way), but branches three ways instead of doing one
+ * unconditional write:
+ *
+ * 1. An in-flight CREATE wizard wins — the same mutual-exclusion rule as `reopenWizardAction`'s new
+ *    check above, from the other direction. Finish/resume guided setup first; a level-up session on
+ *    a character that hasn't finished being built yet doesn't make sense.
+ * 2. An in-flight level-up session resumes AS-IS — `writeLevelUpMeta` is deliberately never called
+ *    on this branch. Re-stamping `fromLevel`/`targetLevel`/`startingClasses` on an ALREADY-STARTED
+ *    session would corrupt its baseline (the player may already be mid-Skills-step against the real
+ *    `fromLevel`; re-deriving it from the character's CURRENT level, which has already changed this
+ *    session, would silently shrink or grow the session's own math).
+ * 3. No active session of either kind: stamp a fresh one via `buildStartLevelUpMeta`
+ *    (`lib/character/level-up-start.ts` — a pure helper so the meta-stamping DECISION is
+ *    unit-testable without faking this action's Supabase/redirect preamble).
+ *
+ * The CAS update mirrors `reopenWizardAction`'s: success and a miss both redirect to `/level-up`,
+ * whose interstitial renders the truth either way — the same one-click-retry shape, not a new
+ * failure mode. `revalidatePath` on the overview (but NOT on the branch-2/3 redirect targets) is
+ * needed here specifically because THIS action is the one thing that flips the overview's own
+ * button from "Level Up" to "Resume level-up" while a viewer might already be looking at that page
+ * in another tab/the back-forward cache; `reopenWizardAction`/`reopenLevelUpAction` don't need the
+ * same treatment (they're only ever reached FROM the wizard/level-up interstitial itself, not from
+ * the overview, so there's no stale sibling view of their own action to correct).
+ */
+export async function startLevelUpAction(characterId: string): Promise<void> {
+  const { supabase } = await authedClient();
+
+  const { data, error } = await supabase
+    .from("characters")
+    .select("sheet_data, sheet_version")
+    .eq("id", characterId)
+    .maybeSingle();
+  if (error || !data) redirect(`/characters/${characterId}/edit`);
+
+  const parsed = safeParseCharacter(data.sheet_data);
+  if (!parsed.ok) redirect(`/characters/${characterId}/edit`);
+
+  if (readWizardMeta(parsed.character)?.active) redirect(`/characters/${characterId}/wizard`);
+  if (readLevelUpMeta(parsed.character)?.active) redirect(`/characters/${characterId}/level-up`);
+
+  const computed = computeCharacter(parsed.character);
+  writeLevelUpMeta(parsed.character, buildStartLevelUpMeta(parsed.character, computed.summary.hp.max));
+
+  await supabase
+    .from("characters")
+    .update({ sheet_data: parsed.character as unknown as Json })
+    .eq("id", characterId)
+    .eq("sheet_version", data.sheet_version);
+
+  revalidatePath(`/characters/${characterId}`);
+  redirect(`/characters/${characterId}/level-up`);
+}
+
+/**
+ * The level-up flag's mirror of `reopenWizardAction` — reopens a paused (inactive, not-yet-finished)
+ * level-up session. Reachable only from the `/level-up` interstitial's "Resume level-up" button
+ * (see the route's own comment for why that's the ONLY realistic way to land here: the common
+ * "browser closed mid-session" case leaves `active: true` on the server, which the page renders
+ * straight into `<LevelUpWizard>` — no interstitial involved at all).
+ *
+ * The patch is `{ active: true }` ONLY — deliberately omits `step`/`fromLevel`/`targetLevel`/
+ * `startingClasses`, so `writeLevelUpMeta`'s merge keeps whatever this session already had. Resuming
+ * must never re-baseline; that's the entire reason this action exists separately from
+ * `startLevelUpAction` rather than the interstitial just re-posting the same start action.
+ */
+export async function reopenLevelUpAction(characterId: string): Promise<void> {
+  const { supabase } = await authedClient();
+
+  const { data, error } = await supabase
+    .from("characters")
+    .select("sheet_data, sheet_version")
+    .eq("id", characterId)
+    .maybeSingle();
+  if (error || !data) redirect(`/characters/${characterId}/edit`);
+
+  const parsed = safeParseCharacter(data.sheet_data);
+  if (!parsed.ok) redirect(`/characters/${characterId}/edit`);
+
+  writeLevelUpMeta(parsed.character, { active: true });
+
+  await supabase
+    .from("characters")
+    .update({ sheet_data: parsed.character as unknown as Json })
+    .eq("id", characterId)
+    .eq("sheet_version", data.sheet_version);
+
+  // Success and CAS miss both land on /level-up, which renders the truth either way — same
+  // one-click-retry shape as reopenWizardAction/startLevelUpAction above.
+  redirect(`/characters/${characterId}/level-up`);
 }
 
 const COMPANION_TYPES = ["animal_companion", "familiar", "eidolon", "cohort", "mount", "other"] as const;

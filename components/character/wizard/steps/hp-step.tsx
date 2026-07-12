@@ -24,8 +24,22 @@ import type { CharacterEditorApi } from "../../editor/use-character-editor";
  * `computeMaxHpFromLevels` takes one method applied to every class level (the very first character
  * level always takes the full Hit Die regardless of the method) — there's no per-class hpMethod field
  * to expose here, so this doesn't fabricate one.
+ *
+ * `heading`/`intro` (additive, Level-Up Wizard Stage 4): optional copy overrides so the level-up
+ * wizard's thin wrapper (`level-up/hp-step.tsx`) can reuse this component VERBATIM with level-up-
+ * appropriate copy instead of "Starting hit points" — absent (every existing create-wizard call
+ * site) renders today's exact strings, zero behavior change.
  */
-export function HpStep({ ed }: { ed: CharacterEditorApi; characterId: string }) {
+export function HpStep({
+  ed,
+  heading = "Starting hit points",
+  intro = "Hit points track how much damage your character can take before falling. This step is optional — fine-tune HP anytime from the full editor’s Health tab.",
+}: {
+  ed: CharacterEditorApi;
+  characterId: string;
+  heading?: string;
+  intro?: string;
+}) {
   const [hpMethod, setHpMethod] = useState<"average" | "max">("average");
   const classes = ed.draft.identity.classes;
   const collapsed = gestaltTracksCollapsed(ed.draft);
@@ -89,11 +103,8 @@ export function HpStep({ ed }: { ed: CharacterEditorApi; characterId: string }) 
   return (
     <div className="space-y-5 rounded-xl border border-border bg-card p-6">
       <div className="space-y-1.5">
-        <h2 className="text-xl font-bold text-foreground sm:text-2xl">Starting hit points</h2>
-        <p className="max-w-prose text-sm text-muted-foreground">
-          Hit points track how much damage your character can take before falling. This step is
-          optional — fine-tune HP anytime from the full editor&rsquo;s Health tab.
-        </p>
+        <h2 className="text-xl font-bold text-foreground sm:text-2xl">{heading}</h2>
+        <p className="max-w-prose text-sm text-muted-foreground">{intro}</p>
       </div>
 
       <div className="rounded-lg border border-gold/40 bg-gold/5 p-3">
